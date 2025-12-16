@@ -1,0 +1,186 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <!-- Header -->
+            <div class="mb-5">
+                <a href="{% url 'rules_list' %}" class="btn btn-outline-secondary btn-sm mb-3">
+                    <i class="fas fa-arrow-left me-1"></i> Back
+                </a>
+                <h1 class="display-6 mb-2">Apply Rules to Transactions</h1>
+                <p class="text-muted">Apply your active rules to categorize transactions automatically</p>
+            </div>
+
+            <!-- Main Form Card -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body p-4">
+                    <form method="post" id="applyRulesForm">
+                        {% csrf_token %}
+                        
+                        <!-- Info Section -->
+                        <div class="row mb-4 pb-4 border-bottom">
+                            <div class="col-md-6">
+                                <div class="p-3 bg-light rounded">
+                                    <h6 class="text-muted text-uppercase mb-2" style="font-size: 0.85rem;">Active Rules</h6>
+                                    <h3 class="mb-0">{{ active_rules_count|default:"0" }}</h3>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="p-3 bg-light rounded">
+                                    <h6 class="text-muted text-uppercase mb-2" style="font-size: 0.85rem;">Total Transactions</h6>
+                                    <h3 class="mb-0">{{ total_transactions|default:"0" }}</h3>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Account Selection -->
+                        <div class="mb-4">
+                            <label class="form-label fw-medium">Apply to Account (Optional)</label>
+                            <select id="accountSelect" name="account_id" class="form-select">
+                                <option value="">All Accounts</option>
+                                {% for account in accounts %}
+                                    <option value="{{ account.id }}">{{ account.account_name }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted d-block mt-2">Leave empty to apply rules to all accounts</small>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-flex gap-2 pt-3">
+                            <a href="{% url 'rules_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary" id="applyBtn">
+                                <i class="fas fa-play me-1"></i> Apply Rules
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- How It Works -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <h5 class="mb-4">How This Works</h5>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="text-center">
+                                <div class="rounded-circle bg-primary bg-opacity-10 d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                                    <i class="fas fa-search text-primary" style="font-size: 1.5rem;"></i>
+                                </div>
+                                <h6>1. Scan</h6>
+                                <p class="small text-muted mb-0">System scans all transactions</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="text-center">
+                                <div class="rounded-circle bg-primary bg-opacity-10 d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                                    <i class="fas fa-filter text-primary" style="font-size: 1.5rem;"></i>
+                                </div>
+                                <h6>2. Match</h6>
+                                <p class="small text-muted mb-0">Compare against your rules</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="text-center">
+                                <div class="rounded-circle bg-primary bg-opacity-10 d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                                    <i class="fas fa-check text-primary" style="font-size: 1.5rem;"></i>
+                                </div>
+                                <h6>3. Update</h6>
+                                <p class="small text-muted mb-0">Categorize matching transactions</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.form-control, .form-select {
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    padding: 10px 12px;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.btn-primary {
+    border-radius: 8px;
+    font-weight: 500;
+    padding: 10px 20px;
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(13, 110, 253, 0.3);
+}
+
+.btn-outline-secondary {
+    border-radius: 8px;
+    font-weight: 500;
+    padding: 10px 20px;
+}
+
+.card {
+    border-radius: 12px;
+    transition: box-shadow 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('applyRulesForm');
+    const applyBtn = document.getElementById('applyBtn');
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        // Disable button and show loading state
+        const originalHtml = applyBtn.innerHTML;
+        applyBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Processing...';
+        applyBtn.disabled = true;
+
+        try {
+            const formData = new FormData(form);
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            });
+
+            if (!response.ok) throw new Error('Network response was not ok');
+
+            const data = await response.json();
+            if (data.status === 'ok') {
+                // Redirect to results page
+                if (data.redirect_url) {
+                    window.location.href = data.redirect_url;
+                } else {
+                    window.location.href = '{% url "rules_list" %}';
+                }
+            } else {
+                throw new Error(data.message || 'Unknown error');
+            }
+        } catch (err) {
+            console.error(err);
+            applyBtn.innerHTML = originalHtml;
+            applyBtn.disabled = false;
+        }
+    });
+});
+</script>
+{% endblock %}

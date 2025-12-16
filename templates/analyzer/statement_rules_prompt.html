@@ -1,0 +1,289 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container">
+    <div class="prompt-wrapper">
+        <div class="prompt-card">
+            <div class="prompt-header">
+                <div class="prompt-icon">
+                    <i class="fas fa-cogs"></i>
+                </div>
+                <h2>Apply Global Rules?</h2>
+                <p class="subtitle">Would you like to automatically apply your global categorization rules to this statement?</p>
+            </div>
+
+            <div class="prompt-content">
+                <div class="statement-info">
+                    <div class="info-item">
+                        <span class="label">Account:</span>
+                        <span class="value">{{ statement.account.bank_name }} - {{ statement.account.account_name }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Transactions:</span>
+                        <span class="value">{{ statement.transaction_set.count }} transactions found</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Active Rules:</span>
+                        <span class="value">{{ active_rules_count }} rule(s) available</span>
+                    </div>
+                </div>
+
+                {% if active_rules_count == 0 %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>No active rules found.</strong> You can proceed without applying rules, or create rules first.
+                </div>
+                {% else %}
+                <div class="rules-info">
+                    <p><strong>What will happen:</strong></p>
+                    <ul>
+                        <li>Your {{ active_rules_count }} active rule(s) will be applied to these transactions</li>
+                        <li>Transactions matching rule conditions will be recategorized</li>
+                        <li>You can still manually edit categories after applying rules</li>
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+
+            <form method="POST" class="prompt-form">
+                {% csrf_token %}
+                <div class="button-group">
+                    {% if active_rules_count > 0 %}
+                    <button type="submit" name="apply_rules" value="yes" class="btn btn-primary">
+                        <i class="fas fa-check"></i>
+                        Yes, Apply Rules
+                    </button>
+                    {% endif %}
+                    <button type="submit" name="apply_rules" value="no" class="btn btn-secondary">
+                        <i class="fas fa-forward"></i>
+                        Skip & Continue
+                    </button>
+                </div>
+            </form>
+
+            <div class="prompt-footer">
+                <p><small>You can always apply or modify rules later from the Rules section.</small></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .prompt-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 70vh;
+        padding: 20px 0;
+    }
+
+    .prompt-card {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        width: 100%;
+    }
+
+    .prompt-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 40px 30px;
+        text-align: center;
+    }
+
+    .prompt-icon {
+        font-size: 3rem;
+        margin-bottom: 15px;
+        opacity: 0.9;
+    }
+
+    .prompt-header h2 {
+        font-size: 2rem;
+        margin: 10px 0;
+        font-weight: 700;
+    }
+
+    .subtitle {
+        font-size: 1.05rem;
+        opacity: 0.95;
+        margin: 10px 0 0 0;
+    }
+
+    .prompt-content {
+        padding: 30px;
+    }
+
+    .statement-info {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 25px;
+    }
+
+    .info-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .info-item:last-child {
+        border-bottom: none;
+    }
+
+    .info-item .label {
+        font-weight: 600;
+        color: #667eea;
+    }
+
+    .info-item .value {
+        color: #333;
+    }
+
+    .alert {
+        padding: 15px 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+    }
+
+    .alert-info {
+        background-color: #e7f3ff;
+        color: #0066cc;
+        border: 1px solid #b3d9ff;
+    }
+
+    .alert i {
+        margin-top: 2px;
+        flex-shrink: 0;
+    }
+
+    .rules-info {
+        background: #f0f4ff;
+        border-left: 4px solid #667eea;
+        padding: 15px 20px;
+        border-radius: 5px;
+        margin-bottom: 25px;
+    }
+
+    .rules-info p {
+        margin: 0 0 10px 0;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .rules-info ul {
+        margin: 0;
+        padding-left: 20px;
+        color: #555;
+    }
+
+    .rules-info li {
+        margin: 5px 0;
+        font-size: 0.95rem;
+    }
+
+    .prompt-form {
+        padding: 20px 30px;
+        border-top: 1px solid #e9ecef;
+        background: #f8f9fa;
+    }
+
+    .button-group {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+    }
+
+    .btn {
+        padding: 12px 30px;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 160px;
+        justify-content: center;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+        background: #e9ecef;
+        color: #333;
+        border: 1px solid #dee2e6;
+    }
+
+    .btn-secondary:hover {
+        background: #dee2e6;
+        transform: translateY(-2px);
+    }
+
+    .prompt-footer {
+        padding: 20px 30px;
+        text-align: center;
+        color: #7f8c8d;
+        font-size: 0.95rem;
+        background: white;
+    }
+
+    @media (max-width: 768px) {
+        .prompt-header {
+            padding: 30px 20px;
+        }
+
+        .prompt-header h2 {
+            font-size: 1.5rem;
+        }
+
+        .prompt-content,
+        .prompt-form,
+        .prompt-footer {
+            padding: 20px;
+        }
+
+        .button-group {
+            flex-direction: column;
+        }
+
+        .btn {
+            width: 100%;
+            min-width: unset;
+        }
+
+        .info-item {
+            flex-direction: column;
+        }
+
+        .info-item .label::after {
+            content: "";
+        }
+
+        .info-item .value {
+            margin-top: 5px;
+        }
+    }
+</style>
+{% endblock %}

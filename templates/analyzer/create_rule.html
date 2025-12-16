@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Create New Rule</h4>
+                        <a href="{% url 'rules_list' %}" class="btn btn-light btn-sm">
+                            <i class="fas fa-arrow-left me-1"></i> Back to Rules
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    {% if messages %}
+                    <div class="mb-4">
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    <form method="post" id="createRuleForm">
+                        {% csrf_token %}
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <div class="form-group mb-3">
+                                    <label class="form-label fw-bold">
+                                        <i class="fas fa-tag me-1"></i>Rule Name *
+                                    </label>
+                                    {{ form.name }}
+                                    <small class="form-text text-muted">
+                                        Give your rule a descriptive name (e.g., "Paytm IRCTC Bookings")
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label class="form-label fw-bold">
+                                        <i class="fas fa-folder me-1"></i>Category *
+                                    </label>
+                                    {{ form.category }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label class="form-label fw-bold">
+                                        <i class="fas fa-toggle-on me-1"></i>Status
+                                    </label>
+                                    <div class="form-check form-switch">
+                                        {{ form.is_active }}
+                                        <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                            Active
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <div class="form-group mb-3">
+                                    <label class="form-label fw-bold">
+                                        <i class="fas fa-project-diagram me-1"></i>Rule Type
+                                    </label>
+                                    {{ form.rule_type }}
+                                    <small class="form-text text-muted">
+                                        <strong>AND:</strong> All conditions must match<br>
+                                        <strong>OR:</strong> Any condition matches
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <div class="d-flex">
+                                <i class="fas fa-info-circle fa-2x me-3"></i>
+                                <div>
+                                    <strong>Two-Step Process:</strong> First create the rule, then add conditions in the next step.
+                                    You'll be redirected to add conditions after saving.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'rules_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary" id="createBtn">
+                                <i class="fas fa-save me-1"></i> Create Rule
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const createBtn = document.getElementById('createBtn');
+    const form = document.getElementById('createRuleForm');
+    
+    form.addEventListener('submit', function(e) {
+        // Basic validation
+        const ruleName = document.getElementById('id_name');
+        const category = document.getElementById('id_category');
+        
+        if (!ruleName.value.trim()) {
+            e.preventDefault();
+            alert('Please enter a rule name.');
+            ruleName.focus();
+            return false;
+        }
+        
+        if (!category.value) {
+            e.preventDefault();
+            alert('Please select a category.');
+            category.focus();
+            return false;
+        }
+        
+        // Show loading state
+        createBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Creating...';
+        createBtn.disabled = true;
+        
+        // Allow form to submit
+        return true;
+    });
+});
+</script>
+{% endblock %}

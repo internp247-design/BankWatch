@@ -1,0 +1,73 @@
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.db import models
+from datetime import timedelta
+from django.utils import timezone
+from .models import Transaction
+
+
+@login_required
+def get_financial_overview_data(request):
+    """Get financial overview data for different time periods (AJAX endpoint)"""
+    time_period = request.GET.get('period', 'all')
+    
+    # Get all transactions for this user
+    all_transactions = Transaction.objects.filter(
+        statement__account__user=request.user
+    )
+    
+    # Filter by time period
+    now = timezone.now().date()
+    if time_period == '30days':
+        start_date = now - timedelta(days=30)
+        transactions = all_transactions.filter(date__gte=start_date)
+    elif time_period == '90days':
+        start_date = now - timedelta(days=90)
+        transactions = all_transactions.filter(date__gte=start_date)
+    else:  # all time
+        transactions = all_transactions
+    
+    # Calculate income and expenses
+    total_income = transactions.filter(transaction_type='CREDIT').aggregate(
+        total=models.Sum('amount')
+    )['total'] or 0
+    
+    total_expenses = transactions.filter(transaction_type='DEBIT').aggregate(
+        total=models.Sum('amount')
+    )['total'] or 0
+    
+    net_savings = total_income - total_expenses
+    
+    # Calculate percentages
+    total_all = total_income + total_expenses
+    income_percentage = (total_income / total_all * 100) if total_all > 0 else 0
+    expense_percentage = (total_expenses / total_all * 100) if total_all > 0 else 0
+    
+    # Calculate financial health
+    if total_income > 0:
+        savings_rate = (net_savings / total_income) * 100
+        if savings_rate >= 20:
+            health_status = 'Excellent'
+            health_score = 85
+        elif savings_rate >= 10:
+            health_status = 'Good'
+            health_score = 70
+        else:
+            health_status = 'Needs Attention'
+            health_score = 50
+    else:
+        health_status = 'No Data'
+        health_score = 0
+    
+    return JsonResponse({
+        'success': True,
+        'income': float(total_income),
+        'expenses': float(total_expenses),
+        'savings': float(net_savings),
+        'income_percentage': round(income_percentage, 1),
+        'expense_percentage': round(expense_percentage, 1),
+        'health_status': health_status,
+        'health_score': health_score,
+        'transaction_count': transactions.count(),
+        'period': time_period
+    })

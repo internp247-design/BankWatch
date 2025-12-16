@@ -1,0 +1,374 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Progress Bar -->
+            <div class="progress mb-4" style="height: 30px;">
+                <div class="progress-bar bg-primary" role="progressbar" style="width: 100%;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">
+                    <span class="fw-bold text-white">Step 2 of 2</span>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0"><i class="fas fa-cogs me-2"></i>Create Rule for "{{ custom_category.name }}"</h4>
+                            <small>Define conditions to automatically categorize transactions</small>
+                        </div>
+                        <a href="{% url 'custom_categories_list' %}" class="btn btn-light btn-sm">
+                            <i class="fas fa-arrow-left me-1"></i> Back
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    {% if messages %}
+                    <div class="mb-4">
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    <form method="post" id="createRuleForm">
+                        {% csrf_token %}
+                        
+                        <!-- Category Info -->
+                        <div class="alert alert-light border mb-4" style="background-color: #f8f9fa;">
+                            <div class="d-flex align-items-center">
+                                <i class="fas {{ custom_category.icon }} fa-2x me-3" style="color: {{ custom_category.color }};"></i>
+                                <div>
+                                    <strong>Category:</strong> {{ custom_category.name }}<br>
+                                    {% if custom_category.description %}
+                                    <small class="text-muted">{{ custom_category.description }}</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Rule Name -->
+                        <div class="mb-4">
+                            <div class="form-group mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-tag me-1"></i>Rule Name *
+                                </label>
+                                {{ rule_form.name }}
+                                <small class="form-text text-muted d-block mt-2">
+                                    Example: Netflix Subscriptions, Premium Streaming Services
+                                </small>
+                                {% if rule_form.name.errors %}
+                                <div class="alert alert-danger mt-2">
+                                    {{ rule_form.name.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Rule Type -->
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <div class="form-group mb-3">
+                                    <label class="form-label fw-bold">
+                                        <i class="fas fa-project-diagram me-1"></i>Rule Logic *
+                                    </label>
+                                    {{ rule_form.rule_type }}
+                                    <small class="form-text text-muted d-block mt-2">
+                                        <strong>AND:</strong> All conditions must match (stricter)<br>
+                                        <strong>OR:</strong> Any condition matches (flexible)
+                                    </small>
+                                    {% if rule_form.rule_type.errors %}
+                                    <div class="alert alert-danger mt-2">
+                                        {{ rule_form.rule_type.errors }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Status -->
+                        <div class="mb-4">
+                            <div class="form-group">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-toggle-on me-1"></i>Status
+                                </label>
+                                <div class="form-check form-switch">
+                                    {{ rule_form.is_active }}
+                                    <label class="form-check-label" for="{{ rule_form.is_active.id_for_label }}">
+                                        Active
+                                    </label>
+                                </div>
+                                <small class="form-text text-muted d-block mt-2">
+                                    Only active rules will be applied to transactions
+                                </small>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <!-- Conditions -->
+                        <div class="mb-4">
+                            <h5 class="fw-bold mb-3">
+                                <i class="fas fa-filter me-2"></i>Conditions
+                            </h5>
+                            
+                            <div class="alert alert-info">
+                                <strong>How it works:</strong> Add one or more conditions. A transaction will be categorized when:
+                                <ul class="mb-0 mt-2">
+                                    <li><strong>AND:</strong> It matches ALL the conditions you add</li>
+                                    <li><strong>OR:</strong> It matches ANY of the conditions you add</li>
+                                </ul>
+                            </div>
+
+                            {% if condition_formset.non_form_errors %}
+                            <div class="alert alert-danger mb-3">
+                                <strong>Formset Errors:</strong>
+                                {% for error in condition_formset.non_form_errors %}
+                                <div>{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+
+                            <div id="conditionsContainer">
+                                {% for form in condition_formset %}
+                                    {% if forloop.first %}
+                                    <div class="condition-form-row mb-4 p-4 border rounded" style="background-color: #f8f9fa;">
+                                    {% endif %}
+                                        <div class="condition-form">
+                                            <div class="row align-items-end">
+                                                <div class="col-md-4 mb-3">
+                                                    <label class="form-label fw-bold">Condition Type</label>
+                                                    {{ form.condition_type }}
+                                                    {% if form.condition_type.errors %}
+                                                    <div class="alert alert-danger mt-2">
+                                                        {{ form.condition_type.errors }}
+                                                    </div>
+                                                    {% endif %}
+                                                </div>
+
+                                                <div class="col-md-8 mb-3 condition-fields">
+                                                    <!-- Keyword Fields -->
+                                                    <div class="keyword-field" style="display: none;">
+                                                        <div class="row">
+                                                            <div class="col-md-6 mb-3">
+                                                                <label class="form-label">Keyword</label>
+                                                                {{ form.keyword }}
+                                                                <small class="form-text text-muted d-block mt-1">
+                                                                    E.g., Netflix, Spotify, Amazon Prime
+                                                                </small>
+                                                                {% if form.keyword.errors %}
+                                                                <div class="alert alert-danger mt-2">
+                                                                    {{ form.keyword.errors }}
+                                                                </div>
+                                                                {% endif %}
+                                                            </div>
+                                                            <div class="col-md-6 mb-3">
+                                                                <label class="form-label">Match Type</label>
+                                                                {{ form.keyword_match_type }}
+                                                                {% if form.keyword_match_type.errors %}
+                                                                <div class="alert alert-danger mt-2">
+                                                                    {{ form.keyword_match_type.errors }}
+                                                                </div>
+                                                                {% endif %}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Amount Fields -->
+                                                    <div class="amount-field" style="display: none;">
+                                                        <div class="row">
+                                                            <div class="col-md-6 mb-3">
+                                                                <label class="form-label">Operator</label>
+                                                                {{ form.amount_operator }}
+                                                                {% if form.amount_operator.errors %}
+                                                                <div class="alert alert-danger mt-2">
+                                                                    {{ form.amount_operator.errors }}
+                                                                </div>
+                                                                {% endif %}
+                                                            </div>
+                                                            <div class="col-md-6 mb-3">
+                                                                <label class="form-label">Amount</label>
+                                                                {{ form.amount_value }}
+                                                                {% if form.amount_value.errors %}
+                                                                <div class="alert alert-danger mt-2">
+                                                                    {{ form.amount_value.errors }}
+                                                                </div>
+                                                                {% endif %}
+                                                            </div>
+                                                        </div>
+                                                        <div class="row">
+                                                            <div class="col-md-12 mb-3">
+                                                                <label class="form-label">To Amount (for "Between")</label>
+                                                                {{ form.amount_value2 }}
+                                                                <small class="form-text text-muted d-block mt-1">
+                                                                    Only needed if operator is "Between"
+                                                                </small>
+                                                                {% if form.amount_value2.errors %}
+                                                                <div class="alert alert-danger mt-2">
+                                                                    {{ form.amount_value2.errors }}
+                                                                </div>
+                                                                {% endif %}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Date Fields -->
+                                                    <div class="date-field" style="display: none;">
+                                                        <div class="row">
+                                                            <div class="col-md-6 mb-3">
+                                                                <label class="form-label">Start Date</label>
+                                                                {{ form.date_start }}
+                                                                {% if form.date_start.errors %}
+                                                                <div class="alert alert-danger mt-2">
+                                                                    {{ form.date_start.errors }}
+                                                                </div>
+                                                                {% endif %}
+                                                            </div>
+                                                            <div class="col-md-6 mb-3">
+                                                                <label class="form-label">End Date</label>
+                                                                {{ form.date_end }}
+                                                                {% if form.date_end.errors %}
+                                                                <div class="alert alert-danger mt-2">
+                                                                    {{ form.date_end.errors }}
+                                                                </div>
+                                                                {% endif %}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {% if not forloop.first %}
+                                            <div class="row mt-3">
+                                                <div class="col-md-12">
+                                                    <label class="form-check">
+                                                        {{ form.DELETE }}
+                                                        <span class="form-check-label">Remove this condition</span>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    {% if forloop.last %}
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+
+                            <!-- Formset Management -->
+                            {{ condition_formset.management_form }}
+                        </div>
+
+                        <!-- Info Alert -->
+                        <div class="alert alert-success mb-4">
+                            <div class="d-flex">
+                                <i class="fas fa-check-circle fa-2x me-3"></i>
+                                <div>
+                                    <strong>Ready to categorize:</strong> Once you save this rule, it will automatically apply to new transactions that match your conditions.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'custom_categories_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary" id="createBtn">
+                                <i class="fas fa-check me-1"></i> Save Rule
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .progress {
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .card {
+        border: none;
+        border-radius: 10px;
+    }
+
+    .form-control, .form-select {
+        border-radius: 8px;
+        border: 2px solid #e9ecef;
+        padding: 10px 15px;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: #3498db;
+        box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+    }
+
+    .condition-form-row {
+        background-color: #f8f9fa;
+        border: 2px dashed #dee2e6;
+    }
+
+    .alert {
+        border-radius: 8px;
+        border: none;
+    }
+
+    .btn {
+        border-radius: 8px;
+        padding: 10px 20px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Show/hide condition fields based on condition type
+    function updateConditionFields() {
+        const conditionSelects = document.querySelectorAll('.condition-type-select');
+        
+        conditionSelects.forEach(function(select) {
+            const form = select.closest('.condition-form');
+            const conditionFields = form.querySelector('.condition-fields');
+            const keywordFields = conditionFields.querySelector('.keyword-field');
+            const amountFields = conditionFields.querySelector('.amount-field');
+            const dateFields = conditionFields.querySelector('.date-field');
+            
+            function showFields() {
+                keywordFields.style.display = 'none';
+                amountFields.style.display = 'none';
+                dateFields.style.display = 'none';
+                
+                if (select.value === 'KEYWORD') {
+                    keywordFields.style.display = 'block';
+                } else if (select.value === 'AMOUNT') {
+                    amountFields.style.display = 'block';
+                } else if (select.value === 'DATE') {
+                    dateFields.style.display = 'block';
+                }
+            }
+            
+            select.addEventListener('change', showFields);
+            showFields();
+        });
+    }
+    
+    updateConditionFields();
+});
+</script>
+{% endblock %}

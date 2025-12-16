@@ -1,0 +1,695 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0"><i class="fas fa-edit me-2"></i>Edit Rule: {{ rule.name }}</h4>
+                    <span class="badge bg-light text-dark">{{ rule.get_rule_type_display }}</span>
+                </div>
+                
+                <div class="card-body">
+                    <form method="post" id="ruleForm" class="needs-validation" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Basic Rule Info -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label class="form-label fw-bold">Rule Name *</label>
+                                    {{ form.name }}
+                                    {% if form.name.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.name.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group mb-3">
+                                    <label class="form-label fw-bold">Category *</label>
+                                    {{ form.category }}
+                                    {% if form.category.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.category.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group mb-3">
+                                    <label class="form-label fw-bold">Rule Type</label>
+                                    {{ form.rule_type }}
+                                    {% if form.rule_type.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.rule_type.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Status Toggle -->
+                        <div class="form-check form-switch mb-4">
+                            {{ form.is_active }}
+                            <label class="form-check-label fw-bold" for="{{ form.is_active.id_for_label }}">
+                                Active Rule
+                            </label>
+                        </div>
+                        
+                        <!-- Conditions Section -->
+                        <div class="card mb-4 border-primary">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Conditions</h5>
+                                <small>
+                                    {% if rule.rule_type == 'AND' %}
+                                        Transaction must match ALL conditions below
+                                    {% else %}
+                                        Transaction must match ANY condition below
+                                    {% endif %}
+                                </small>
+                            </div>
+                            <div class="card-body">
+                                {{ formset.management_form }}
+                                
+                                <div id="conditions-container">
+                                    {% for condition_form in formset %}
+                                    <div class="condition-form card mb-3 p-3 border">
+                                        <div class="row align-items-end">
+                                            <div class="col-md-3">
+                                                <label class="form-label fw-bold">Condition Type</label>
+                                                {{ condition_form.condition_type }}
+                                            </div>
+                                            
+                                            <!-- Dynamic Fields -->
+                                            <div class="col-md-8">
+                                                <!-- Keyword Fields -->
+                                                <div class="keyword-fields condition-fields" style="display: none;">
+                                                    <div class="row">
+                                                        <div class="col-8">
+                                                            <label class="form-label">Keyword</label>
+                                                            {{ condition_form.keyword }}
+                                                        </div>
+                                                        <div class="col-4">
+                                                            <label class="form-label">Match Type</label>
+                                                            {{ condition_form.keyword_match_type }}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Amount Fields -->
+                                                <div class="amount-fields condition-fields" style="display: none;">
+                                                    <div class="row">
+                                                        <div class="col-4">
+                                                            <label class="form-label">Operator</label>
+                                                            {{ condition_form.amount_operator }}
+                                                        </div>
+                                                        <div class="col-4">
+                                                            <label class="form-label">Amount</label>
+                                                            {{ condition_form.amount_value }}
+                                                        </div>
+                                                        <div class="col-4 between-amount" style="display: none;">
+                                                            <label class="form-label">To Amount</label>
+                                                            {{ condition_form.amount_value2 }}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Date Fields -->
+                                                <div class="date-fields condition-fields" style="display: none;">
+                                                    <div class="row">
+                                                        <div class="col-6">
+                                                            <label class="form-label">From Date</label>
+                                                            {{ condition_form.date_start }}
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <label class="form-label">To Date</label>
+                                                            {{ condition_form.date_end }}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Source Fields -->
+                                                <div class="source-fields condition-fields" style="display: none;">
+                                                    <div class="row">
+                                                        <div class="col-12">
+                                                            <label class="form-label">Source/Channel</label>
+                                                            {{ condition_form.source_channel }}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="col-md-1 text-end">
+                                                {% if condition_form.instance.pk %}
+                                                <div class="form-check">
+                                                    {{ condition_form.DELETE }}
+                                                    <label class="form-check-label text-danger" for="{{ condition_form.DELETE.id_for_label }}">
+                                                        Delete
+                                                    </label>
+                                                </div>
+                                                {% else %}
+                                                <button type="button" class="btn btn-sm btn-outline-danger remove-condition" style="display: none;">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                                {% endif %}
+                                                
+                                                <!-- Hidden fields for form management -->
+                                                {{ condition_form.id }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                
+                                <div class="d-grid">
+                                    <button type="button" class="btn btn-outline-primary" id="add-condition">
+                                        <i class="fas fa-plus me-1"></i> Add Another Condition
+                                    </button>
+                                </div>
+                                
+                                {% if formset.non_form_errors %}
+                                <div class="alert alert-danger mt-3">
+                                    {% for error in formset.non_form_errors %}
+                                    <p class="mb-0">{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between border-top pt-3">
+                            <div>
+                                <a href="{% url 'rules_list' %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-arrow-left me-1"></i> Cancel
+                                </a>
+                                <a href="{% url 'delete_rule' rule.id %}" class="btn btn-outline-danger">
+                                    <i class="fas fa-trash me-1"></i> Delete Rule
+                                </a>
+                            </div>
+                            <div>
+                                <button type="submit" name="save" class="btn btn-primary" id="saveBtn">
+                                    <i class="fas fa-save me-1"></i> Save Rule
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Rule Preview -->
+            <div class="card shadow-sm mt-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-eye me-2"></i>Rule Preview</h5>
+                </div>
+                <div class="card-body">
+                    <div class="rule-preview">
+                        <p class="mb-2"><strong>When a transaction:</strong></p>
+                        <div id="preview-conditions">
+                            <p class="text-muted mb-0">No conditions added yet</p>
+                        </div>
+                        <p class="mt-3 mb-2"><strong>Then categorize it as:</strong></p>
+                        <span class="badge bg-primary" id="preview-category">{{ rule.get_category_display }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden template for new conditions -->
+<div id="empty-form-template" style="display: none;">
+    <div class="condition-form card mb-3 p-3 border">
+        <div class="row align-items-end">
+            <div class="col-md-3">
+                <label class="form-label fw-bold">Condition Type</label>
+                <select name="conditions-__prefix__-condition_type" class="form-control condition-type-select" id="id_conditions-__prefix__-condition_type">
+                    <option value="">---------</option>
+                    <option value="KEYWORD">Keyword in Description</option>
+                    <option value="AMOUNT">Amount Range</option>
+                    <option value="DATE">Date Range</option>
+                    <option value="SOURCE">Transaction Source/Channel</option>
+                </select>
+            </div>
+            
+            <div class="col-md-8">
+                <!-- Keyword Fields -->
+                <div class="keyword-fields condition-fields" style="display: none;">
+                    <div class="row">
+                        <div class="col-8">
+                            <label class="form-label">Keyword</label>
+                            <input type="text" name="conditions-__prefix__-keyword" class="form-control keyword-field" id="id_conditions-__prefix__-keyword" placeholder="Enter keyword">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label">Match Type</label>
+                            <select name="conditions-__prefix__-keyword_match_type" class="form-control keyword-field" id="id_conditions-__prefix__-keyword_match_type">
+                                <option value="">---------</option>
+                                <option value="CONTAINS">Contains</option>
+                                <option value="STARTS_WITH">Starts With</option>
+                                <option value="ENDS_WITH">Ends With</option>
+                                <option value="EXACT">Exact Match</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Amount Fields -->
+                <div class="amount-fields condition-fields" style="display: none;">
+                    <div class="row">
+                        <div class="col-4">
+                            <label class="form-label">Operator</label>
+                            <select name="conditions-__prefix__-amount_operator" class="form-control amount-field" id="id_conditions-__prefix__-amount_operator">
+                                <option value="">---------</option>
+                                <option value="EQUALS">Equals</option>
+                                <option value="GREATER_THAN">Greater Than</option>
+                                <option value="LESS_THAN">Less Than</option>
+                                <option value="BETWEEN">Between</option>
+                                <option value="GREATER_THAN_EQUAL">Greater Than or Equal</option>
+                                <option value="LESS_THAN_EQUAL">Less Than or Equal</option>
+                            </select>
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label">Amount</label>
+                            <input type="number" name="conditions-__prefix__-amount_value" class="form-control amount-field" id="id_conditions-__prefix__-amount_value" step="0.01" placeholder="Amount">
+                        </div>
+                        <div class="col-4 between-amount" style="display: none;">
+                            <label class="form-label">To Amount</label>
+                            <input type="number" name="conditions-__prefix__-amount_value2" class="form-control amount-field" id="id_conditions-__prefix__-amount_value2" step="0.01" placeholder="To amount">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Date Fields -->
+                <div class="date-fields condition-fields" style="display: none;">
+                    <div class="row">
+                        <div class="col-6">
+                            <label class="form-label">From Date</label>
+                            <input type="date" name="conditions-__prefix__-date_start" class="form-control date-field" id="id_conditions-__prefix__-date_start">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">To Date</label>
+                            <input type="date" name="conditions-__prefix__-date_end" class="form-control date-field" id="id_conditions-__prefix__-date_end">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Source Fields -->
+                <div class="source-fields condition-fields" style="display: none;">
+                    <div class="row">
+                        <div class="col-12">
+                            <label class="form-label">Source/Channel</label>
+                            <select name="conditions-__prefix__-source_channel" class="form-control source-field" id="id_conditions-__prefix__-source_channel">
+                                <option value="">---------</option>
+                                <option value="PAYTM">Paytm</option>
+                                <option value="PHONEPE">PhonePe</option>
+                                <option value="GOOGLE_PAY">Google Pay</option>
+                                <option value="UPI">UPI</option>
+                                <option value="DEBIT_CARD">Debit Card</option>
+                                <option value="CREDIT_CARD">Credit Card</option>
+                                <option value="NET_BANKING">Net Banking</option>
+                                <option value="CHEQUE">Cheque</option>
+                                <option value="NEFT">NEFT</option>
+                                <option value="RTGS">RTGS</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-1 text-end">
+                <button type="button" class="btn btn-sm btn-outline-danger remove-condition">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.condition-form {
+    background: #f8f9fa;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+.condition-form:hover {
+    background: #e9ecef;
+    transform: translateX(5px);
+}
+.form-control, .form-select {
+    border-radius: 6px;
+    border: 1px solid #ced4da;
+}
+.form-control:focus, .form-select:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+.form-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+.btn {
+    border-radius: 6px;
+}
+.card {
+    border: none;
+    border-radius: 12px;
+}
+.rule-preview {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+}
+#preview-conditions {
+    min-height: 30px;
+}
+.condition-fields {
+    animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('ruleForm');
+    const conditionsContainer = document.getElementById('conditions-container');
+    const addConditionBtn = document.getElementById('add-condition');
+    const totalFormsInput = document.getElementById('id_conditions-TOTAL_FORMS');
+    const emptyFormTemplate = document.getElementById('empty-form-template').innerHTML;
+    const saveBtn = document.getElementById('saveBtn');
+    
+    // Initialize existing condition forms
+    initializeExistingForms();
+    
+    // Add new condition
+    addConditionBtn.addEventListener('click', function() {
+        const formIdx = totalFormsInput.value;
+        totalFormsInput.value = parseInt(formIdx) + 1;
+        
+        // Create new form from template
+        let newFormHtml = emptyFormTemplate.replace(/__prefix__/g, formIdx);
+        const newFormDiv = document.createElement('div');
+        newFormDiv.innerHTML = newFormHtml;
+        
+        // Add to container
+        conditionsContainer.appendChild(newFormDiv.firstElementChild);
+        
+        // Initialize the new form
+        const newForm = conditionsContainer.lastElementChild;
+        initializeForm(newForm);
+        
+        // Update preview
+        updatePreview();
+    });
+    
+    // Form submission handler
+    form.addEventListener('submit', function(e) {
+        // Basic validation
+        if (!validateForm()) {
+            e.preventDefault();
+            return;
+        }
+        
+        // Show loading state
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Saving...';
+        saveBtn.disabled = true;
+        
+        // Allow form to submit normally
+        return true;
+    });
+    
+    function initializeExistingForms() {
+        // Initialize all existing condition forms
+        document.querySelectorAll('.condition-form').forEach(form => {
+            initializeForm(form);
+        });
+        
+        // Update preview
+        updatePreview();
+    }
+    
+    function initializeForm(formElement) {
+        const conditionTypeSelect = formElement.querySelector('.condition-type-select');
+        const removeBtn = formElement.querySelector('.remove-condition');
+        const amountOperatorSelect = formElement.querySelector('[id$="amount_operator"]');
+        
+        // Initialize condition type
+        if (conditionTypeSelect.value) {
+            toggleConditionFields(conditionTypeSelect);
+        }
+        
+        // Condition type change handler
+        conditionTypeSelect.addEventListener('change', function() {
+            toggleConditionFields(this);
+            updatePreview();
+        });
+        
+        // Amount operator change handler
+        if (amountOperatorSelect) {
+            amountOperatorSelect.addEventListener('change', function() {
+                toggleBetweenField(this);
+            });
+        }
+        
+        // Remove button handler
+        if (removeBtn) {
+            removeBtn.addEventListener('click', function() {
+                const formElement = this.closest('.condition-form');
+                formElement.remove();
+                updateFormIndices();
+                updatePreview();
+            });
+        }
+        
+        // Input change listeners for preview
+        formElement.querySelectorAll('input, select').forEach(input => {
+            input.addEventListener('change', updatePreview);
+            input.addEventListener('keyup', updatePreview);
+        });
+    }
+    
+    function toggleConditionFields(selectElement) {
+        const formGroup = selectElement.closest('.condition-form');
+        const type = selectElement.value;
+        
+        // Hide all condition fields first
+        formGroup.querySelectorAll('.condition-fields').forEach(el => {
+            el.style.display = 'none';
+        });
+        
+        // Show remove button for new forms
+        const removeBtn = formGroup.querySelector('.remove-condition');
+        if (removeBtn) {
+            removeBtn.style.display = type ? 'block' : 'none';
+        }
+        
+        // Show relevant fields
+        if (type === 'KEYWORD') {
+            formGroup.querySelector('.keyword-fields').style.display = 'block';
+        } else if (type === 'AMOUNT') {
+            formGroup.querySelector('.amount-fields').style.display = 'block';
+            const amountOperator = formGroup.querySelector('[id$="amount_operator"]');
+            if (amountOperator) {
+                toggleBetweenField(amountOperator);
+            }
+        } else if (type === 'DATE') {
+            formGroup.querySelector('.date-fields').style.display = 'block';
+        } else if (type === 'SOURCE') {
+            formGroup.querySelector('.source-fields').style.display = 'block';
+        }
+    }
+    
+    function toggleBetweenField(selectElement) {
+        const formGroup = selectElement.closest('.condition-form');
+        const betweenField = formGroup.querySelector('.between-amount');
+        if (selectElement.value === 'BETWEEN') {
+            betweenField.style.display = 'block';
+        } else {
+            betweenField.style.display = 'none';
+        }
+    }
+    
+    function updateFormIndices() {
+        const forms = conditionsContainer.querySelectorAll('.condition-form');
+        totalFormsInput.value = forms.length;
+        
+        forms.forEach((form, index) => {
+            // Update all input names and IDs
+            form.querySelectorAll('input, select').forEach(input => {
+                const name = input.name;
+                const id = input.id;
+                
+                if (name && name.includes('conditions-')) {
+                    input.name = name.replace(/conditions-\d+/, `conditions-${index}`);
+                }
+                
+                if (id && id.includes('conditions-')) {
+                    input.id = id.replace(/conditions-\d+/, `conditions-${index}`);
+                }
+            });
+        });
+    }
+    
+    function validateForm() {
+        let isValid = true;
+        const ruleName = document.getElementById('id_name');
+        const ruleCategory = document.getElementById('id_category');
+        
+        // Check rule name
+        if (!ruleName.value.trim()) {
+            alert('Please enter a rule name.');
+            ruleName.focus();
+            isValid = false;
+        }
+        
+        // Check category
+        if (!ruleCategory.value) {
+            alert('Please select a category.');
+            ruleCategory.focus();
+            isValid = false;
+        }
+        
+        // Check at least one condition
+        const conditionForms = conditionsContainer.querySelectorAll('.condition-form');
+        let hasValidCondition = false;
+        
+        conditionForms.forEach(form => {
+            const conditionType = form.querySelector('.condition-type-select').value;
+            if (conditionType) {
+                hasValidCondition = true;
+                
+                // Validate specific condition fields
+                if (conditionType === 'KEYWORD') {
+                    const keyword = form.querySelector('[id$="keyword"]');
+                    const matchType = form.querySelector('[id$="keyword_match_type"]');
+                    
+                    if (!keyword.value.trim()) {
+                        alert('Please enter a keyword for keyword condition.');
+                        keyword.focus();
+                        isValid = false;
+                    }
+                    if (!matchType.value) {
+                        alert('Please select a match type for keyword condition.');
+                        matchType.focus();
+                        isValid = false;
+                    }
+                } else if (conditionType === 'AMOUNT') {
+                    const amountValue = form.querySelector('[id$="amount_value"]');
+                    if (!amountValue.value) {
+                        alert('Please enter an amount for amount condition.');
+                        amountValue.focus();
+                        isValid = false;
+                    }
+                }
+            }
+        });
+        
+        if (!hasValidCondition) {
+            alert('Please add at least one condition to the rule.');
+            isValid = false;
+        }
+        
+        return isValid;
+    }
+    
+    function updatePreview() {
+        const previewContainer = document.getElementById('preview-conditions');
+        const categoryBadge = document.getElementById('preview-category');
+        const ruleType = document.querySelector('#id_rule_type').value;
+        const categorySelect = document.querySelector('#id_category');
+        
+        // Update category preview
+        if (categorySelect) {
+            const selectedOption = categorySelect.options[categorySelect.selectedIndex];
+            categoryBadge.textContent = selectedOption.text;
+            categoryBadge.className = 'badge bg-primary';
+        }
+        
+        // Update conditions preview
+        const conditions = [];
+        document.querySelectorAll('.condition-form').forEach((form, index) => {
+            const conditionType = form.querySelector('.condition-type-select').value;
+            if (!conditionType) return;
+            
+            let conditionText = '';
+            
+            if (conditionType === 'KEYWORD') {
+                const keyword = form.querySelector('[id$="keyword"]')?.value || '';
+                const matchType = form.querySelector('[id$="keyword_match_type"]')?.value || '';
+                if (keyword && matchType) {
+                    const matchTypeText = {
+                        'CONTAINS': 'contains',
+                        'STARTS_WITH': 'starts with', 
+                        'ENDS_WITH': 'ends with',
+                        'EXACT': 'exactly matches'
+                    }[matchType] || 'contains';
+                    conditionText = `Description ${matchTypeText} "${keyword}"`;
+                }
+            } else if (conditionType === 'AMOUNT') {
+                const operator = form.querySelector('[id$="amount_operator"]')?.value || '';
+                const amount1 = form.querySelector('[id$="amount_value"]')?.value || '';
+                const amount2 = form.querySelector('[id$="amount_value2"]')?.value || '';
+                
+                if (operator && amount1) {
+                    const operatorText = {
+                        'EQUALS': 'equals',
+                        'GREATER_THAN': 'is greater than',
+                        'LESS_THAN': 'is less than',
+                        'BETWEEN': 'is between',
+                        'GREATER_THAN_EQUAL': 'is greater than or equal to',
+                        'LESS_THAN_EQUAL': 'is less than or equal to'
+                    }[operator] || operator.toLowerCase();
+                    
+                    conditionText = `Amount ${operatorText} ₹${amount1}`;
+                    if (operator === 'BETWEEN' && amount2) {
+                        conditionText += ` and ₹${amount2}`;
+                    }
+                }
+            } else if (conditionType === 'DATE') {
+                const date1 = form.querySelector('[id$="date_start"]')?.value || '';
+                const date2 = form.querySelector('[id$="date_end"]')?.value || '';
+                
+                if (date1 && date2) {
+                    conditionText = `Date is between ${date1} and ${date2}`;
+                } else if (date1) {
+                    conditionText = `Date is on or after ${date1}`;
+                } else if (date2) {
+                    conditionText = `Date is on or before ${date2}`;
+                }
+            } else if (conditionType === 'SOURCE') {
+                const source = form.querySelector('[id$="source_channel"]')?.value || '';
+                if (source) {
+                    const sourceText = form.querySelector('[id$="source_channel"] option:checked')?.text || source;
+                    conditionText = `Payment source is ${sourceText}`;
+                }
+            }
+            
+            if (conditionText) {
+                conditions.push(`<div class="condition-preview mb-1">${conditionText}</div>`);
+            }
+        });
+        
+        if (conditions.length > 0) {
+            previewContainer.innerHTML = conditions.join('');
+            if (ruleType === 'AND') {
+                previewContainer.innerHTML += '<div class="text-muted small mt-2"><em>All of the above conditions must match</em></div>';
+            } else {
+                previewContainer.innerHTML += '<div class="text-muted small mt-2"><em>Any of the above conditions must match</em></div>';
+            }
+        } else {
+            previewContainer.innerHTML = '<p class="text-muted mb-0">No conditions added yet</p>';
+        }
+    }
+    
+    // Initialize preview on page load
+    updatePreview();
+    
+    // Add change listeners for rule type and category
+    document.querySelector('#id_rule_type').addEventListener('change', updatePreview);
+    document.querySelector('#id_category').addEventListener('change', updatePreview);
+    document.querySelector('#id_name').addEventListener('input', function() {
+        document.querySelector('.card-header h4').innerHTML = `<i class="fas fa-edit me-2"></i>Edit Rule: ${this.value || '{{ rule.name }}'}`;
+    });
+});
+</script>
+{% endblock %}

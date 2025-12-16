@@ -1,0 +1,1400 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container">
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="account-section">
+                <div class="section-header">
+                    <i class="fas fa-wallet"></i>
+                    <h3>Your Accounts</h3>
+                </div>
+                <div class="account-list">
+                    {% for account in accounts %}
+                    <div class="account-card-wrapper" data-account-id="{{ account.id }}">
+                        <a href="{% url 'view_account_details' account.id %}" class="account-card {% if forloop.first %}active{% endif %}">
+                            <div class="account-info">
+                                <div class="account-name">{{ account.account_name }}</div>
+                                <div class="account-number">**** {{ account.account_number|default:"0000" }}</div>
+                                <div class="account-bank">{{ account.bank_name|default:"Bank" }}</div>
+                            </div>
+                            <div class="account-balance">
+                                <div class="balance-amount">₹{{ account.get_balance|default:"0.00" }}</div>
+                                <div class="balance-trend positive">
+                                    <i class="fas fa-arrow-up"></i>
+                                    2.5%
+                                </div>
+                            </div>
+                        </a>
+                        <a href="{% url 'delete_account' account.id %}" class="account-delete-btn" title="Delete this account">
+                            <i class="fas fa-trash-alt"></i>
+                        </a>
+                    </div>
+                    {% empty %}
+                    <div class="account-card active">
+                        <div class="account-info">
+                            <div class="account-name">Primary Account</div>
+                            <div class="account-number">**** 0000</div>
+                            <div class="account-bank">Your Bank</div>
+                        </div>
+                        <div class="account-balance">
+                            <div class="balance-amount">₹0.00</div>
+                            <div class="balance-trend">-</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <a href="{% url 'create_account' %}" class="add-account-btn">
+                    <i class="fas fa-plus-circle"></i>
+                    Add New Account
+                </a>
+            </div>
+            <!-- In your dashboard.html, add this section somewhere -->
+<div class="card shadow-sm mt-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-file-alt me-2"></i>Supported File Formats</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <div class="text-center p-3 border rounded">
+                    <i class="fas fa-file-pdf fa-3x text-danger mb-3"></i>
+                    <h6>PDF Statements</h6>
+                    <p class="small text-muted mb-2">Download from your bank portal</p>
+                    <span class="badge bg-danger">.pdf</span>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="text-center p-3 border rounded">
+                    <i class="fas fa-file-excel fa-3x text-success mb-3"></i>
+                    <h6>Excel Files</h6>
+                    <p class="small text-muted mb-2">Export from banking apps</p>
+                    <span class="badge bg-success">.xlsx .xls</span>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="text-center p-3 border rounded">
+                    <i class="fas fa-file-csv fa-3x text-primary mb-3"></i>
+                    <h6>CSV Files</h6>
+                    <p class="small text-muted mb-2">Export from net banking</p>
+                    <span class="badge bg-primary">.csv</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+            <!-- Quick Stats -->
+            <div class="quick-stats">
+                <div class="stat-card income">
+                    <div class="stat-icon">
+                        <i class="fas fa-arrow-down"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h4>Total Income</h4>
+                        <p>₹{{ monthly_income|floatformat:2 }}</p>
+                        <span class="stat-change positive">+12%</span>
+                    </div>
+                </div>
+                
+                <div class="stat-card expenses">
+                    <div class="stat-icon">
+                        <i class="fas fa-arrow-up"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h4>Total Expenses</h4>
+                        <p>₹{{ monthly_expenses|floatformat:2 }}</p>
+                        <span class="stat-change negative">+8%</span>
+                    </div>
+                </div>
+                
+                <div class="stat-card savings">
+                    <div class="stat-icon">
+                        <i class="fas fa-piggy-bank"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h4>Net Savings</h4>
+                        <p>₹{{ monthly_savings|floatformat:2 }}</p>
+                        <span class="stat-change positive">+15%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Analysis -->
+            {% if recent_statements %}
+            <div class="recent-analysis">
+                <div class="section-header">
+                    <i class="fas fa-history"></i>
+                    <h3>Recent Analysis</h3>
+                </div>
+                <div class="analysis-list">
+                    {% for statement in recent_statements %}
+                    <div class="analysis-item">
+                        <div class="analysis-icon">
+                            <i class="fas fa-file-pdf"></i>
+                        </div>
+                        <div class="analysis-details">
+                            <div class="analysis-name">{{ statement.account.account_name }}</div>
+                            <div class="analysis-date">{{ statement.upload_date|date:"M d, Y" }}</div>
+                        </div>
+                        <a href="{% url 'analysis_results' statement.id %}" class="view-result-btn">
+                            View
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Welcome Section -->
+            <div class="welcome-section">
+                <div class="welcome-content">
+                    <h1>Welcome to BANKWATCH</h1>
+                    <p>Smart financial analysis at your fingertips. Upload your bank statement to get started.</p>
+                    
+                    {% if monthly_income > 0 %}
+                    <div class="performance-badge">
+                        <i class="fas fa-chart-line"></i>
+                        <span>You've analyzed ₹{{ monthly_income|floatformat:2 }} in transactions</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="welcome-actions">
+                    <a href="{% url 'upload_statement' %}" class="upload-cta-btn">
+                        <i class="fas fa-file-upload"></i>
+                        Upload Statement
+                    </a>
+                </div>
+            </div>
+
+            <!-- Financial Overview -->
+            {% if monthly_income > 0 %}
+            <div class="financial-overview">
+                <div class="section-header">
+                    <h2>Financial Overview</h2>
+                    <div class="time-filter">
+                        <select id="overviewTimeFilter">
+                            <option value="all">All Time</option>
+                            <option value="30days">Last 30 Days</option>
+                            <option value="90days">Last 90 Days</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Charts Grid -->
+                <div class="charts-grid">
+                    <div class="chart-card full-width">
+                        <div class="chart-header">
+                            <h3>Income vs Expenses</h3>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="overviewChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Feature Cards -->
+            <div class="features-grid">
+                <div class="feature-card upload">
+                    <div class="feature-icon">
+                        <i class="fas fa-upload"></i>
+                    </div>
+                    <div class="feature-content">
+                        <h3>Upload PDF</h3>
+                        <p>Simply upload your bank statement in PDF format</p>
+                    </div>
+                    <div class="feature-badge">Step 1</div>
+                </div>
+
+                <div class="feature-card analyze">
+                    <div class="feature-icon">
+                        <i class="fas fa-chart-pie"></i>
+                    </div>
+                    <div class="feature-content">
+                        <h3>Automatic Analysis</h3>
+                        <p>AI-powered categorization of your transactions</p>
+                    </div>
+                    <div class="feature-badge">Step 2</div>
+                </div>
+
+                <div class="feature-card insights">
+                    <div class="feature-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="feature-content">
+                        <h3>View Insights</h3>
+                        <p>Beautiful charts and detailed financial insights</p>
+                    </div>
+                    <div class="feature-badge">Step 3</div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="recent-activity">
+                <div class="section-header">
+                    <h3>Recent Transactions</h3>
+                    <a href="#" class="view-all">View All</a>
+                </div>
+                <div class="activity-list">
+                    {% for transaction in recent_transactions %}
+                    <div class="activity-item">
+                        <div class="activity-icon {{ transaction.category|lower }}">
+                            <i class="fas {{ transaction.get_category_icon }}"></i>
+                        </div>
+                        <div class="activity-details">
+                            <div class="activity-title">{{ transaction.description|truncatewords:4 }}</div>
+                            <div class="activity-meta">
+                                <span class="category">{{ transaction.get_category_display }}</span>
+                                <span class="date">{{ transaction.date|date:"M d" }}</span>
+                            </div>
+                        </div>
+                        <div class="activity-amount {% if transaction.transaction_type == 'CREDIT' %}positive{% else %}negative{% endif %}">
+                            {% if transaction.transaction_type == 'CREDIT' %}+{% else %}-{% endif %}₹{{ transaction.amount }}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="empty-state">
+                        <i class="fas fa-file-upload"></i>
+                        <h4>No transactions yet</h4>
+                        <p>Upload your first bank statement to see your financial activity</p>
+                        <a href="{% url 'upload_statement' %}" class="btn-primary">Upload Statement</a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <h3>Quick Actions</h3>
+                <div class="actions-grid">
+                    <a href="{% url 'upload_statement' %}" class="action-card">
+                        <div class="action-icon">
+                            <i class="fas fa-file-import"></i>
+                        </div>
+                        <div class="action-content">
+                            <h4>Upload Statement</h4>
+                            <p>Analyze new bank statement</p>
+                        </div>
+                    </a>
+                    
+                    {% if recent_statements %}
+                    <a href="{% url 'analysis_results' recent_statements.0.id %}" class="action-card">
+                        <div class="action-icon">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <div class="action-content">
+                            <h4>Latest Analysis</h4>
+                            <p>View your most recent report</p>
+                        </div>
+                    </a>
+                    {% else %}
+                    <a href="{% url 'upload_statement' %}" class="action-card">
+                        <div class="action-icon">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <div class="action-content">
+                            <h4>View Reports</h4>
+                            <p>Detailed financial reports</p>
+                        </div>
+                    </a>
+                    {% endif %}
+                    
+                    <a href="#" class="action-card">
+                        <div class="action-icon">
+                            <i class="fas fa-cog"></i>
+                        </div>
+                        <div class="action-content">
+                            <h4>Settings</h4>
+                            <p>Manage your preferences</p>
+                        </div>
+                    </a>
+                    
+                    <a href="#" class="action-card">
+                        <div class="action-icon">
+                            <i class="fas fa-download"></i>
+                        </div>
+                        <div class="action-content">
+                            <h4>Export Data</h4>
+                            <p>Download your analysis</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Reset and Base Styles */
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        background-color: #f5f7fa;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        color: #2c3e50;
+        line-height: 1.6;
+    }
+
+    .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    /* Dashboard Layout */
+    .dashboard {
+        display: grid;
+        grid-template-columns: 350px 1fr;
+        gap: 30px;
+        min-height: 80vh;
+    }
+
+    /* Sidebar Styles */
+    .sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 25px;
+    }
+
+    .account-section {
+        background: white;
+        border-radius: 20px;
+        padding: 25px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid #f0f0f0;
+    }
+
+    .section-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .section-header i {
+        font-size: 1.2rem;
+        color: #3498db;
+    }
+
+    .section-header h3 {
+        color: #2c3e50;
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .account-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .account-card {
+        background: #f8f9fa;
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 18px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .account-card:hover {
+        border-color: #3498db;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(52, 152, 219, 0.1);
+    }
+
+    .account-card.active {
+        border-color: #3498db;
+        background: linear-gradient(135deg, #f0f8ff, #e3f2fd);
+    }
+
+    .account-info .account-name {
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 4px;
+        font-size: 0.95rem;
+    }
+
+    .account-info .account-number {
+        color: #7f8c8d;
+        font-size: 0.8rem;
+        margin-bottom: 2px;
+    }
+
+    .account-info .account-bank {
+        color: #95a5a6;
+        font-size: 0.75rem;
+    }
+
+    .account-balance .balance-amount {
+        font-weight: 700;
+        color: #2c3e50;
+        font-size: 1.1rem;
+        text-align: right;
+    }
+
+    .balance-trend {
+        font-size: 0.75rem;
+        font-weight: 500;
+        text-align: right;
+    }
+
+    .balance-trend.positive {
+        color: #27ae60;
+    }
+
+    .balance-trend.negative {
+        color: #e74c3c;
+    }
+
+    .add-account-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        width: 100%;
+        background: linear-gradient(135deg, #3498db, #2980b9);
+        color: white;
+        border: none;
+        padding: 12px;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+    }
+
+    .add-account-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+        color: white;
+        text-decoration: none;
+    }
+
+    /* Quick Stats */
+    .quick-stats {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        border-left: 4px solid;
+        transition: transform 0.3s ease;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-3px);
+    }
+
+    .stat-card.income {
+        border-left-color: #27ae60;
+    }
+
+    .stat-card.expenses {
+        border-left-color: #e74c3c;
+    }
+
+    .stat-card.savings {
+        border-left-color: #3498db;
+    }
+
+    .stat-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
+    }
+
+    .income .stat-icon {
+        background: rgba(39, 174, 96, 0.1);
+        color: #27ae60;
+    }
+
+    .expenses .stat-icon {
+        background: rgba(231, 76, 60, 0.1);
+        color: #e74c3c;
+    }
+
+    .savings .stat-icon {
+        background: rgba(52, 152, 219, 0.1);
+        color: #3498db;
+    }
+
+    .stat-info h4 {
+        color: #7f8c8d;
+        font-size: 0.85rem;
+        margin-bottom: 5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .stat-info p {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: #2c3e50;
+        margin-bottom: 4px;
+    }
+
+    .stat-change {
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .stat-change.positive {
+        color: #27ae60;
+    }
+
+    .stat-change.negative {
+        color: #e74c3c;
+    }
+
+    /* Recent Analysis */
+    .recent-analysis {
+        background: white;
+        border-radius: 20px;
+        padding: 25px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+        margin-top: 20px;
+    }
+
+    .analysis-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .analysis-item {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+    }
+
+    .analysis-item:hover {
+        background: #e9ecef;
+        transform: translateX(5px);
+    }
+
+    .analysis-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        background: rgba(231, 76, 60, 0.1);
+        color: #e74c3c;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+    }
+
+    .analysis-details {
+        flex: 1;
+    }
+
+    .analysis-name {
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 4px;
+    }
+
+    .analysis-date {
+        color: #7f8c8d;
+        font-size: 0.85rem;
+    }
+
+    .view-result-btn {
+        background: #3498db;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 0.8rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .view-result-btn:hover {
+        background: #2980b9;
+        color: white;
+        text-decoration: none;
+        transform: translateY(-1px);
+    }
+
+    /* Main Content */
+    .main-content {
+        display: flex;
+        flex-direction: column;
+        gap: 25px;
+    }
+
+    /* Welcome Section */
+    .welcome-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px;
+        padding: 40px;
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .welcome-content h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 10px;
+    }
+
+    .welcome-content p {
+        font-size: 1.2rem;
+        opacity: 0.9;
+        margin: 0;
+    }
+
+    .performance-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(255, 255, 255, 0.2);
+        padding: 8px 15px;
+        border-radius: 20px;
+        margin-top: 15px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .upload-cta-btn {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        padding: 15px 30px;
+        border-radius: 12px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .upload-cta-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: translateY(-2px);
+        color: white;
+        text-decoration: none;
+    }
+
+    /* Financial Overview */
+    .financial-overview {
+        background: white;
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+        margin-bottom: 25px;
+    }
+
+    .financial-overview .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+
+    .financial-overview .section-header h2 {
+        color: #2c3e50;
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin: 0;
+    }
+
+    .time-filter select {
+        padding: 8px 12px;
+        border: 2px solid #e1e5e9;
+        border-radius: 8px;
+        background: white;
+        color: #2c3e50;
+        font-weight: 500;
+        cursor: pointer;
+    }
+
+    .charts-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 20px;
+    }
+
+    .chart-card {
+        background: #f8f9fa;
+        border-radius: 15px;
+        padding: 20px;
+    }
+
+    .chart-card.full-width {
+        grid-column: 1 / -1;
+    }
+
+    .chart-header {
+        margin-bottom: 15px;
+    }
+
+    .chart-header h3 {
+        color: #2c3e50;
+        font-weight: 600;
+        margin: 0;
+        font-size: 1.2rem;
+    }
+
+    .chart-container {
+        height: 250px;
+        position: relative;
+    }
+
+    .health-score {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 200px;
+    }
+
+    .score-circle {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        background: conic-gradient(#27ae60 0% 75%, #f39c12 75% 90%, #e74c3c 90% 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        margin-bottom: 15px;
+    }
+
+    .score-circle::before {
+        content: '';
+        position: absolute;
+        width: 80px;
+        height: 80px;
+        background: #f8f9fa;
+        border-radius: 50%;
+    }
+
+    .score-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #2c3e50;
+        position: relative;
+        z-index: 1;
+    }
+
+    .score-label {
+        font-size: 0.7rem;
+        color: #7f8c8d;
+        position: relative;
+        z-index: 1;
+    }
+
+    .health-status {
+        text-align: center;
+    }
+
+    .health-status h4 {
+        color: #2c3e50;
+        margin-bottom: 5px;
+        font-weight: 600;
+        font-size: 1rem;
+    }
+
+    .health-status p {
+        color: #7f8c8d;
+        margin: 0;
+        font-size: 0.85rem;
+    }
+
+    /* Features Grid */
+    .features-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+    }
+
+    .feature-card {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+        position: relative;
+        transition: all 0.3s ease;
+        border: 1px solid #f0f0f0;
+    }
+
+    .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+    }
+
+    .feature-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin-bottom: 20px;
+    }
+
+    .feature-card.upload .feature-icon {
+        background: rgba(52, 152, 219, 0.1);
+        color: #3498db;
+    }
+
+    .feature-card.analyze .feature-icon {
+        background: rgba(39, 174, 96, 0.1);
+        color: #27ae60;
+    }
+
+    .feature-card.insights .feature-icon {
+        background: rgba(243, 156, 18, 0.1);
+        color: #f39c12;
+    }
+
+    .feature-content h3 {
+        color: #2c3e50;
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin-bottom: 10px;
+    }
+
+    .feature-content p {
+        color: #7f8c8d;
+        margin: 0;
+        line-height: 1.5;
+    }
+
+    .feature-badge {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: #3498db;
+        color: white;
+        padding: 4px 10px;
+        border-radius: 10px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    /* Recent Activity */
+    .recent-activity {
+        background: white;
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+    }
+
+    .recent-activity .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+
+    .recent-activity .section-header h3 {
+        color: #2c3e50;
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .view-all {
+        color: #3498db;
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.3s ease;
+    }
+
+    .view-all:hover {
+        color: #2980b9;
+        text-decoration: none;
+    }
+
+    .activity-list {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .activity-item {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 15px;
+        border-radius: 12px;
+        transition: background 0.3s ease;
+    }
+
+    .activity-item:hover {
+        background: #f8f9fa;
+    }
+
+    .activity-icon {
+        width: 45px;
+        height: 45px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        color: white;
+    }
+
+    .activity-icon.income {
+        background: #27ae60;
+    }
+
+    .activity-icon.food {
+        background: #e67e22;
+    }
+
+    .activity-icon.shopping {
+        background: #9b59b6;
+    }
+
+    .activity-icon.transport {
+        background: #3498db;
+    }
+
+    .activity-icon.bills {
+        background: #e74c3c;
+    }
+
+    .activity-icon.entertainment {
+        background: #f1c40f;
+    }
+
+    .activity-icon.healthcare {
+        background: #e74c3c;
+    }
+
+    .activity-icon.loan {
+        background: #34495e;
+    }
+
+    .activity-icon.travel {
+        background: #1abc9c;
+    }
+
+    .activity-icon.other {
+        background: #95a5a6;
+    }
+
+    .activity-details {
+        flex: 1;
+    }
+
+    .activity-title {
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 4px;
+    }
+
+    .activity-meta {
+        display: flex;
+        gap: 15px;
+        font-size: 0.85rem;
+    }
+
+    .activity-meta .category {
+        color: #7f8c8d;
+    }
+
+    .activity-meta .date {
+        color: #95a5a6;
+    }
+
+    .activity-amount {
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+
+    .activity-amount.positive {
+        color: #27ae60;
+    }
+
+    .activity-amount.negative {
+        color: #e74c3c;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: #7f8c8d;
+    }
+
+    .empty-state i {
+        font-size: 3rem;
+        color: #bdc3c7;
+        margin-bottom: 15px;
+        display: block;
+    }
+
+    .empty-state h4 {
+        color: #2c3e50;
+        margin-bottom: 10px;
+    }
+
+    .empty-state p {
+        margin-bottom: 20px;
+    }
+
+    .btn-primary {
+        background: #3498db;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary:hover {
+        background: #2980b9;
+        color: white;
+        text-decoration: none;
+        transform: translateY(-1px);
+    }
+
+    /* Quick Actions */
+    .quick-actions {
+        background: white;
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+    }
+
+    .quick-actions h3 {
+        color: #2c3e50;
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 25px;
+    }
+
+    .actions-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+
+    .action-card {
+        background: #f8f9fa;
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 20px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .action-card:hover {
+        border-color: #3498db;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(52, 152, 219, 0.1);
+        text-decoration: none;
+    }
+
+    .action-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        background: rgba(52, 152, 219, 0.1);
+        color: #3498db;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+    }
+
+    .action-content h4 {
+        color: #2c3e50;
+        font-weight: 600;
+        margin-bottom: 5px;
+    }
+
+    .action-content p {
+        color: #7f8c8d;
+        margin: 0;
+        font-size: 0.9rem;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 1200px) {
+        .dashboard {
+            grid-template-columns: 300px 1fr;
+        }
+        
+        .features-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .dashboard {
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        
+        .welcome-section {
+            flex-direction: column;
+            text-align: center;
+            gap: 20px;
+        }
+        
+        .charts-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .actions-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .financial-overview .section-header {
+            flex-direction: column;
+            gap: 15px;
+            align-items: flex-start;
+        }
+        
+        .container {
+            padding: 15px;
+        }
+    }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Only initialize charts if we have financial data
+        {% if monthly_income > 0 %}
+        
+        // Overview Chart
+        const overviewCtx = document.getElementById('overviewChart').getContext('2d');
+        const overviewChart = new Chart(overviewCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Income', 'Expenses', 'Savings'],
+                datasets: [{
+                    data: [
+                        {{ monthly_income }},
+                        {{ monthly_expenses }},
+                        {{ monthly_savings }}
+                    ],
+                    backgroundColor: [
+                        'rgba(39, 174, 96, 0.8)',
+                        'rgba(231, 76, 60, 0.8)',
+                        'rgba(52, 152, 219, 0.8)'
+                    ],
+                    borderColor: [
+                        '#27ae60',
+                        '#e74c3c',
+                        '#3498db'
+                    ],
+                    borderWidth: 2,
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `₹${context.parsed.y.toLocaleString()}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '₹' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Financial Overview Time Filter
+        const overviewTimeFilter = document.getElementById('overviewTimeFilter');
+        if (overviewTimeFilter) {
+            overviewTimeFilter.addEventListener('change', function() {
+                const period = this.value;
+                fetch(`/analyzer/api/financial-overview/?period=${period}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Update the chart data
+                            if (typeof overviewChart !== 'undefined') {
+                                overviewChart.data.datasets[0].data = [
+                                    data.income,
+                                    data.expenses,
+                                    data.savings
+                                ];
+                                overviewChart.update();
+                            }
+                        }
+                    })
+                    .catch(error => console.error('Error fetching financial overview:', error));
+            });
+        }
+        {% endif %}
+
+        // Account selection
+        const accountCards = document.querySelectorAll('.account-card');
+        accountCards.forEach(card => {
+            card.addEventListener('click', function(e) {
+                if (e.target.closest('.account-delete-btn')) {
+                    return; // Don't handle clicks on delete button
+                }
+                accountCards.forEach(c => c.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        // Time filter functionality
+        const timeFilter = document.getElementById('overviewTimeFilter');
+        if (timeFilter) {
+            timeFilter.addEventListener('change', function() {
+                // Here you would reload data based on the selected time range
+                console.log('Time filter changed to:', this.value);
+            });
+        }
+
+        // Animate numbers
+        function animateValue(element, start, end, duration) {
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                const value = Math.floor(progress * (end - start) + start);
+                element.textContent = '₹' + value.toLocaleString();
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        }
+
+        // Animate stats on page load
+        setTimeout(() => {
+            const statValues = document.querySelectorAll('.stat-info p');
+            statValues.forEach(stat => {
+                const currentText = stat.textContent;
+                const value = parseFloat(currentText.replace('₹', '').replace(',', ''));
+                if (!isNaN(value) && value > 0) {
+                    animateValue(stat, 0, value, 2000);
+                }
+            });
+        }, 500);
+    });
+</script>
+
+<style>
+    .account-card-wrapper {
+        position: relative;
+        margin-bottom: 15px;
+    }
+    
+    .account-card {
+        display: block;
+        text-decoration: none;
+        color: inherit;
+        padding: 18px 20px;
+        background: white;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        margin-bottom: 0;
+        transition: all 0.3s;
+        cursor: pointer;
+    }
+    
+    .account-card:hover {
+        border-color: #007bff;
+        box-shadow: 0 4px 8px rgba(0, 123, 255, 0.1);
+        transform: translateY(-2px);
+    }
+    
+    .account-card.active {
+        border-color: #007bff;
+        background: #f0f8ff;
+    }
+    
+    .account-delete-btn {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #dc3545;
+        color: white;
+        border-radius: 50%;
+        text-decoration: none;
+        font-size: 12px;
+        transition: all 0.3s;
+        opacity: 0;
+        z-index: 10;
+    }
+    
+    .account-card-wrapper:hover .account-delete-btn {
+        opacity: 1;
+    }
+    
+    .account-delete-btn:hover {
+        background-color: #c82333;
+        transform: translateY(-50%) scale(1.15);
+    }
+</style>
+{% endblock %}

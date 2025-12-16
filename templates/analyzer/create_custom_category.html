@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Progress Bar -->
+            <div class="progress mb-4" style="height: 30px;">
+                <div class="progress-bar bg-primary" role="progressbar" style="width: 50%;" aria-valuenow="50" aria-valuemin="0" aria-valuemax="100">
+                    <span class="fw-bold text-white">Step 1 of 2</span>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Create Custom Category</h4>
+                        <a href="{% url 'custom_categories_list' %}" class="btn btn-light btn-sm">
+                            <i class="fas fa-arrow-left me-1"></i> Back
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    {% if messages %}
+                    <div class="mb-4">
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    <form method="post" id="createCategoryForm">
+                        {% csrf_token %}
+                        
+                        <!-- Category Name -->
+                        <div class="mb-4">
+                            <div class="form-group mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-tag me-1"></i>Category Name *
+                                </label>
+                                {{ form.name }}
+                                <small class="form-text text-muted d-block mt-2">
+                                    Examples: Entertainment Subscriptions, Online Shopping, Insurance Payments
+                                </small>
+                                {% if form.name.errors %}
+                                <div class="alert alert-danger mt-2">
+                                    {{ form.name.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="mb-4">
+                            <div class="form-group mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-align-left me-1"></i>Description (Optional)
+                                </label>
+                                {{ form.description }}
+                                <small class="form-text text-muted d-block mt-2">
+                                    Add details about what transactions belong to this category
+                                </small>
+                                {% if form.description.errors %}
+                                <div class="alert alert-danger mt-2">
+                                    {{ form.description.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Color -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label class="form-label fw-bold">
+                                        <i class="fas fa-palette me-1"></i>Color
+                                    </label>
+                                    <div class="input-group">
+                                        {{ form.color }}
+                                        <span class="input-group-text">
+                                            <div id="colorPreview" style="width: 30px; height: 30px; border-radius: 5px; background-color: #95a5a6;"></div>
+                                        </span>
+                                    </div>
+                                    <small class="form-text text-muted d-block mt-2">
+                                        Choose a color to identify this category
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label class="form-label fw-bold">
+                                        <i class="fas fa-icons me-1"></i>Icon (Optional)
+                                    </label>
+                                    {{ form.icon }}
+                                    <small class="form-text text-muted d-block mt-2">
+                                        FontAwesome icon: fa-film, fa-shopping-bag, fa-heart, etc.
+                                    </small>
+                                    {% if form.icon.errors %}
+                                    <div class="alert alert-danger mt-2">
+                                        {{ form.icon.errors }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Active Status -->
+                        <div class="mb-4">
+                            <div class="form-group">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-toggle-on me-1"></i>Status
+                                </label>
+                                <div class="form-check form-switch">
+                                    {{ form.is_active }}
+                                    <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                        Active
+                                    </label>
+                                </div>
+                                <small class="form-text text-muted d-block mt-2">
+                                    Only active categories can be used for rules
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- Info Alert -->
+                        <div class="alert alert-info mb-4">
+                            <div class="d-flex">
+                                <i class="fas fa-info-circle fa-2x me-3"></i>
+                                <div>
+                                    <strong>Next Step:</strong> After creating this category, you'll be able to define rules that automatically categorize transactions based on keywords, amount, and date conditions.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'custom_categories_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary" id="createBtn">
+                                <i class="fas fa-check me-1"></i> Create & Continue
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .progress {
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .card {
+        border: none;
+        border-radius: 10px;
+    }
+
+    .form-control, .form-select {
+        border-radius: 8px;
+        border: 2px solid #e9ecef;
+        padding: 10px 15px;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: #3498db;
+        box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+    }
+
+    .alert {
+        border-radius: 8px;
+        border: none;
+    }
+
+    .btn {
+        border-radius: 8px;
+        padding: 10px 20px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+    }
+</style>
+
+<script>
+    // Update color preview
+    document.getElementById('id_color').addEventListener('change', function() {
+        document.getElementById('colorPreview').style.backgroundColor = this.value;
+    });
+
+    // Initialize previews
+    document.addEventListener('DOMContentLoaded', function() {
+        const colorInput = document.getElementById('id_color');
+        
+        if (colorInput.value) {
+            document.getElementById('colorPreview').style.backgroundColor = colorInput.value;
+        }
+    });
+</script>
+{% endblock %}

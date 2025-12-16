@@ -1,0 +1,414 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="row">
+    <div class="col-md-12">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4>Rule Application Results</h4>
+        <div>
+          <form method="get" id="resultsFilterForm" class="d-flex gap-2">
+            <select name="account_id" class="form-select">
+              <option value="">All Accounts</option>
+              {% for account in accounts %}
+                <option value="{{ account.id }}" {% if selected_account_id and account.id == selected_account_id %}selected{% endif %}>{{ account.account_name }}</option>
+              {% endfor %}
+            </select>
+            {% if show_changed %}<input type="hidden" name="show_changed" value="1">{% endif %}
+            <button type="submit" class="btn btn-primary">Filter</button>
+          </form>
+        </div>
+      </div>
+
+      {% if not no_changes and rule_totals %}
+        <div class="row mb-4">
+          <div class="col-md-12">
+            <div class="card bg-light">
+              <div class="card-body">
+                <h6 class="card-title mb-3">Summary: Total Amount by Rule</h6>
+                <div class="row">
+                  {% for rt in rule_totals %}
+                    <div class="col-md-3 col-sm-6 mb-3">
+                      <div class="p-3 border rounded bg-white">
+                        <div class="d-flex justify-content-between align-items-start">
+                          <div>
+                            <p class="mb-1 text-muted small">{{ rt.rule_name }}</p>
+                            <h5 class="mb-0">₹{{ rt.total|floatformat:2 }}</h5>
+                            <small class="text-muted">{{ rt.count }} transaction{% if rt.count != 1 %}s{% endif %}</small>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Apply Custom Category Button -->
+      <div class="mt-4 mb-4">
+          <button class="btn btn-outline-success" id="toggleRulesCustomCategoryBtn" onclick="toggleRulesCustomCategoryPanel()">
+              <i class="fas fa-layer-group me-1"></i> Apply Custom Category to Transactions
+          </button>
+          <div id="rulesApplyStatus" style="display: none; margin-top: 10px;"></div>
+      </div>
+
+      <!-- Custom Category Application Panel (Hidden by default) -->
+      <div id="rulesCustomCategoryPanel" class="card shadow-sm" style="display: none; margin-bottom: 30px;">
+          <div class="card-header bg-success text-white">
+              <div class="d-flex justify-content-between align-items-center">
+                  <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>Apply Custom Category</h5>
+                  <button type="button" class="btn btn-light btn-sm" onclick="toggleRulesCustomCategoryPanel()">
+                      <i class="fas fa-times"></i>
+                  </button>
+              </div>
+          </div>
+          <div class="card-body">
+              {% if custom_categories %}
+                  <p class="text-muted mb-3">Select one or more custom categories to filter and display matching transactions:</p>
+                  <form id="rulesCustomCategoryForm">
+                      {% csrf_token %}
+                      <div class="list-group">
+                          {% for category in custom_categories %}
+                          <div class="list-group-item">
+                              <div class="d-flex align-items-center">
+                                  <input class="form-check-input me-3" type="checkbox" name="category_ids" id="rules_category_{{ category.id }}" value="{{ category.id }}">
+                                  <label class="form-check-label flex-grow-1 cursor-pointer" for="rules_category_{{ category.id }}">
+                                      <div class="d-flex align-items-center">
+                                          <i class="fas fa-circle me-2" style="color: {{ category.color }};"></i>
+                                          <strong>{{ category.name }}</strong>
+                                          {% if category.description %}
+                                          <span class="text-muted ms-2">({{ category.description }})</span>
+                                          {% endif %}
+                                      </div>
+                                  </label>
+                              </div>
+                          </div>
+                          {% endfor %}
+                      </div>
+
+                      <div class="alert alert-info mt-4">
+                          <i class="fas fa-info-circle me-2"></i>
+                          <strong>How it works:</strong> Select one or more categories above. Transactions matching any of the selected categories will be displayed. Click "Clear Filter" to show all transactions again.
+                      </div>
+
+                      <div class="d-flex justify-content-between mt-4">
+                          <div>
+                              <button type="button" class="btn btn-outline-secondary" onclick="clearRulesCustomCategoryFilter()">
+                                  <i class="fas fa-times me-1"></i> Clear Filter
+                              </button>
+                              <button type="button" class="btn btn-outline-secondary ms-2" onclick="toggleRulesCustomCategoryPanel()">
+                                  <i class="fas fa-times me-1"></i> Cancel
+                              </button>
+                          </div>
+                          <button type="button" class="btn btn-success" id="rulesApplyBtn" onclick="applyRulesCustomCategoryFilter()">
+                              <i class="fas fa-check me-1"></i> Apply Filter
+                          </button>
+                      </div>
+                  </form>
+              {% else %}
+                  <div class="alert alert-warning">
+                      <i class="fas fa-exclamation-triangle me-2"></i>
+                      <strong>No custom categories found.</strong> 
+                      <a href="{% url 'create_custom_category' %}" class="alert-link">Create a custom category first</a> to apply it to transactions.
+                  </div>
+              {% endif %}
+          </div>
+      </div>
+
+      <!-- Export Results -->
+      <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="mb-0">Filtered Results</h5>
+          <button class="btn btn-success btn-sm" onclick="downloadRulesExcel()">
+              <i class="fas fa-download me-1"></i> Download Excel
+          </button>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <table class="table table-striped">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Account</th>
+                <th>Description</th>
+                <th>Amount</th>
+                {% if show_changed %}
+                  <th>Previous Category</th>
+                {% endif %}
+                <th>Current Category</th>
+                <th>Matched Rule</th>
+                <th>Matched Category</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if no_changes %}
+                <tr>
+                  <td colspan="{{ colspan }}" class="text-center py-4">
+                    <div class="mb-2">
+                      <i class="fas fa-info-circle fa-2x text-muted"></i>
+                    </div>
+                    <h5>No transactions were changed by the last apply.</h5>
+                    <p class="text-muted mb-3">Either no rules matched, or the selected account had no matching transactions.</p>
+                    <a href="{% url 'rules_application_results' %}{% if selected_account_id %}?account_id={{ selected_account_id }}{% endif %}" class="btn btn-outline-primary me-2">View All Transactions</a>
+                    <a href="{% url 'rules_list' %}" class="btn btn-outline-secondary">Back to Rules</a>
+                  </td>
+                </tr>
+              {% else %}
+                {% for r in results %}
+                  {% if r.matched_rule_name or r.matched_custom_category_name %}
+                    <tr data-transaction-id="{{ r.id }}">
+                      <td>{{ r.date }}</td>
+                      <td>{{ r.account_name }}</td>
+                      <td>{{ r.description|truncatechars:80 }}</td>
+                      <td>₹{{ r.amount }}</td>
+                      {% if show_changed %}
+                        <td>{{ r.previous_category|default:'-' }}</td>
+                      {% endif %}
+                      <td>{{ r.current_category }}</td>
+                      <td>
+                        {% if r.matched_rule_name %}
+                          <span class="badge bg-primary">{{ r.matched_rule_name }}</span>
+                        {% else %}
+                          <span class="text-muted">-</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        {% if r.matched_custom_category_name %}
+                          <span class="badge bg-success">{{ r.matched_custom_category_name }}</span>
+                        {% else %}
+                          <span class="text-muted">-</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% endif %}
+                {% empty %}
+                  <tr><td colspan="{{ colspan }}" class="text-center">No transactions found.</td></tr>
+                {% endfor %}
+                {% if results|length == 0 %}
+                  <tr><td colspan="{{ colspan }}" class="text-center">No matched transactions found.</td></tr>
+                {% endif %}
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Toggle custom category panel visibility
+function toggleRulesCustomCategoryPanel() {
+    const panel = document.getElementById('rulesCustomCategoryPanel');
+    if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        document.getElementById('toggleRulesCustomCategoryBtn').classList.add('active');
+    } else {
+        panel.style.display = 'none';
+        document.getElementById('toggleRulesCustomCategoryBtn').classList.remove('active');
+    }
+}
+
+// Apply custom category filter
+function applyRulesCustomCategoryFilter() {
+    const checkboxes = document.querySelectorAll('#rulesCustomCategoryForm input[type="checkbox"]:checked');
+    
+    if (checkboxes.length === 0) {
+        showRulesNotification('error', 'Please select at least one category', 'rulesApplyStatus');
+        return;
+    }
+
+    const categoryIds = Array.from(checkboxes).map(cb => cb.value);
+    
+    // Show loading state
+    document.getElementById('rulesApplyBtn').disabled = true;
+    document.getElementById('rulesApplyBtn').innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Applying...';
+
+    // Prepare form data
+    const formData = new FormData();
+    categoryIds.forEach(id => formData.append('category_ids', id));
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+    // Send AJAX request
+    fetch('/analyzer/apply-custom-category-rules/', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('rulesApplyBtn').disabled = false;
+        document.getElementById('rulesApplyBtn').innerHTML = '<i class="fas fa-check me-1"></i> Apply Filter';
+
+        if (data.success) {
+            // Filter table rows
+            filterRulesTransactionsByIds(data.matched_transaction_ids);
+            showRulesNotification('success', `Found ${data.matched_transaction_ids.length} matching transaction(s)`, 'rulesApplyStatus');
+            toggleRulesCustomCategoryPanel();
+        } else {
+            showRulesNotification('error', data.message || 'Error applying category filter', 'rulesApplyStatus');
+        }
+    })
+    .catch(error => {
+        document.getElementById('rulesApplyBtn').disabled = false;
+        document.getElementById('rulesApplyBtn').innerHTML = '<i class="fas fa-check me-1"></i> Apply Filter';
+        console.error('Error:', error);
+        showRulesNotification('error', 'An error occurred while applying the filter', 'rulesApplyStatus');
+    });
+}
+
+// Filter transactions in rules results table
+function filterRulesTransactionsByIds(transactionIds) {
+    const table = document.querySelector('table tbody');
+    const rows = table.querySelectorAll('tr');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        const transactionId = row.getAttribute('data-transaction-id');
+        if (transactionId && transactionIds.includes(parseInt(transactionId))) {
+            row.style.display = '';
+            visibleCount++;
+        } else if (transactionId) {
+            row.style.display = 'none';
+        }
+    });
+
+    if (visibleCount === 0) {
+        // Show "no results" message if all rows are hidden
+        const thead = document.querySelector('table thead');
+        const colSpan = thead.querySelector('tr').querySelectorAll('th').length;
+        let noResultsRow = table.querySelector('.no-filter-results');
+        if (!noResultsRow) {
+            noResultsRow = document.createElement('tr');
+            noResultsRow.className = 'no-filter-results';
+            noResultsRow.innerHTML = `<td colspan="${colSpan}" class="text-center py-4 text-muted">No transactions match the selected categories</td>`;
+            table.appendChild(noResultsRow);
+        }
+    } else {
+        // Remove "no results" message if it exists
+        const noResultsRow = table.querySelector('.no-filter-results');
+        if (noResultsRow) {
+            noResultsRow.remove();
+        }
+    }
+}
+
+// Clear custom category filter and show all transactions
+function clearRulesCustomCategoryFilter() {
+    // Uncheck all checkboxes
+    document.querySelectorAll('#rulesCustomCategoryForm input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+    });
+
+    // Show all table rows
+    showRulesAllTransactions();
+    showRulesNotification('success', 'Filter cleared - showing all transactions', 'rulesApplyStatus');
+    toggleRulesCustomCategoryPanel();
+}
+
+// Show all transactions in rules results table
+function showRulesAllTransactions() {
+    const table = document.querySelector('table tbody');
+    const rows = table.querySelectorAll('tr');
+    
+    rows.forEach(row => {
+        row.style.display = '';
+    });
+
+    // Remove "no results" message if it exists
+    const noResultsRow = table.querySelector('.no-filter-results');
+    if (noResultsRow) {
+        noResultsRow.remove();
+    }
+}
+
+// Show notification message
+function showRulesNotification(type, message, elementId) {
+    const statusDiv = document.getElementById(elementId);
+    
+    let alertClass = 'alert-info';
+    let icon = 'info-circle';
+    
+    if (type === 'success') {
+        alertClass = 'alert-success';
+        icon = 'check-circle';
+    } else if (type === 'error') {
+        alertClass = 'alert-danger';
+        icon = 'exclamation-circle';
+    }
+
+    statusDiv.innerHTML = `<div class="alert ${alertClass} mb-0"><i class="fas fa-${icon} me-2"></i>${message}</div>`;
+    statusDiv.style.display = 'block';
+
+    // Auto-hide success messages after 5 seconds
+    if (type === 'success') {
+        setTimeout(() => {
+            statusDiv.style.display = 'none';
+        }, 5000);
+    }
+}
+
+// Download Excel file - Table only (client-side using html2csv)
+function downloadRulesExcel() {
+    const table = document.querySelector('table');
+    
+    if (!table) {
+        alert('No table found to download');
+        return;
+    }
+    
+    // Get all visible rows
+    const rows = table.querySelectorAll('tbody tr');
+    
+    if (rows.length === 0) {
+        alert('No data to download. Apply rules first to see results.');
+        return;
+    }
+    
+    // Extract table data
+    let csvContent = '';
+    
+    // Add headers
+    const headerCells = table.querySelectorAll('thead th');
+    const headers = Array.from(headerCells).map(cell => {
+        let text = cell.textContent.trim();
+        // Escape quotes in text
+        text = text.replace(/"/g, '""');
+        return `"${text}"`;
+    });
+    csvContent += headers.join(',') + '\n';
+    
+    // Add rows
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        const rowData = Array.from(cells).map(cell => {
+            let text = cell.textContent.trim();
+            // Remove any extra whitespace
+            text = text.replace(/\s+/g, ' ');
+            // Escape quotes
+            text = text.replace(/"/g, '""');
+            return `"${text}"`;
+        });
+        csvContent += rowData.join(',') + '\n';
+    });
+    
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'rule_results_' + new Date().getTime() + '.csv');
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+</script>
+
+{% endblock %}

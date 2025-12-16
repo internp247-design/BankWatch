@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">
+            <i class="fas fa-cogs text-primary me-2"></i>Rules Engine
+        </h1>
+        <div>
+            <a href="{% url 'create_rule' %}" class="btn btn-primary me-2">
+                <i class="fas fa-plus"></i> Create Rule
+            </a>
+            <a href="{% url 'rules_categorized' %}" class="btn btn-outline-primary me-2">
+                <i class="fas fa-list-ul"></i> View By Category
+            </a>
+            <a href="{% url 'apply_rules' %}" class="btn btn-success me-2">
+                <i class="fas fa-play"></i> Apply Rules
+            </a>
+            <a href="{% url 'test_rules' %}" class="btn btn-info">
+                <i class="fas fa-vial"></i> Test Rules
+            </a>
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="mb-0"><i class="fas fa-list me-2"></i>Your Categorization Rules</h5>
+        </div>
+        <div class="card-body">
+            {% if rules %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Rule Name</th>
+                            <th>Category</th>
+                            <th>Type</th>
+                            <th>Conditions</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rule in rules %}
+                        <tr>
+                            <td>
+                                <strong>{{ rule.name }}</strong>
+                                <br>
+                                <small class="text-muted">Created: {{ rule.created_at|date:"M d, Y" }}</small>
+                            </td>
+                            <td>
+                                <span class="badge" style="background-color: {{ rule.get_category_color }}">
+                                    <i class="fas {{ rule.get_category_icon }} me-1"></i>
+                                    {{ rule.get_category_display }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if rule.rule_type == 'AND' %}
+                                    <span class="badge bg-info">ALL Conditions</span>
+                                {% else %}
+                                    <span class="badge bg-warning">ANY Condition</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="condition-list">
+                                    {% for condition in rule.conditions.all %}
+                                    <div class="condition-item">
+                                        <small class="text-muted">
+                                            <i class="fas fa-check-circle text-success me-1"></i>
+                                            {{ condition }}
+                                        </small>
+                                    </div>
+                                    {% empty %}
+                                    <small class="text-muted">No conditions</small>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td>
+                                {% if rule.is_active %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check-circle"></i> Active
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary">
+                                        <i class="fas fa-pause-circle"></i> Inactive
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'edit_rule' rule.id %}" class="btn btn-outline-primary">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-outline-danger" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#deleteModal{{ rule.id }}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                                
+                                <!-- Delete Modal -->
+                                <div class="modal fade" id="deleteModal{{ rule.id }}" tabindex="-1">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Confirm Delete</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p>Are you sure you want to delete the rule:</p>
+                                                <p class="fw-bold">"{{ rule.name }}"</p>
+                                                <p class="text-danger">This action cannot be undone.</p>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <form method="post" action="{% url 'delete_rule' rule.id %}">
+                                                    {% csrf_token %}
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                    <button type="submit" class="btn btn-danger">Delete Rule</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <div class="mb-4">
+                    <i class="fas fa-cogs fa-4x text-muted"></i>
+                </div>
+                <h4 class="mb-3">No Rules Created Yet</h4>
+                <p class="text-muted mb-4">Create rules to automatically categorize your transactions based on keywords, amounts, dates, or payment sources.</p>
+                <a href="{% url 'create_rule' %}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-plus-circle me-2"></i>Create Your First Rule
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-lightbulb fa-2x text-warning"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="mb-1">How Rules Work</h6>
+                            <p class="text-muted small mb-0">Rules automatically categorize transactions based on your conditions.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-magic fa-2x text-primary"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="mb-1">Apply Rules</h6>
+                            <p class="text-muted small mb-0">Apply rules to all existing transactions with one click.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-vial fa-2x text-success"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="mb-1">Test Rules</h6>
+                            <p class="text-muted small mb-0">Test your rules with sample transactions before applying.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.condition-list .condition-item {
+    margin-bottom: 4px;
+    padding: 4px 8px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border-left: 3px solid #28a745;
+}
+.badge {
+    padding: 6px 10px;
+    border-radius: 6px;
+}
+.table th {
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.card {
+    border: none;
+    border-radius: 12px;
+}
+.btn-group-sm .btn {
+    padding: 5px 10px;
+}
+</style>
+{% endblock %}

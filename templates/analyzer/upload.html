@@ -1,0 +1,664 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container">
+    <div class="upload-container">
+        <div class="upload-header">
+            <i class="fas fa-file-upload"></i>
+            <h1>Upload Bank Statement</h1>
+            <p>Get instant insights into your finances</p>
+        </div>
+
+        <div class="upload-card">
+            <form method="post" enctype="multipart/form-data" id="uploadForm">
+                {% csrf_token %}
+                
+                <div class="form-section">
+                    <h3><i class="fas fa-wallet"></i> Select Account</h3>
+                    <div class="account-select">
+                        {{ form.account }}
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3><i class="fas fa-file-upload"></i> Upload Statement</h3>
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-icon">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                        </div>
+                        <div class="upload-text">
+                            <h4>Drag & drop your bank statement</h4>
+                            <p>Supported formats: PDF, Excel (XLS/XLSX), CSV</p>
+                            <p class="file-size">Max file size: 10MB</p>
+                        </div>
+                        <input type="file" id="fileInput" name="statement_file" 
+                               accept=".pdf,.xlsx,.xls,.csv" hidden>
+                        <button type="button" class="browse-btn" onclick="document.getElementById('fileInput').click()">
+                            Browse Files
+                        </button>
+                    </div>
+                    <div class="file-preview" id="filePreview" style="display: none;">
+                        <div class="file-info">
+                            <i class="fas" id="fileIcon"></i>
+                            <div class="file-details">
+                                <span class="file-name" id="fileName"></span>
+                                <span class="file-size" id="fileSize"></span>
+                                <span class="file-type" id="fileType"></span>
+                            </div>
+                            <button type="button" class="remove-btn" onclick="removeFile()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Supported Formats Info -->
+                    <div class="supported-formats mt-3">
+                        <h5><i class="fas fa-info-circle"></i> Supported Formats:</h5>
+                        <div class="format-cards">
+                            <div class="format-card pdf">
+                                <i class="fas fa-file-pdf"></i>
+                                <span>PDF Files</span>
+                                <small>.pdf</small>
+                            </div>
+                            <div class="format-card excel">
+                                <i class="fas fa-file-excel"></i>
+                                <span>Excel Files</span>
+                                <small>.xlsx, .xls</small>
+                            </div>
+                            <div class="format-card csv">
+                                <i class="fas fa-file-csv"></i>
+                                <span>CSV Files</span>
+                                <small>.csv</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <div class="info-icon">
+                        <i class="fas fa-info-circle"></i>
+                    </div>
+                    <div class="info-content">
+                        <h4>How it works</h4>
+                        <ul>
+                            <li>Upload your bank statement in PDF, Excel, or CSV format</li>
+                            <li>We automatically extract and categorize transactions</li>
+                            <li>Get detailed analysis with charts and insights</li>
+                            <li>Your data is secure and private</li>
+                            <li>Supports all major Indian banks</li>
+                        </ul>
+                    </div>
+                </div>
+
+                {% if error %}
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i> {{ error }}
+                </div>
+                {% endif %}
+
+                <button type="submit" class="analyze-btn" id="analyzeBtn" disabled>
+                    <i class="fas fa-rocket"></i>
+                    <span>Analyze Statement</span>
+                    <div class="loading-spinner" style="display: none;">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </div>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .upload-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 40px 20px;
+    }
+
+    .upload-header {
+        text-align: center;
+        margin-bottom: 40px;
+    }
+
+    .upload-header i {
+        font-size: 4rem;
+        color: #3498db;
+        margin-bottom: 20px;
+        display: block;
+    }
+
+    .upload-header h1 {
+        color: #2c3e50;
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+        font-weight: 700;
+    }
+
+    .upload-header p {
+        color: #7f8c8d;
+        font-size: 1.2rem;
+    }
+
+    .upload-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        padding: 40px;
+        border: 1px solid #e1e5e9;
+    }
+
+    .form-section {
+        margin-bottom: 30px;
+    }
+
+    .form-section h3 {
+        color: #2c3e50;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 600;
+    }
+
+    .form-section h3 i {
+        color: #3498db;
+    }
+
+    .account-select select {
+        width: 100%;
+        padding: 15px;
+        border: 2px solid #e1e5e9;
+        border-radius: 10px;
+        font-size: 1rem;
+        background: #f8f9fa;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .account-select select:focus {
+        outline: none;
+        border-color: #3498db;
+        background: white;
+        box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+    }
+
+    .upload-area {
+        border: 3px dashed #bdc3c7;
+        border-radius: 15px;
+        padding: 50px 30px;
+        text-align: center;
+        transition: all 0.3s ease;
+        background: #fafbfc;
+        cursor: pointer;
+    }
+
+    .upload-area:hover {
+        border-color: #3498db;
+        background: #f0f8ff;
+    }
+
+    .upload-area.dragover {
+        border-color: #3498db;
+        background: #e3f2fd;
+        transform: scale(1.02);
+    }
+
+    .upload-icon {
+        font-size: 3rem;
+        color: #bdc3c7;
+        margin-bottom: 20px;
+        transition: color 0.3s ease;
+    }
+
+    .upload-area:hover .upload-icon {
+        color: #3498db;
+    }
+
+    .upload-text h4 {
+        color: #2c3e50;
+        margin-bottom: 10px;
+        font-weight: 600;
+    }
+
+    .upload-text p {
+        color: #7f8c8d;
+        margin: 5px 0;
+    }
+
+    .file-size {
+        font-size: 0.9rem;
+        color: #95a5a6 !important;
+    }
+
+    .browse-btn {
+        background: #3498db;
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 25px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-top: 15px;
+    }
+
+    .browse-btn:hover {
+        background: #2980b9;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+    }
+
+    .file-preview {
+        margin-top: 20px;
+        animation: slideDown 0.3s ease;
+    }
+
+    .file-info {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        background: #e8f4fd;
+        padding: 15px 20px;
+        border-radius: 10px;
+        border-left: 4px solid;
+    }
+
+    .file-info i {
+        font-size: 2rem;
+    }
+
+    .file-details {
+        flex: 1;
+    }
+
+    .file-name {
+        display: block;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 5px;
+    }
+
+    .file-size, .file-type {
+        display: block;
+        font-size: 0.9rem;
+        color: #7f8c8d;
+    }
+
+    .file-type {
+        background: #3498db;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        display: inline-block;
+        margin-top: 5px;
+    }
+
+    .remove-btn {
+        background: none;
+        border: none;
+        color: #e74c3c;
+        cursor: pointer;
+        padding: 5px;
+        border-radius: 50%;
+        transition: background 0.3s ease;
+    }
+
+    .remove-btn:hover {
+        background: #ffebee;
+    }
+
+    .supported-formats {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 10px;
+        margin-top: 20px;
+    }
+
+    .supported-formats h5 {
+        color: #2c3e50;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .format-cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
+    }
+
+    .format-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 15px;
+        border-radius: 8px;
+        background: white;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+
+    .format-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .format-card.pdf {
+        border-color: #e74c3c;
+    }
+
+    .format-card.excel {
+        border-color: #27ae60;
+    }
+
+    .format-card.csv {
+        border-color: #3498db;
+    }
+
+    .format-card i {
+        font-size: 2rem;
+        margin-bottom: 10px;
+    }
+
+    .format-card.pdf i {
+        color: #e74c3c;
+    }
+
+    .format-card.excel i {
+        color: #27ae60;
+    }
+
+    .format-card.csv i {
+        color: #3498db;
+    }
+
+    .format-card span {
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 5px;
+    }
+
+    .format-card small {
+        color: #7f8c8d;
+        font-size: 0.8rem;
+    }
+
+    .info-box {
+        background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+        border-radius: 15px;
+        padding: 25px;
+        margin: 30px 0;
+        display: flex;
+        gap: 20px;
+        border-left: 4px solid #3498db;
+    }
+
+    .info-icon {
+        font-size: 1.5rem;
+        color: #3498db;
+    }
+
+    .info-content h4 {
+        color: #2c3e50;
+        margin-bottom: 10px;
+        font-weight: 600;
+    }
+
+    .info-content ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .info-content li {
+        color: #5d6d7e;
+        margin-bottom: 8px;
+        position: relative;
+        padding-left: 20px;
+    }
+
+    .info-content li:before {
+        content: "✓";
+        color: #27ae60;
+        font-weight: bold;
+        position: absolute;
+        left: 0;
+    }
+
+    .analyze-btn {
+        width: 100%;
+        background: linear-gradient(135deg, #27ae60, #2ecc71);
+        color: white;
+        border: none;
+        padding: 18px;
+        border-radius: 12px;
+        font-size: 1.2rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+    }
+
+    .analyze-btn:enabled:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 25px rgba(39, 174, 96, 0.3);
+    }
+
+    .analyze-btn:disabled {
+        background: #bdc3c7;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+
+    .loading-spinner {
+        margin-left: 10px;
+    }
+
+    .alert-danger {
+        background: #fee;
+        color: #c00;
+        padding: 15px;
+        border-radius: 8px;
+        border-left: 4px solid #c00;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .alert-danger i {
+        font-size: 1.2rem;
+    }
+
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .upload-container {
+            padding: 20px 15px;
+        }
+        
+        .upload-card {
+            padding: 25px;
+        }
+        
+        .upload-header h1 {
+            font-size: 2rem;
+        }
+        
+        .upload-area {
+            padding: 30px 20px;
+        }
+        
+        .info-box {
+            flex-direction: column;
+            text-align: center;
+        }
+        
+        .format-cards {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const filePreview = document.getElementById('filePreview');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const fileType = document.getElementById('fileType');
+        const fileIcon = document.getElementById('fileIcon');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const uploadForm = document.getElementById('uploadForm');
+
+        // Click to browse
+        uploadArea.addEventListener('click', function(e) {
+            if (e.target.classList.contains('browse-btn')) return;
+            fileInput.click();
+        });
+
+        // File selection
+        fileInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                handleFileSelection(this.files[0]);
+            }
+        });
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', function() {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                const file = e.dataTransfer.files[0];
+                const allowedTypes = ['application/pdf', 
+                                    'application/vnd.ms-excel',
+                                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                    'text/csv'];
+                const allowedExtensions = ['.pdf', '.xlsx', '.xls', '.csv'];
+                
+                const fileExt = '.' + file.name.split('.').pop().toLowerCase();
+                
+                if (allowedExtensions.includes(fileExt)) {
+                    fileInput.files = e.dataTransfer.files;
+                    handleFileSelection(file);
+                } else {
+                    alert('Please upload a PDF, Excel, or CSV file.');
+                }
+            }
+        });
+
+        function handleFileSelection(file) {
+            const allowedExtensions = ['.pdf', '.xlsx', '.xls', '.csv'];
+            const fileExt = '.' + file.name.split('.').pop().toLowerCase();
+            
+            if (!allowedExtensions.includes(fileExt)) {
+                alert('Please upload a PDF, Excel, or CSV file.');
+                return;
+            }
+
+            if (file.size > 10 * 1024 * 1024) { // 10MB
+                alert('File size must be less than 10MB.');
+                return;
+            }
+
+            // Set file icon based on type
+            let iconClass = 'fas fa-file';
+            let typeText = 'Unknown';
+            let borderColor = '#3498db';
+            
+            if (fileExt === '.pdf') {
+                iconClass = 'fas fa-file-pdf';
+                typeText = 'PDF';
+                borderColor = '#e74c3c';
+            } else if (fileExt === '.xlsx' || fileExt === '.xls') {
+                iconClass = 'fas fa-file-excel';
+                typeText = 'Excel';
+                borderColor = '#27ae60';
+            } else if (fileExt === '.csv') {
+                iconClass = 'fas fa-file-csv';
+                typeText = 'CSV';
+                borderColor = '#3498db';
+            }
+
+            // Show file preview
+            fileName.textContent = file.name;
+            fileSize.textContent = formatFileSize(file.size);
+            fileType.textContent = typeText;
+            fileIcon.className = iconClass;
+            fileIcon.style.color = borderColor;
+            
+            filePreview.style.display = 'block';
+            
+            // Update file info border color
+            const fileInfo = filePreview.querySelector('.file-info');
+            fileInfo.style.borderLeftColor = borderColor;
+            
+            // Enable analyze button
+            analyzeBtn.disabled = false;
+            
+            // Update upload area appearance
+            uploadArea.style.borderColor = borderColor;
+            uploadArea.style.background = getBackgroundColor(borderColor);
+        }
+
+        function getBackgroundColor(borderColor) {
+            const colors = {
+                '#e74c3c': '#fdedec',
+                '#27ae60': '#e8f8ef',
+                '#3498db': '#ebf5fb'
+            };
+            return colors[borderColor] || '#f0f9f0';
+        }
+
+        function removeFile() {
+            fileInput.value = '';
+            filePreview.style.display = 'none';
+            analyzeBtn.disabled = true;
+            uploadArea.style.borderColor = '#bdc3c7';
+            uploadArea.style.background = '#fafbfc';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Form submission
+        uploadForm.addEventListener('submit', function() {
+            analyzeBtn.disabled = true;
+            analyzeBtn.querySelector('span').textContent = 'Analyzing...';
+            analyzeBtn.querySelector('.loading-spinner').style.display = 'block';
+        });
+    });
+</script>
+{% endblock %}

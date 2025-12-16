@@ -1,0 +1,846 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid account-details-container">
+    <!-- Header Section -->
+    <div class="account-header-section">
+        <div class="header-top">
+            <div class="header-info">
+                <div class="breadcrumb-nav">
+                    <a href="{% url 'dashboard' %}"><i class="fas fa-home"></i> Dashboard</a>
+                    <span>/</span>
+                    <span>{{ account.account_name }}</span>
+                </div>
+                <h1 class="account-title">{{ account.account_name }}</h1>
+                <p class="account-subtitle">{{ account.bank_name }} • {{ account.account_number|default:"**** 0000" }}</p>
+            </div>
+            <div class="header-actions">
+                <a href="{% url 'dashboard' %}" class="btn btn-outline">
+                    <i class="fas fa-arrow-left"></i> Back
+                </a>
+                <a href="{% url 'delete_account' account.id %}" class="btn btn-danger">
+                    <i class="fas fa-trash-alt"></i> Delete
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards Section -->
+    <div class="summary-section">
+        <div class="cards-grid">
+            <div class="summary-card income">
+                <div class="card-icon">
+                    <i class="fas fa-arrow-down"></i>
+                </div>
+                <div class="card-body">
+                    <h4>Total Income</h4>
+                    <p class="amount">₹{{ monthly_income|floatformat:2 }}</p>
+                </div>
+            </div>
+
+            <div class="summary-card expenses">
+                <div class="card-icon">
+                    <i class="fas fa-arrow-up"></i>
+                </div>
+                <div class="card-body">
+                    <h4>Total Expenses</h4>
+                    <p class="amount">₹{{ monthly_expenses|floatformat:2 }}</p>
+                </div>
+            </div>
+
+            <div class="summary-card savings">
+                <div class="card-icon">
+                    <i class="fas fa-piggy-bank"></i>
+                </div>
+                <div class="card-body">
+                    <h4>Net Savings</h4>
+                    <p class="amount">₹{{ monthly_savings|floatformat:2 }}</p>
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="charts-section">
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="chart-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-chart-bar"></i> Spending Overview</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-wrapper">
+                            <canvas id="spendingChart" height="300"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="chart-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-pie-chart"></i> Spending by Category</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-wrapper">
+                            <canvas id="categoryChart" height="350"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="chart-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-info-circle"></i> Account Information</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <span class="info-label">Bank Name</span>
+                                <span class="info-value">{{ account.bank_name }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Account Name</span>
+                                <span class="info-value">{{ account.account_name }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Account Type</span>
+                                <span class="info-value">{{ account.account_type|default:"Not specified" }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Account Number</span>
+                                <span class="info-value">{{ account.account_number|default:"Not specified" }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">IFSC Code</span>
+                                <span class="info-value">{{ account.ifsc_code|default:"Not specified" }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Created On</span>
+                                <span class="info-value">{{ account.created_at|date:"M d, Y" }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transactions Section -->
+    <div class="transactions-section">
+        <div class="section-title">
+            <h2><i class="fas fa-list"></i> Transaction History</h2>
+            <span class="transaction-badge">{{ transactions|length }} transactions</span>
+        </div>
+
+        {% if transactions %}
+        <div class="transactions-table-wrapper">
+            <table class="transactions-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Category</th>
+                        <th>Type</th>
+                        <th class="text-right">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for transaction in recent_transactions %}
+                    <tr class="transaction-row">
+                        <td class="date-cell">{{ transaction.date|date:"d M, Y" }}</td>
+                        <td class="description-cell">{{ transaction.description|truncatewords:8 }}</td>
+                        <td class="category-cell">
+                            <span class="category-badge">{{ transaction.get_category_display }}</span>
+                        </td>
+                        <td class="type-cell">
+                            {% if transaction.transaction_type == 'CREDIT' %}
+                                <span class="type-badge credit"><i class="fas fa-arrow-down"></i> Credit</span>
+                            {% else %}
+                                <span class="type-badge debit"><i class="fas fa-arrow-up"></i> Debit</span>
+                            {% endif %}
+                        </td>
+                        <td class="amount-cell {% if transaction.transaction_type == 'CREDIT' %}positive{% else %}negative{% endif %}">
+                            {% if transaction.transaction_type == 'CREDIT' %}
+                                <span class="amount-plus">+₹{{ transaction.amount|floatformat:2 }}</span>
+                            {% else %}
+                                <span class="amount-minus">-₹{{ transaction.amount|floatformat:2 }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">
+                <i class="fas fa-inbox"></i>
+            </div>
+            <h4>No Transactions Found</h4>
+            <p>This account doesn't have any transactions yet.</p>
+            <a href="{% url 'upload_statement' %}" class="btn btn-primary">
+                <i class="fas fa-file-upload"></i> Upload Statement
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    :root {
+        --primary-color: #667eea;
+        --secondary-color: #764ba2;
+        --success-color: #28a745;
+        --danger-color: #dc3545;
+        --warning-color: #ffc107;
+        --light-bg: #f8f9fa;
+        --border-color: #e0e0e0;
+    }
+
+    .account-details-container {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        min-height: 100vh;
+        padding: 30px 0;
+    }
+
+    /* Header Section */
+    .account-header-section {
+        background: white;
+        padding: 30px 0;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        margin-bottom: 30px;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+    }
+
+    .header-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 30px;
+    }
+
+    .breadcrumb-nav {
+        font-size: 13px;
+        color: #999;
+        margin-bottom: 12px;
+    }
+
+    .breadcrumb-nav a {
+        color: var(--primary-color);
+        text-decoration: none;
+        transition: color 0.3s;
+    }
+
+    .breadcrumb-nav a:hover {
+        color: var(--secondary-color);
+    }
+
+    .account-title {
+        font-size: 32px;
+        font-weight: 700;
+        color: #2c3e50;
+        margin: 0 0 8px 0;
+    }
+
+    .account-subtitle {
+        font-size: 16px;
+        color: #7f8c8d;
+        margin: 0;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 12px;
+    }
+
+    .btn {
+        padding: 10px 20px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        border: none;
+        transition: all 0.3s ease;
+    }
+
+    .btn-outline {
+        background: white;
+        color: #333;
+        border: 2px solid var(--border-color);
+    }
+
+    .btn-outline:hover {
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+        background: #f5f7fa;
+    }
+
+    .btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .btn-danger:hover {
+        background: #c82333;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+    }
+
+    /* Summary Cards */
+    .summary-section {
+        padding: 0 20px 30px;
+    }
+
+    .cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+    }
+
+    .summary-card {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        transition: all 0.3s ease;
+        border-left: 5px solid;
+    }
+
+    .summary-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    }
+
+    .summary-card.income {
+        border-left-color: var(--success-color);
+    }
+
+    .summary-card.expenses {
+        border-left-color: var(--danger-color);
+    }
+
+    .summary-card.savings {
+        border-left-color: var(--primary-color);
+    }
+
+    .summary-card.health {
+        border-left-color: var(--warning-color);
+    }
+
+    .card-icon {
+        font-size: 32px;
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        background: var(--light-bg);
+    }
+
+    .summary-card.income .card-icon {
+        color: var(--success-color);
+        background: rgba(40, 167, 69, 0.1);
+    }
+
+    .summary-card.expenses .card-icon {
+        color: var(--danger-color);
+        background: rgba(220, 53, 69, 0.1);
+    }
+
+    .summary-card.savings .card-icon {
+        color: var(--primary-color);
+        background: rgba(102, 126, 234, 0.1);
+    }
+
+    .summary-card.health .card-icon {
+        color: var(--warning-color);
+        background: rgba(255, 193, 7, 0.1);
+    }
+
+    .card-body h4 {
+        margin: 0 0 8px 0;
+        font-size: 14px;
+        color: #7f8c8d;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .card-body .amount {
+        margin: 0 0 4px 0;
+        font-size: 26px;
+        font-weight: 700;
+        color: #2c3e50;
+    }
+
+    .card-body .status {
+        margin: 0;
+        font-size: 13px;
+        color: #95a5a6;
+    }
+
+    /* Charts Section */
+    .charts-section {
+        padding: 0 20px 30px;
+    }
+
+    .row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 25px;
+        margin-bottom: 25px;
+    }
+
+    .row .col-lg-7 {
+        grid-column: span 2;
+    }
+
+    .row .col-lg-5 {
+        grid-column: span 1;
+    }
+
+    .row .col-lg-12 {
+        grid-column: 1 / -1;
+    }
+
+    .chart-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .chart-card:hover {
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        color: white;
+        padding: 20px 25px;
+        border-bottom: none;
+    }
+
+    .card-header h3 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .card-body {
+        padding: 25px;
+    }
+
+    .chart-wrapper {
+        position: relative;
+        height: 300px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .chart-wrapper canvas {
+        max-height: 100%;
+    }
+
+    /* Account Information Grid */
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+    }
+
+    .info-item {
+        display: flex;
+        flex-direction: column;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .info-item:hover {
+        background: #f0f2f5;
+    }
+
+    .info-label {
+        font-size: 12px;
+        color: #7f8c8d;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+    }
+
+    .info-value {
+        font-size: 16px;
+        color: #2c3e50;
+        font-weight: 600;
+    }
+
+    /* Transactions Section */
+    .transactions-section {
+        padding: 0 20px 30px;
+    }
+
+    .section-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding: 0 20px;
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .section-title h2 {
+        margin: 0;
+        font-size: 22px;
+        color: #2c3e50;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .transaction-badge {
+        background: var(--primary-color);
+        color: white;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .transactions-table-wrapper {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
+
+    .transactions-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .transactions-table thead {
+        background: #f8f9fa;
+        border-bottom: 2px solid var(--border-color);
+    }
+
+    .transactions-table th {
+        padding: 16px 20px;
+        text-align: left;
+        font-weight: 700;
+        color: #7f8c8d;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .transactions-table td {
+        padding: 14px 20px;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .transaction-row:hover {
+        background: #f8f9fa;
+    }
+
+    .transaction-row:last-child td {
+        border-bottom: none;
+    }
+
+    .date-cell {
+        font-weight: 600;
+        color: #2c3e50;
+        width: 120px;
+    }
+
+    .description-cell {
+        color: #555;
+        max-width: 300px;
+    }
+
+    .category-cell {
+        width: 150px;
+    }
+
+    .category-badge {
+        background: #e8eaf6;
+        color: #3f51b5;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .type-cell {
+        width: 120px;
+    }
+
+    .type-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .type-badge.credit {
+        background: rgba(40, 167, 69, 0.1);
+        color: var(--success-color);
+    }
+
+    .type-badge.debit {
+        background: rgba(220, 53, 69, 0.1);
+        color: var(--danger-color);
+    }
+
+    .amount-cell {
+        font-weight: 700;
+        font-size: 15px;
+        text-align: right;
+        min-width: 120px;
+    }
+
+    .amount-plus {
+        color: var(--success-color);
+    }
+
+    .amount-minus {
+        color: var(--danger-color);
+    }
+
+    /* Empty State */
+    .empty-state {
+        background: white;
+        border-radius: 12px;
+        padding: 60px 30px;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .empty-icon {
+        font-size: 64px;
+        color: #ddd;
+        margin-bottom: 20px;
+    }
+
+    .empty-state h4 {
+        margin: 0 0 10px 0;
+        font-size: 18px;
+        color: #7f8c8d;
+    }
+
+    .empty-state p {
+        margin: 0 0 20px 0;
+        color: #95a5a6;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 1024px) {
+        .row .col-lg-7 {
+            grid-column: span 1;
+        }
+
+        .charts-section {
+            padding: 0 15px 25px;
+        }
+
+        .summary-section {
+            padding: 0 15px 25px;
+        }
+
+        .card-body {
+            padding: 20px;
+        }
+
+        .chart-wrapper {
+            height: 250px;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .account-details-container {
+            padding: 15px 0;
+        }
+
+        .account-header-section {
+            padding: 20px;
+        }
+
+        .header-top {
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .account-title {
+            font-size: 24px;
+        }
+
+        .header-actions {
+            width: 100%;
+        }
+
+        .btn {
+            flex: 1;
+            justify-content: center;
+        }
+
+        .cards-grid {
+            grid-template-columns: 1fr;
+            gap: 15px;
+        }
+
+        .summary-card {
+            padding: 20px;
+            gap: 15px;
+        }
+
+        .info-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .row {
+            grid-template-columns: 1fr;
+            gap: 15px;
+        }
+
+        .transactions-table th,
+        .transactions-table td {
+            padding: 12px 10px;
+            font-size: 13px;
+        }
+
+        .chart-wrapper {
+            height: 200px;
+        }
+
+        .section-title {
+            flex-direction: column;
+            text-align: center;
+            gap: 10px;
+        }
+
+        .section-title h2 {
+            justify-content: center;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .account-title {
+            font-size: 20px;
+        }
+
+        .card-body .amount {
+            font-size: 22px;
+        }
+
+        .summary-card .card-icon {
+            width: 50px;
+            height: 50px;
+            font-size: 24px;
+        }
+
+        .transactions-table {
+            font-size: 12px;
+        }
+
+        .transactions-table th,
+        .transactions-table td {
+            padding: 10px 8px;
+        }
+
+        .description-cell {
+            max-width: 150px;
+        }
+
+        .chart-wrapper {
+            height: 150px;
+        }
+    }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Spending Chart (Income vs Expenses)
+    const spendingCtx = document.getElementById('spendingChart').getContext('2d');
+    new Chart(spendingCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Income', 'Expenses'],
+            datasets: [{
+                label: 'Amount (₹)',
+                data: [{{ monthly_income }}, {{ monthly_expenses }}],
+                backgroundColor: ['#28a745', '#dc3545'],
+                borderRadius: 5,
+                borderSkipped: false
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { callback: function(value) { return '₹' + value; } }
+                }
+            }
+        }
+    });
+
+    // Category Chart
+    {% if category_totals %}
+    const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+    new Chart(categoryCtx, {
+        type: 'doughnut',
+        data: {
+            labels: [{% for cat_code, cat_data in category_totals.items %}'{{ cat_data.name }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+            datasets: [{
+                data: [{% for cat_code, cat_data in category_totals.items %}{{ cat_data.amount }}{% if not forloop.last %},{% endif %}{% endfor %}],
+                backgroundColor: [
+                    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+                    '#FF9F40', '#FF6384', '#C9CBCF', '#4BC0C0', '#FF6384'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    });
+    {% endif %}
+</script>
+{% endblock %}
