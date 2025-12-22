@@ -7,18 +7,105 @@
     <div class="col-md-12">
       <div class="d-flex justify-content-between align-items-center mb-4">
         <h4>Rule Application Results</h4>
-        <div>
-          <form method="get" id="resultsFilterForm" class="d-flex gap-2">
-            <select name="account_id" class="form-select">
-              <option value="">All Accounts</option>
-              {% for account in accounts %}
-                <option value="{{ account.id }}" {% if selected_account_id and account.id == selected_account_id %}selected{% endif %}>{{ account.account_name }}</option>
-              {% endfor %}
-            </select>
-            {% if show_changed %}<input type="hidden" name="show_changed" value="1">{% endif %}
-            <button type="submit" class="btn btn-primary">Filter</button>
-          </form>
-        </div>
+        <form method="get" id="resultsFilterForm" class="d-flex gap-2">
+          <select name="account_id" class="form-select">
+            <option value="">All Accounts</option>
+            {% for account in accounts %}
+              <option value="{{ account.id }}" {% if selected_account_id and account.id == selected_account_id %}selected{% endif %}>{{ account.account_name }}</option>
+            {% endfor %}
+          </select>
+          {% if show_changed %}<input type="hidden" name="show_changed" value="1">{% endif %}
+          <button type="submit" class="btn btn-primary">Filter</button>
+        </form>
+      </div>
+
+      <!-- Apply Rules and Custom Category Buttons -->
+      <div class="row mb-4">
+          <div class="col-md-6">
+              <button class="btn btn-outline-primary w-100" id="toggleRulesManagementBtn" onclick="toggleRulesManagementPanel()">
+                  <i class="fas fa-filter me-1"></i> Apply Rules to Transactions
+              </button>
+          </div>
+          <div class="col-md-6">
+              <button class="btn btn-outline-success w-100" id="toggleRulesCustomCategoryBtn" onclick="toggleRulesCustomCategoryPanel()">
+                  <i class="fas fa-layer-group me-1"></i> Apply Custom Category to Transactions
+              </button>
+          </div>
+      </div>
+
+      <!-- Rules Management Panel (Hidden by default) -->
+      <div id="rulesManagementPanel" class="card shadow-sm" style="display: none; margin-bottom: 30px;">
+          <div class="card-header bg-primary text-white">
+              <div class="d-flex justify-content-between align-items-center">
+                  <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Apply Rules to Transactions</h5>
+                  <button type="button" class="btn btn-light btn-sm" onclick="toggleRulesManagementPanel()">
+                      <i class="fas fa-times"></i>
+                  </button>
+              </div>
+          </div>
+          <div class="card-body">
+              {% if rules %}
+                  <p class="text-muted mb-3">Select one or more rules to filter and display matching transactions:</p>
+                  <form id="rulesApplyForm">
+                      {% csrf_token %}
+                      <div class="list-group">
+                          {% for rule in rules %}
+                          <div class="list-group-item">
+                              <div class="d-flex align-items-center">
+                                  <input class="form-check-input me-3" type="checkbox" name="rule_ids" id="rule_{{ rule.id }}" value="{{ rule.id }}">
+                                  <label class="form-check-label flex-grow-1 cursor-pointer" for="rule_{{ rule.id }}">
+                                      <div class="d-flex align-items-center justify-content-between">
+                                          <div class="d-flex align-items-center flex-grow-1">
+                                              <span class="badge me-2" style="background-color: {{ rule.get_category_color }}">
+                                                  <i class="fas {{ rule.get_category_icon }} me-1"></i>
+                                                  {{ rule.get_category_display }}
+                                              </span>
+                                              <strong>{{ rule.name }}</strong>
+                                              {% if rule.conditions.count %}
+                                              <small class="text-muted ms-2">({{ rule.conditions.count }} condition{% if rule.conditions.count != 1 %}s{% endif %})</small>
+                                              {% endif %}
+                                          </div>
+                                          <small class="text-muted ms-2">
+                                              {% if rule.is_active %}
+                                              <span class="badge bg-success">Active</span>
+                                              {% else %}
+                                              <span class="badge bg-secondary">Inactive</span>
+                                              {% endif %}
+                                          </small>
+                                      </div>
+                                  </label>
+                              </div>
+                          </div>
+                          {% endfor %}
+                      </div>
+
+                      <div class="alert alert-info mt-4">
+                          <i class="fas fa-info-circle me-2"></i>
+                          <strong>How it works:</strong> Select one or more rules above. Transactions matching any of the selected rules will be displayed. Click "Clear Filter" to show all transactions again.
+                      </div>
+
+                      <div class="d-flex justify-content-between mt-4">
+                          <div>
+                              <button type="button" class="btn btn-outline-secondary" onclick="clearRulesFilter()">
+                                  <i class="fas fa-times me-1"></i> Clear Filter
+                              </button>
+                              <button type="button" class="btn btn-outline-secondary ms-2" onclick="toggleRulesManagementPanel()">
+                                  <i class="fas fa-times me-1"></i> Cancel
+                              </button>
+                          </div>
+                          <button type="button" class="btn btn-primary" id="rulesApplyBtn" onclick="applyRulesFilter()">
+                              <i class="fas fa-check me-1"></i> Apply Filter
+                          </button>
+                      </div>
+                  </form>
+              {% else %}
+                  <div class="alert alert-warning">
+                      <i class="fas fa-exclamation-triangle me-2"></i>
+                      <strong>No rules found.</strong> 
+                      <a href="{% url 'create_rule' %}" class="alert-link">Create a rule first</a> to filter transactions.
+                  </div>
+              {% endif %}
+          </div>
       </div>
 
       {% if not no_changes and rule_totals %}
@@ -47,14 +134,6 @@
           </div>
         </div>
       {% endif %}
-
-      <!-- Apply Custom Category Button -->
-      <div class="mt-4 mb-4">
-          <button class="btn btn-outline-success" id="toggleRulesCustomCategoryBtn" onclick="toggleRulesCustomCategoryPanel()">
-              <i class="fas fa-layer-group me-1"></i> Apply Custom Category to Transactions
-          </button>
-          <div id="rulesApplyStatus" style="display: none; margin-top: 10px;"></div>
-      </div>
 
       <!-- Custom Category Application Panel (Hidden by default) -->
       <div id="rulesCustomCategoryPanel" class="card shadow-sm" style="display: none; margin-bottom: 30px;">
@@ -215,49 +294,70 @@ function toggleRulesCustomCategoryPanel() {
 
 // Apply custom category filter
 function applyRulesCustomCategoryFilter() {
-    const checkboxes = document.querySelectorAll('#rulesCustomCategoryForm input[type="checkbox"]:checked');
+    const ruleCheckboxes = document.querySelectorAll('#rulesApplyForm input[type="checkbox"]:checked');
+    const categoryCheckboxes = document.querySelectorAll('#rulesCustomCategoryForm input[type="checkbox"]:checked');
     
-    if (checkboxes.length === 0) {
-        showRulesNotification('error', 'Please select at least one category', 'rulesApplyStatus');
+    if (ruleCheckboxes.length === 0 && categoryCheckboxes.length === 0) {
+        showRulesNotification('error', 'Please select at least one rule or category', 'rulesApplyStatus');
         return;
     }
 
-    const categoryIds = Array.from(checkboxes).map(cb => cb.value);
+    const ruleIds = Array.from(ruleCheckboxes).map(cb => cb.value);
+    const categoryIds = Array.from(categoryCheckboxes).map(cb => cb.value);
     
     // Show loading state
-    document.getElementById('rulesApplyBtn').disabled = true;
-    document.getElementById('rulesApplyBtn').innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Applying...';
+    const applyBtn = document.getElementById('rulesApplyBtn');
+    if (applyBtn) {
+        applyBtn.disabled = true;
+        applyBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Applying...';
+    }
 
-    // Prepare form data
-    const formData = new FormData();
-    categoryIds.forEach(id => formData.append('category_ids', id));
-    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    // If categories are selected, we need to get matched transaction IDs via AJAX
+    if (categoryIds.length > 0) {
+        // Prepare form data
+        const formData = new FormData();
+        categoryIds.forEach(id => formData.append('category_ids', id));
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
 
-    // Send AJAX request
-    fetch('/analyzer/apply-custom-category-rules/', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        document.getElementById('rulesApplyBtn').disabled = false;
-        document.getElementById('rulesApplyBtn').innerHTML = '<i class="fas fa-check me-1"></i> Apply Filter';
+        // Send AJAX request
+        fetch('/analyzer/apply-custom-category-rules/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (applyBtn) {
+                applyBtn.disabled = false;
+                applyBtn.innerHTML = '<i class="fas fa-check me-1"></i> Apply Filter';
+            }
 
-        if (data.success) {
-            // Filter table rows
-            filterRulesTransactionsByIds(data.matched_transaction_ids);
-            showRulesNotification('success', `Found ${data.matched_transaction_ids.length} matching transaction(s)`, 'rulesApplyStatus');
-            toggleRulesCustomCategoryPanel();
-        } else {
-            showRulesNotification('error', data.message || 'Error applying category filter', 'rulesApplyStatus');
+            if (data.success) {
+                // Filter by both rules and categories
+                filterTransactionsByRulesAndCategories(ruleIds, categoryIds, data.matched_transaction_ids);
+                showRulesNotification('success', `Found matching transactions`, 'rulesApplyStatus');
+                toggleRulesCustomCategoryPanel();
+            } else {
+                showRulesNotification('error', data.message || 'Error applying filter', 'rulesApplyStatus');
+            }
+        })
+        .catch(error => {
+            if (applyBtn) {
+                applyBtn.disabled = false;
+                applyBtn.innerHTML = '<i class="fas fa-check me-1"></i> Apply Filter';
+            }
+            console.error('Error:', error);
+            showRulesNotification('error', 'An error occurred while applying the filter', 'rulesApplyStatus');
+        });
+    } else {
+        // Only rules selected, no AJAX needed
+        if (applyBtn) {
+            applyBtn.disabled = false;
+            applyBtn.innerHTML = '<i class="fas fa-check me-1"></i> Apply Filter';
         }
-    })
-    .catch(error => {
-        document.getElementById('rulesApplyBtn').disabled = false;
-        document.getElementById('rulesApplyBtn').innerHTML = '<i class="fas fa-check me-1"></i> Apply Filter';
-        console.error('Error:', error);
-        showRulesNotification('error', 'An error occurred while applying the filter', 'rulesApplyStatus');
-    });
+        filterTransactionsByRulesAndCategories(ruleIds, categoryIds);
+        showRulesNotification('success', `Found matching transactions`, 'rulesApplyStatus');
+        toggleRulesCustomCategoryPanel();
+    }
 }
 
 // Filter transactions in rules results table
@@ -298,7 +398,10 @@ function filterRulesTransactionsByIds(transactionIds) {
 
 // Clear custom category filter and show all transactions
 function clearRulesCustomCategoryFilter() {
-    // Uncheck all checkboxes
+    // Uncheck all checkboxes in both forms
+    document.querySelectorAll('#rulesApplyForm input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+    });
     document.querySelectorAll('#rulesCustomCategoryForm input[type="checkbox"]').forEach(cb => {
         cb.checked = false;
     });
@@ -306,7 +409,12 @@ function clearRulesCustomCategoryFilter() {
     // Show all table rows
     showRulesAllTransactions();
     showRulesNotification('success', 'Filter cleared - showing all transactions', 'rulesApplyStatus');
-    toggleRulesCustomCategoryPanel();
+    
+    // Close the category panel
+    const categoryPanel = document.getElementById('rulesCustomCategoryPanel');
+    if (categoryPanel && categoryPanel.style.display !== 'none') {
+        toggleRulesCustomCategoryPanel();
+    }
 }
 
 // Show all transactions in rules results table
@@ -351,7 +459,7 @@ function showRulesNotification(type, message, elementId) {
     }
 }
 
-// Download Excel file - Table only (client-side using html2csv)
+// Download Excel file with professional report layout
 function downloadRulesExcel() {
     const table = document.querySelector('table');
     
@@ -368,45 +476,248 @@ function downloadRulesExcel() {
         return;
     }
     
-    // Extract table data
-    let csvContent = '';
+    // Get selected rules and categories
+    const ruleCheckboxes = document.querySelectorAll('#rulesApplyForm input[type="checkbox"]:checked');
+    const categoryCheckboxes = document.querySelectorAll('#rulesCustomCategoryForm input[type="checkbox"]:checked');
     
-    // Add headers
-    const headerCells = table.querySelectorAll('thead th');
-    const headers = Array.from(headerCells).map(cell => {
-        let text = cell.textContent.trim();
-        // Escape quotes in text
-        text = text.replace(/"/g, '""');
-        return `"${text}"`;
+    const ruleIds = Array.from(ruleCheckboxes).map(cb => cb.value);
+    const categoryIds = Array.from(categoryCheckboxes).map(cb => cb.value);
+    
+    console.log('Rule IDs:', ruleIds);
+    console.log('Category IDs:', categoryIds);
+    
+    // Get all transaction IDs from visible rows
+    const transactionIds = [];
+    rows.forEach(row => {
+        const transactionId = row.getAttribute('data-transaction-id');
+        if (transactionId) {
+            transactionIds.push(transactionId);
+        }
     });
-    csvContent += headers.join(',') + '\n';
     
-    // Add rows
+    console.log('Transaction IDs:', transactionIds);
+    
+    if (transactionIds.length === 0) {
+        alert('No transaction IDs found. Please refresh the page and try again.');
+        return;
+    }
+    
+    // Add transaction IDs as query params
+    const queryParams = new URLSearchParams();
+    transactionIds.forEach(id => queryParams.append('transaction_ids', id));
+    
+    // Get account ID from current context if available
+    const accountSelect = document.getElementById('accountSelect');
+    if (accountSelect && accountSelect.value) {
+        queryParams.append('account_id', accountSelect.value);
+    }
+    
+    // Get show_changed flag
+    const showChangedCheckbox = document.getElementById('showChangedCheckbox');
+    if (showChangedCheckbox && showChangedCheckbox.checked) {
+        queryParams.append('show_changed', '1');
+    }
+    
+    // Build URL with query parameters
+    let url = '{% url "export_rules_results" %}';
+    if (queryParams.toString()) {
+        url += '?' + queryParams.toString();
+    }
+    
+    console.log('Export URL:', url);
+    
+    // Submit form via POST with selected filters
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = url;
+    
+    // Add CSRF token
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    form.appendChild(csrfInput);
+    
+    // Add rule IDs
+    ruleIds.forEach(id => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'rule_ids';
+        input.value = id;
+        form.appendChild(input);
+    });
+    
+    // Add category IDs
+    categoryIds.forEach(id => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'category_ids';
+        input.value = id;
+        form.appendChild(input);
+    });
+    
+    console.log('Submitting form to:', form.action);
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+}
+
+// Toggle rules management panel visibility
+function toggleRulesManagementPanel() {
+    const panel = document.getElementById('rulesManagementPanel');
+    if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        document.getElementById('toggleRulesManagementBtn').classList.add('active');
+    } else {
+        panel.style.display = 'none';
+        document.getElementById('toggleRulesManagementBtn').classList.remove('active');
+    }
+}
+
+// Apply rules filter
+function applyRulesFilter() {
+    const ruleCheckboxes = document.querySelectorAll('#rulesApplyForm input[type="checkbox"]:checked');
+    const categoryCheckboxes = document.querySelectorAll('#rulesCustomCategoryForm input[type="checkbox"]:checked');
+    
+    if (ruleCheckboxes.length === 0 && categoryCheckboxes.length === 0) {
+        alert('Please select at least one rule or category');
+        return;
+    }
+
+    const ruleIds = Array.from(ruleCheckboxes).map(cb => cb.value);
+    const categoryIds = Array.from(categoryCheckboxes).map(cb => cb.value);
+    
+    // Show loading state
+    document.getElementById('rulesApplyBtn').disabled = true;
+    document.getElementById('rulesApplyBtn').innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Applying...';
+
+    // Filter table rows based on matched rules and categories
+    filterTransactionsByRulesAndCategories(ruleIds, categoryIds);
+    
+    // Reset button
+    document.getElementById('rulesApplyBtn').disabled = false;
+    document.getElementById('rulesApplyBtn').innerHTML = '<i class="fas fa-check me-1"></i> Apply Filter';
+    
+    // Close panels
+    toggleRulesManagementPanel();
+}
+
+// Filter transactions by selected rules and categories
+function filterTransactionsByRulesAndCategories(ruleIds, categoryIds, matchedCategoryTransactionIds = []) {
+    const table = document.querySelector('table tbody');
+    const rows = table.querySelectorAll('tr:not(.no-filter-results)');
+    let visibleCount = 0;
+    
     rows.forEach(row => {
         const cells = row.querySelectorAll('td');
-        const rowData = Array.from(cells).map(cell => {
-            let text = cell.textContent.trim();
-            // Remove any extra whitespace
-            text = text.replace(/\s+/g, ' ');
-            // Escape quotes
-            text = text.replace(/"/g, '""');
-            return `"${text}"`;
-        });
-        csvContent += rowData.join(',') + '\n';
+        const transactionId = row.getAttribute('data-transaction-id');
+        
+        // Determine column indices based on number of cells
+        let matchedRuleCell, matchedCategoryCell;
+        
+        if (cells.length > 7) {
+            // show_changed=true (8 columns)
+            matchedRuleCell = cells[6];      // Matched Rule
+            matchedCategoryCell = cells[7];  // Matched Category
+        } else {
+            // show_changed=false (7 columns)
+            matchedRuleCell = cells[5];      // Matched Rule
+            matchedCategoryCell = cells[6];  // Matched Category
+        }
+        
+        // Get rule and category badges
+        const ruleBadge = matchedRuleCell ? matchedRuleCell.querySelector('span.badge') : null;
+        const categoryBadge = matchedCategoryCell ? matchedCategoryCell.querySelector('span.badge') : null;
+        
+        const ruleText = ruleBadge ? ruleBadge.textContent.trim() : '';
+        const categoryText = categoryBadge ? categoryBadge.textContent.trim() : '';
+        
+        // Determine if row should be shown
+        let showRow = false;
+        
+        // Check if we have rules selected
+        if (ruleIds.length > 0) {
+            // Show if rule matches
+            if (ruleText && ruleText !== '-') {
+                showRow = true;
+            }
+        }
+        
+        // Check if we have categories selected
+        if (categoryIds.length > 0) {
+            // Show if category matches by checking if transaction ID is in matched list
+            if (transactionId && matchedCategoryTransactionIds.includes(parseInt(transactionId))) {
+                showRow = true;
+            }
+            // Also check if custom category badge exists and is not '-'
+            if (categoryText && categoryText !== '-') {
+                showRow = true;
+            }
+        }
+        
+        // If both rules and categories are selected, show if either matches
+        if (showRow) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
     });
     
-    // Create blob and download
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
+    // Add no results message if needed
+    if (visibleCount === 0) {
+        const colSpan = rows.length > 0 ? rows[0].querySelectorAll('td').length : 7;
+        let noResultsRow = table.querySelector('.no-filter-results');
+        if (!noResultsRow) {
+            noResultsRow = document.createElement('tr');
+            noResultsRow.className = 'no-filter-results';
+            noResultsRow.innerHTML = `<td colspan="${colSpan}" class="text-center py-4 text-muted">No transactions match the selected filters</td>`;
+            table.appendChild(noResultsRow);
+        }
+    } else {
+        // Remove "no results" message if it exists
+        const noResultsRow = table.querySelector('.no-filter-results');
+        if (noResultsRow) {
+            noResultsRow.remove();
+        }
+    }
+}
+
+// Clear both rules and categories filters and show all transactions
+function clearRulesFilter() {
+    // Uncheck all checkboxes in both forms
+    document.querySelectorAll('#rulesApplyForm input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+    });
+    document.querySelectorAll('#rulesCustomCategoryForm input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+    });
+
+    // Show all table rows
+    showAllRulesTransactions();
+    alert('Filter cleared - showing all transactions');
     
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'rule_results_' + new Date().getTime() + '.csv');
-    link.style.visibility = 'hidden';
+    // Close the rule panel
+    const rulesPanel = document.getElementById('rulesManagementPanel');
+    if (rulesPanel && rulesPanel.style.display !== 'none') {
+        toggleRulesManagementPanel();
+    }
+}
+
+// Show all transactions in rules results table
+function showAllRulesTransactions() {
+    const table = document.querySelector('table tbody');
+    const rows = table.querySelectorAll('tr');
     
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    rows.forEach(row => {
+        row.style.display = '';
+    });
+    
+    // Remove "no results" message if it exists
+    const noResultsRow = table.querySelector('.no-filter-results');
+    if (noResultsRow) {
+        noResultsRow.remove();
+    }
 }
 
 </script>

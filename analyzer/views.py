@@ -31,6 +31,15 @@ except ImportError:
     CATEGORY_PARSER_AVAILABLE = False
     print("Warning: Category parser not available.")
 
+# Import Excel export dependencies
+try:
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    EXCEL_EXPORT_AVAILABLE = True
+except ImportError:
+    EXCEL_EXPORT_AVAILABLE = False
+    print("Warning: openpyxl not available. Excel export will be disabled.")
+
 @login_required
 def dashboard(request):
     accounts = BankAccount.objects.filter(user=request.user)
@@ -694,6 +703,9 @@ def rules_application_results(request):
 
     # Get user's custom categories
     custom_categories = CustomCategory.objects.filter(user=request.user, is_active=True)
+    
+    # Get user's rules
+    rules = Rule.objects.filter(user=request.user, is_active=True).order_by('name')
 
     return render(request, 'analyzer/apply_rules_results.html', {
         'results': results,
@@ -704,6 +716,7 @@ def rules_application_results(request):
         'rule_totals': rule_totals,
         'colspan': colspan,
         'custom_categories': custom_categories,
+        'rules': rules,
     })
 
 
@@ -1379,40 +1392,54 @@ def get_financial_overview_data(request):
 
 
 @login_required
+@login_required
 def export_rules_results_to_excel(request):
-    """Export rule application results to Excel file - only table data, no page content"""
-    try:
-        from openpyxl import Workbook
-        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-    except ImportError:
+    """Export rule application results to Excel file with comprehensive details"""
+    
+    # Check if openpyxl is available
+    if not EXCEL_EXPORT_AVAILABLE:
+        print("ERROR - openpyxl is not available")
         messages.error(request, 'Excel export not available. Please install openpyxl.')
         return redirect('rules_application_results')
     
     try:
-        # Get query parameters
+        from datetime import datetime
+        from django.db.models import Sum
+        
+        print("DEBUG - Starting export process")
+        
+        # Get query parameters and POST data for selected filters
         account_id = request.GET.get('account_id', '')
         show_changed = request.GET.get('show_changed', '') == '1'
         transaction_ids = request.GET.getlist('transaction_ids')
         
-        # If specific transaction IDs provided, use only those (filtered results)
+        # Get selected rules and categories from POST
+        selected_rule_ids = request.POST.getlist('rule_ids') if request.method == 'POST' else []
+        selected_category_ids = request.POST.getlist('category_ids') if request.method == 'POST' else []
+        
+        print(f"DEBUG - Transaction IDs: {transaction_ids}")
+        print(f"DEBUG - Selected Rule IDs: {selected_rule_ids}")
+        print(f"DEBUG - Selected Category IDs: {selected_category_ids}")
+        
+        # Fetch transactions
         if transaction_ids:
             all_transactions = Transaction.objects.filter(
                 id__in=transaction_ids,
                 statement__account__user=request.user
-            ).select_related('statement').order_by('-date')
+            ).select_related('statement', 'statement__account').order_by('-date')
         else:
-            # Fallback: Get all transactions for the account
             all_transactions = Transaction.objects.filter(
                 statement__account__user=request.user
-            ).select_related('statement').order_by('-date')
+            ).select_related('statement', 'statement__account').order_by('-date')
             
-            # Filter by account if specified
             if account_id:
                 try:
                     account = BankAccount.objects.get(id=account_id, user=request.user)
                     all_transactions = all_transactions.filter(statement__account=account)
                 except BankAccount.DoesNotExist:
                     pass
+        
+        print(f"DEBUG - Total transactions fetched: {all_transactions.count()}")
         
         # Create workbook
         wb = Workbook()
@@ -1422,6 +1449,9 @@ def export_rules_results_to_excel(request):
         # Define styles
         header_fill = PatternFill(start_color='0D47A1', end_color='0D47A1', fill_type='solid')
         header_font = Font(bold=True, color='FFFFFF', size=11)
+        section_fill = PatternFill(start_color='1565C0', end_color='1565C0', fill_type='solid')
+        summary_fill = PatternFill(start_color='E8F0F7', end_color='E8F0F7', fill_type='solid')
+        total_fill = PatternFill(start_color='FFF2CC', end_color='FFF2CC', fill_type='solid')
         border = Border(
             left=Side(style='thin', color='D3D3D3'),
             right=Side(style='thin', color='D3D3D3'),
@@ -1431,6 +1461,101 @@ def export_rules_results_to_excel(request):
         center_align = Alignment(horizontal='center', vertical='center')
         left_align = Alignment(horizontal='left', vertical='center')
         
+        # Build summary data
+        try:
+            selected_rules = Rule.objects.filter(id__in=selected_rule_ids, user=request.user).order_by('name')
+            selected_categories = CustomCategory.objects.filter(id__in=selected_category_ids, user=request.user).order_by('name')
+        except Exception as e:
+            print(f"ERROR - Failed to fetch rules/categories: {e}")
+            selected_rules = Rule.objects.none()
+            selected_categories = CustomCategory.objects.none()
+        
+        rule_totals_dict = {}
+        category_totals_dict = {}
+        
+        # Calculate rule totals
+        for rule in selected_rules:
+            try:
+                rule_count = 0
+                rule_total = 0
+                for tx in all_transactions:
+                    if tx.category == rule.category:
+                        rule_count += 1
+                        rule_total += float(tx.amount)
+                rule_totals_dict[rule.name] = {'total': rule_total, 'count': rule_count}
+            except Exception as e:
+                print(f"ERROR - Failed to calculate rule total for {rule.name}: {e}")
+        
+        # Calculate category totals
+        for category in selected_categories:
+            try:
+                category_count = 0
+                category_total = 0
+                for tx in all_transactions:
+                    if tx.custom_category_id == category.id:
+                        category_count += 1
+                        category_total += float(tx.amount)
+                category_totals_dict[category.name] = {'total': category_total, 'count': category_count}
+            except Exception as e:
+                print(f"ERROR - Failed to calculate category total for {category.name}: {e}")
+        
+        print("DEBUG - Starting to build Excel sheet")
+        
+        # Professional Report Header Layout
+        current_date = datetime.now()
+        current_row = 1
+        
+        # Row 1: Date and Day on left side
+        cell = ws.cell(row=current_row, column=1)
+        cell.value = f"Date: {current_date.strftime('%Y-%m-%d')}   Day: {current_date.strftime('%A')}"
+        cell.font = Font(bold=True, size=10)
+        current_row += 1
+        
+        # Row 2: Empty line for spacing
+        current_row += 1
+        
+        # Row 3: Project Name "BANKWATCH" - Centered, merged across columns
+        ws.merge_cells(f'A{current_row}:H{current_row}')
+        cell = ws.cell(row=current_row, column=1)
+        cell.value = "BANKWATCH"
+        cell.font = Font(bold=True, size=16, color='FFFFFF')
+        cell.fill = PatternFill(start_color='0D47A1', end_color='0D47A1', fill_type='solid')
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        current_row += 1
+        
+        # Row 4: Selected Rules
+        cell = ws.cell(row=current_row, column=1)
+        cell.value = "Selected Rules:"
+        cell.font = Font(bold=True, size=11)
+        
+        if selected_rules.exists():
+            rule_names = ', '.join([rule.name for rule in selected_rules])
+            cell = ws.cell(row=current_row, column=2)
+            cell.value = rule_names
+        else:
+            cell = ws.cell(row=current_row, column=2)
+            cell.value = "NULL"
+            cell.font = Font(bold=True, size=11)
+        
+        current_row += 1
+        
+        # Row 5: Selected Categories
+        cell = ws.cell(row=current_row, column=1)
+        cell.value = "Selected Categories:"
+        cell.font = Font(bold=True, size=11)
+        
+        if selected_categories.exists():
+            category_names = ', '.join([cat.name for cat in selected_categories])
+            cell = ws.cell(row=current_row, column=2)
+            cell.value = category_names
+        else:
+            cell = ws.cell(row=current_row, column=2)
+            cell.value = "NULL"
+            cell.font = Font(bold=True, size=11)
+        
+        # Row for results table header
+        current_row += 2
+        
         # Prepare headers based on whether show_changed is enabled
         if show_changed:
             headers = ['Date', 'Account', 'Description', 'Amount', 'Previous Category', 'Current Category', 'Matched Rule', 'Custom Category']
@@ -1439,94 +1564,195 @@ def export_rules_results_to_excel(request):
             headers = ['Date', 'Account', 'Description', 'Amount', 'Category', 'Matched Rule', 'Custom Category']
             column_widths = [12, 18, 40, 12, 18, 20, 18]
         
+        print(f"DEBUG - Headers: {headers}")
+        print(f"DEBUG - Column widths: {column_widths}")
+        
         # Add headers
+        table_start_row = current_row
         for col_num, header in enumerate(headers, 1):
-            cell = ws.cell(row=1, column=col_num)
+            cell = ws.cell(row=table_start_row, column=col_num)
             cell.value = header
             cell.fill = header_fill
             cell.font = header_font
             cell.border = border
             cell.alignment = center_align
         
+        print(f"DEBUG - Starting to add {all_transactions.count()} transactions")
+        
         # Add transaction data
-        row_num = 2
+        row_num = table_start_row + 1
         for transaction in all_transactions:
-            col_num = 1
-            
-            # Date
-            cell = ws.cell(row=row_num, column=col_num)
-            cell.value = transaction.date.strftime('%Y-%m-%d') if transaction.date else ''
-            cell.border = border
-            cell.alignment = center_align
-            col_num += 1
-            
-            # Account
-            cell = ws.cell(row=row_num, column=col_num)
-            cell.value = transaction.statement.account.account_name if transaction.statement else ''
-            cell.border = border
-            cell.alignment = left_align
-            col_num += 1
-            
-            # Description
-            cell = ws.cell(row=row_num, column=col_num)
-            cell.value = transaction.description
-            cell.border = border
-            cell.alignment = left_align
-            col_num += 1
-            
-            # Amount
-            cell = ws.cell(row=row_num, column=col_num)
-            cell.value = float(transaction.amount) if transaction.amount else 0
-            cell.border = border
-            cell.number_format = '#,##0.00'
-            cell.alignment = center_align
-            col_num += 1
-            
-            if show_changed:
-                # Previous Category (from session data)
+            try:
+                col_num = 1
+                
+                # Date
                 cell = ws.cell(row=row_num, column=col_num)
-                # This would need to be passed from the view
-                cell.value = '-'
+                cell.value = transaction.date.strftime('%Y-%m-%d') if transaction.date else ''
+                cell.border = border
+                cell.alignment = center_align
+                col_num += 1
+                
+                # Account
+                cell = ws.cell(row=row_num, column=col_num)
+                cell.value = transaction.statement.account.account_name if transaction.statement else ''
                 cell.border = border
                 cell.alignment = left_align
                 col_num += 1
-            
-            # Current Category
-            cell = ws.cell(row=row_num, column=col_num)
-            cell.value = transaction.get_category_display()
-            cell.border = border
-            cell.alignment = left_align
-            col_num += 1
-            
-            # Matched Rule (check if category was matched by any rule)
-            matched_rule = '-'
-            rules = Rule.objects.filter(user=request.user, is_active=True).order_by('name')
-            for rule in rules:
-                if rule.category == transaction.category:
-                    matched_rule = rule.name
-                    break
-            
-            cell = ws.cell(row=row_num, column=col_num)
-            cell.value = matched_rule
-            cell.border = border
-            cell.alignment = left_align
-            col_num += 1
-            
-            # Custom Category
-            cell = ws.cell(row=row_num, column=col_num)
-            custom_cat = transaction.custom_category.name if transaction.custom_category else '-'
-            cell.value = custom_cat
-            cell.border = border
-            cell.alignment = left_align
-            
-            row_num += 1
+                
+                # Description
+                cell = ws.cell(row=row_num, column=col_num)
+                cell.value = transaction.description if transaction.description else ''
+                cell.border = border
+                cell.alignment = left_align
+                col_num += 1
+                
+                # Amount
+                cell = ws.cell(row=row_num, column=col_num)
+                cell.value = float(transaction.amount) if transaction.amount else 0
+                cell.border = border
+                cell.number_format = '#,##0.00'
+                cell.alignment = center_align
+                col_num += 1
+                
+                if show_changed:
+                    # Previous Category (from session data)
+                    cell = ws.cell(row=row_num, column=col_num)
+                    cell.value = '-'
+                    cell.border = border
+                    cell.alignment = left_align
+                    col_num += 1
+                
+                # Current Category
+                cell = ws.cell(row=row_num, column=col_num)
+                try:
+                    category_display = transaction.get_category_display()
+                except:
+                    category_display = str(transaction.category)
+                cell.value = category_display if category_display else '-'
+                cell.border = border
+                cell.alignment = left_align
+                col_num += 1
+                
+                # Matched Rule - simplified
+                matched_rule = '-'
+                try:
+                    # Check if this transaction matches any selected rule
+                    if selected_rules.exists():
+                        for rule in selected_rules:
+                            if rule.category == transaction.category:
+                                matched_rule = rule.name
+                                break
+                except Exception as e:
+                    print(f"ERROR - Failed to match rule: {e}")
+                
+                cell = ws.cell(row=row_num, column=col_num)
+                cell.value = matched_rule
+                cell.border = border
+                cell.alignment = left_align
+                col_num += 1
+                
+                # Custom Category
+                cell = ws.cell(row=row_num, column=col_num)
+                custom_cat = '-'  # Transaction model doesn't have custom_category field
+                cell.value = custom_cat
+                cell.border = border
+                cell.alignment = left_align
+                
+                row_num += 1
+            except Exception as e:
+                print(f"ERROR - Failed to process transaction {transaction.id}: {e}")
+                continue
+        
+        print(f"DEBUG - Completed adding transactions at row {row_num}")
+        
+        # Add Summary Section after the table
+        summary_row = row_num + 2
+        
+        # Summary Header
+        cell = ws.cell(row=summary_row, column=1)
+        cell.value = "FINAL SUMMARY"
+        cell.font = Font(bold=True, size=12, color='FFFFFF')
+        cell.fill = PatternFill(start_color='0D47A1', end_color='0D47A1', fill_type='solid')
+        cell.border = border
+        summary_row += 1
+        
+        # Total Rules Selected
+        cell = ws.cell(row=summary_row, column=1)
+        cell.value = "Total Rules Selected:"
+        cell.font = Font(bold=True, size=11)
+        cell.border = border
+        
+        cell = ws.cell(row=summary_row, column=2)
+        cell.value = len(rule_totals_dict)
+        cell.font = Font(size=11)
+        cell.border = border
+        summary_row += 1
+        
+        # Total Categories Selected
+        cell = ws.cell(row=summary_row, column=1)
+        cell.value = "Total Categories Selected:"
+        cell.font = Font(bold=True, size=11)
+        cell.border = border
+        
+        cell = ws.cell(row=summary_row, column=2)
+        cell.value = len(category_totals_dict)
+        cell.font = Font(size=11)
+        cell.border = border
+        summary_row += 1
+        
+        # Total Rule Amount
+        total_rules_amount = sum(item['total'] for item in rule_totals_dict.values())
+        cell = ws.cell(row=summary_row, column=1)
+        cell.value = "Total Rule Amount:"
+        cell.font = Font(bold=True, size=11)
+        cell.border = border
+        
+        cell = ws.cell(row=summary_row, column=2)
+        cell.value = f"₹{total_rules_amount:,.2f}"
+        cell.font = Font(size=11)
+        cell.border = border
+        cell.number_format = '₹#,##0.00'
+        summary_row += 1
+        
+        # Total Category Amount
+        total_categories_amount = sum(item['total'] for item in category_totals_dict.values())
+        cell = ws.cell(row=summary_row, column=1)
+        cell.value = "Total Category Amount:"
+        cell.font = Font(bold=True, size=11)
+        cell.border = border
+        
+        cell = ws.cell(row=summary_row, column=2)
+        cell.value = f"₹{total_categories_amount:,.2f}"
+        cell.font = Font(size=11)
+        cell.border = border
+        cell.number_format = '₹#,##0.00'
+        summary_row += 1
+        
+        # GRAND TOTAL AMOUNT
+        summary_row += 1
+        grand_total = total_rules_amount + total_categories_amount
+        cell = ws.cell(row=summary_row, column=1)
+        cell.value = "GRAND TOTAL AMOUNT:"
+        cell.font = Font(bold=True, size=12, color='FFFFFF')
+        cell.fill = PatternFill(start_color='00B050', end_color='00B050', fill_type='solid')
+        cell.border = border
+        
+        cell = ws.cell(row=summary_row, column=2)
+        cell.value = f"₹{grand_total:,.2f}"
+        cell.font = Font(bold=True, size=12, color='FFFFFF')
+        cell.fill = PatternFill(start_color='00B050', end_color='00B050', fill_type='solid')
+        cell.border = border
+        cell.number_format = '₹#,##0.00'
         
         # Adjust column widths
         for i, width in enumerate(column_widths, 1):
-            ws.column_dimensions[chr(64 + i)].width = width
+            col_letter = chr(64 + i)  # Convert to A, B, C, etc.
+            ws.column_dimensions[col_letter].width = width
         
-        # Freeze header row
-        ws.freeze_panes = 'A2'
+        # Freeze header row of data table
+        ws.freeze_panes = f'A{table_start_row + 1}'
+        
+        print("DEBUG - Creating HTTP response")
         
         # Create HTTP response
         response = HttpResponse(
@@ -1536,8 +1762,14 @@ def export_rules_results_to_excel(request):
         
         # Save workbook to response
         wb.save(response)
+        print("DEBUG - Excel file generated successfully")
         return response
         
     except Exception as e:
-        messages.error(request, f'Error exporting results: {str(e)}')
+        import traceback
+        error_msg = str(e)
+        traceback_str = traceback.format_exc()
+        print(f"ERROR - Exception in export_rules_results_to_excel: {error_msg}")
+        print(f"ERROR - Traceback: {traceback_str}")
+        messages.error(request, f'Error exporting results: {error_msg}')
         return redirect('rules_application_results')

@@ -13,38 +13,92 @@
             <a class="navbar-brand" href="{% url 'home' %}">
                 <i class="fas fa-piggy-bank"></i> BANKWATCH
             </a>
-            <!-- Add to your navigation menu -->
-{% if user.is_authenticated %}
-    <li class="nav-item">
-        <a class="nav-link" href="{% url 'rules_list' %}">
-            <i class="fas fa-cogs"></i> Rules
-        </a>
-    </li>
-{% endif %}
-            <div class="navbar-nav ms-auto">
-                {% if user.is_authenticated %}
-                    <!-- In the navigation section, add this after Dashboard link -->
-{% if user.is_authenticated %}
-    <span class="nav-link text-light">Welcome, {{ user.username }}!</span>
-    <a class="nav-link" href="{% url 'dashboard' %}">Dashboard</a>
-    <a class="nav-link" href="{% url 'profile' %}">Profile</a>  <!-- Add this line -->
-    <form method="post" action="{% url 'logout' %}" class="d-inline">
-        {% csrf_token %}
-        <button type="submit" class="nav-link btn btn-link" style="border: none; background: none; color: rgba(255,255,255,.55); padding: 8px 16px;">
-            <i class="fas fa-sign-out-alt"></i> Logout
-        </button>
-    </form>
-{% else %}
-    <!-- ... existing code ... -->
-{% endif %}
-                    
-                        {% csrf_token %}
-                       
-                    </form>
-                {% else %}
-                    <a class="nav-link" href="{% url 'login' %}">Login</a>
-                    <a class="nav-link" href="{% url 'register' %}">Register</a>
-                {% endif %}
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    {% if user.is_authenticated %}
+                        <!-- Dashboard -->
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'dashboard' %}">
+                                <i class="fas fa-home"></i> Dashboard
+                            </a>
+                        </li>
+                        
+                        <!-- Statements Dropdown -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="statementsDropdown" role="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-file-alt"></i> Statements
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="statementsDropdown">
+                                <li><a class="dropdown-item" href="{% url 'upload_statement' %}"><i class="fas fa-upload"></i> Upload Statement</a></li>
+                                <li><a class="dropdown-item" href="{% url 'rules_application_results' %}"><i class="fas fa-chart-bar"></i> View Results</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{% url 'rules_categorized' %}"><i class="fas fa-folder"></i> Categorized Transactions</a></li>
+                            </ul>
+                        </li>
+                        
+                        <!-- Accounts Dropdown -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="accountsDropdown" role="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-bank"></i> Accounts
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="accountsDropdown">
+                                <li><a class="dropdown-item" href="{% url 'create_account' %}"><i class="fas fa-plus"></i> Create Account</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><span class="dropdown-item-text"><small>View Account Details from Dashboard</small></span></li>
+                            </ul>
+                        </li>
+                        
+                        <!-- Rules Dropdown -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="rulesDropdown" role="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-cogs"></i> Rules
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="rulesDropdown">
+                                <li><a class="dropdown-item" href="{% url 'rules_list' %}"><i class="fas fa-list"></i> All Rules</a></li>
+                                <li><a class="dropdown-item" href="{% url 'create_rule' %}"><i class="fas fa-plus"></i> Create Rule</a></li>
+                                <li><a class="dropdown-item" href="{% url 'test_rules' %}"><i class="fas fa-flask"></i> Test Rules</a></li>
+                                <li><a class="dropdown-item" href="{% url 'apply_rules' %}"><i class="fas fa-play"></i> Apply Rules</a></li>
+                            </ul>
+                        </li>
+                        
+                        <!-- Custom Categories Dropdown -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="categoriesDropdown" role="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-tags"></i> Categories
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="categoriesDropdown">
+                                <li><a class="dropdown-item" href="{% url 'custom_categories_list' %}"><i class="fas fa-list"></i> My Custom Categories</a></li>
+                                <li><a class="dropdown-item" href="{% url 'create_custom_category' %}"><i class="fas fa-plus"></i> Create Category</a></li>
+                                <li><a class="dropdown-item" href="{% url 'apply_custom_category_rules' %}"><i class="fas fa-play"></i> Apply Categories</a></li>
+                            </ul>
+                        </li>
+                        
+                        <!-- Profile & Logout -->
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'profile' %}">
+                                <i class="fas fa-user"></i> Profile
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <form method="post" action="{% url 'logout' %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="nav-link btn btn-link" style="border: none; background: none; color: rgba(255,255,255,.55); padding: 8px 16px;">
+                                    <i class="fas fa-sign-out-alt"></i> Logout
+                                </button>
+                            </form>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'login' %}">Login</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'register' %}">Register</a>
+                        </li>
+                    {% endif %}
+                </ul>
             </div>
         </div>
     </nav>
