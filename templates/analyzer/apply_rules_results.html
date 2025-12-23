@@ -201,9 +201,14 @@
       <!-- Export Results -->
       <div class="d-flex justify-content-between align-items-center mb-3">
           <h5 class="mb-0">Filtered Results</h5>
-          <button class="btn btn-success btn-sm" onclick="downloadRulesExcel()">
-              <i class="fas fa-download me-1"></i> Download Excel
-          </button>
+          <div class="btn-group" role="group">
+              <button class="btn btn-success btn-sm" onclick="downloadRulesExcel()">
+                  <i class="fas fa-download me-1"></i> Download Excel
+              </button>
+              <button class="btn btn-info btn-sm" onclick="downloadRulesPDF()">
+                  <i class="fas fa-file-pdf me-1"></i> Download PDF
+              </button>
+          </div>
       </div>
 
       <div class="card">
@@ -456,6 +461,64 @@ function showRulesNotification(type, message, elementId) {
         setTimeout(() => {
             statusDiv.style.display = 'none';
         }, 5000);
+    }
+}
+
+// Download PDF file - Simple and direct approach
+function downloadRulesPDF() {
+    try {
+        console.log('=== PDF Download Started ===');
+        
+        // Get the current filter form to extract rule and category IDs
+        const rulesForm = document.getElementById('rulesApplyForm');
+        const categoriesForm = document.getElementById('rulesCustomCategoryForm');
+        
+        // Build query string with rule IDs
+        let queryString = '?';
+        let params = [];
+        
+        if (rulesForm) {
+            const checkedRules = rulesForm.querySelectorAll('input[type="checkbox"]:checked');
+            checkedRules.forEach(checkbox => {
+                params.push('rule_ids=' + encodeURIComponent(checkbox.value));
+            });
+            console.log('Rules selected:', checkedRules.length);
+        }
+        
+        if (categoriesForm) {
+            const checkedCategories = categoriesForm.querySelectorAll('input[type="checkbox"]:checked');
+            checkedCategories.forEach(checkbox => {
+                params.push('category_ids=' + encodeURIComponent(checkbox.value));
+            });
+            console.log('Categories selected:', checkedCategories.length);
+        }
+        
+        // Get table data
+        const table = document.querySelector('table tbody');
+        if (table) {
+            const rows = table.querySelectorAll('tr:not(.no-filter-results)');
+            rows.forEach(row => {
+                const transactionId = row.getAttribute('data-transaction-id');
+                if (transactionId) {
+                    params.push('transaction_ids=' + encodeURIComponent(transactionId));
+                }
+            });
+            console.log('Transactions to export:', rows.length);
+        }
+        
+        // Build the download URL
+        const baseUrl = '{% url "export_rules_results_pdf" %}';
+        const downloadUrl = baseUrl + (params.length > 0 ? '?' + params.join('&') : '');
+        
+        console.log('Download URL:', downloadUrl);
+        console.log('=== Initiating Download ===');
+        
+        // Trigger the download
+        window.location.href = downloadUrl;
+        
+    } catch (error) {
+        console.error('PDF Download Error:', error);
+        alert('Error initiating PDF download. Please check the browser console for details.');
     }
 }
 

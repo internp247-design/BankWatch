@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PDF Download Test</title>
+</head>
+<body>
+    <h1>PDF Download Test</h1>
+    <p>Click the button below to test PDF download</p>
+    
+    <button onclick="downloadPDF()">Download PDF</button>
+    
+    <script>
+        function downloadPDF() {
+            console.log('Download button clicked');
+            const url = '/analyzer/export/rules-results-pdf/?test=1';
+            console.log('Navigating to:', url);
+            window.location.href = url;
+        }
+    </script>
+</body>
+</html>

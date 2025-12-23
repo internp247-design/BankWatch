@@ -1486,16 +1486,37 @@ def export_rules_results_to_excel(request):
             except Exception as e:
                 print(f"ERROR - Failed to calculate rule total for {rule.name}: {e}")
         
-        # Calculate category totals
+        # Calculate category totals (based on matching custom category rules)
         for category in selected_categories:
             try:
                 category_count = 0
                 category_total = 0
+                rules = CustomCategoryRule.objects.filter(custom_category=category, user=request.user)
+                
                 for tx in all_transactions:
-                    if tx.custom_category_id == category.id:
-                        category_count += 1
-                        category_total += float(tx.amount)
-                category_totals_dict[category.name] = {'total': category_total, 'count': category_count}
+                    # Check if transaction matches this category's rules
+                    if rules.exists():
+                        for rule in rules:
+                            conditions = rule.conditions.all()
+                            if conditions.exists():
+                                match = True
+                                for condition in conditions:
+                                    field_value = getattr(tx, condition.field, '')
+                                    if condition.condition_type == 'contains':
+                                        if condition.value.lower() not in str(field_value).lower():
+                                            match = False
+                                            break
+                                    elif condition.condition_type == 'exact':
+                                        if condition.value.lower() != str(field_value).lower():
+                                            match = False
+                                            break
+                                if match:
+                                    category_count += 1
+                                    category_total += float(tx.amount) if tx.amount else 0
+                                    break
+                
+                if category_count > 0 or category_total > 0:
+                    category_totals_dict[category.name] = {'total': category_total, 'count': category_count}
             except Exception as e:
                 print(f"ERROR - Failed to calculate category total for {category.name}: {e}")
         
@@ -1599,11 +1620,15 @@ def export_rules_results_to_excel(request):
                 cell.alignment = left_align
                 col_num += 1
                 
-                # Description
+                # Description - Truncate to 45 characters to prevent merging
+                desc = transaction.description if transaction.description else ''
+                if len(desc) > 45:
+                    desc = desc[:42] + '...'
                 cell = ws.cell(row=row_num, column=col_num)
-                cell.value = transaction.description if transaction.description else ''
+                cell.value = desc
                 cell.border = border
-                cell.alignment = left_align
+                cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+                ws.row_dimensions[row_num].height = None  # Auto-adjust row height
                 col_num += 1
                 
                 # Amount
@@ -1653,7 +1678,34 @@ def export_rules_results_to_excel(request):
                 
                 # Custom Category
                 cell = ws.cell(row=row_num, column=col_num)
-                custom_cat = '-'  # Transaction model doesn't have custom_category field
+                custom_cat = '-'
+                # Check if transaction matches any selected custom category
+                try:
+                    if selected_categories.exists():
+                        for category in selected_categories:
+                            # Check if transaction matches this category's rules
+                            rules = CustomCategoryRule.objects.filter(custom_category=category, user=request.user)
+                            for rule in rules:
+                                # Simple match: check if description contains the rule keyword
+                                conditions = rule.conditions.all()
+                                if conditions.exists():
+                                    match = True
+                                    for condition in conditions:
+                                        field_value = getattr(transaction, condition.field, '')
+                                        if condition.condition_type == 'contains':
+                                            if condition.value.lower() not in str(field_value).lower():
+                                                match = False
+                                                break
+                                        elif condition.condition_type == 'exact':
+                                            if condition.value.lower() != str(field_value).lower():
+                                                match = False
+                                                break
+                                    if match:
+                                        custom_cat = category.name
+                                        break
+                except Exception as e:
+                    print(f"DEBUG - Custom category match error: {e}")
+                    
                 cell.value = custom_cat
                 cell.border = border
                 cell.alignment = left_align
@@ -1674,6 +1726,32 @@ def export_rules_results_to_excel(request):
         cell.font = Font(bold=True, size=12, color='FFFFFF')
         cell.fill = PatternFill(start_color='0D47A1', end_color='0D47A1', fill_type='solid')
         cell.border = border
+        summary_row += 1
+        
+        # Total Transactions
+        cell = ws.cell(row=summary_row, column=1)
+        cell.value = "Total Transactions:"
+        cell.font = Font(bold=True, size=11)
+        cell.border = border
+        
+        cell = ws.cell(row=summary_row, column=2)
+        cell.value = all_transactions.count()
+        cell.font = Font(size=11)
+        cell.border = border
+        summary_row += 1
+        
+        # Total Transaction Amount
+        total_transaction_amount = sum(float(tx.amount) for tx in all_transactions if tx.amount)
+        cell = ws.cell(row=summary_row, column=1)
+        cell.value = "Total Transaction Amount:"
+        cell.font = Font(bold=True, size=11)
+        cell.border = border
+        
+        cell = ws.cell(row=summary_row, column=2)
+        cell.value = f"₹{total_transaction_amount:,.2f}"
+        cell.font = Font(size=11)
+        cell.border = border
+        cell.number_format = '₹#,##0.00'
         summary_row += 1
         
         # Total Rules Selected
@@ -1700,39 +1778,41 @@ def export_rules_results_to_excel(request):
         cell.border = border
         summary_row += 1
         
-        # Total Rule Amount
+        # Total Rule Amount (only if rules selected)
         total_rules_amount = sum(item['total'] for item in rule_totals_dict.values())
-        cell = ws.cell(row=summary_row, column=1)
-        cell.value = "Total Rule Amount:"
-        cell.font = Font(bold=True, size=11)
-        cell.border = border
+        if total_rules_amount > 0:
+            cell = ws.cell(row=summary_row, column=1)
+            cell.value = "Total Rule Amount:"
+            cell.font = Font(bold=True, size=11)
+            cell.border = border
+            
+            cell = ws.cell(row=summary_row, column=2)
+            cell.value = f"₹{total_rules_amount:,.2f}"
+            cell.font = Font(size=11)
+            cell.border = border
+            cell.number_format = '₹#,##0.00'
+            summary_row += 1
         
-        cell = ws.cell(row=summary_row, column=2)
-        cell.value = f"₹{total_rules_amount:,.2f}"
-        cell.font = Font(size=11)
-        cell.border = border
-        cell.number_format = '₹#,##0.00'
-        summary_row += 1
-        
-        # Total Category Amount
+        # Total Category Amount (only if categories selected)
         total_categories_amount = sum(item['total'] for item in category_totals_dict.values())
-        cell = ws.cell(row=summary_row, column=1)
-        cell.value = "Total Category Amount:"
-        cell.font = Font(bold=True, size=11)
-        cell.border = border
-        
-        cell = ws.cell(row=summary_row, column=2)
-        cell.value = f"₹{total_categories_amount:,.2f}"
-        cell.font = Font(size=11)
-        cell.border = border
-        cell.number_format = '₹#,##0.00'
-        summary_row += 1
+        if total_categories_amount > 0:
+            cell = ws.cell(row=summary_row, column=1)
+            cell.value = "Total Category Amount:"
+            cell.font = Font(bold=True, size=11)
+            cell.border = border
+            
+            cell = ws.cell(row=summary_row, column=2)
+            cell.value = f"₹{total_categories_amount:,.2f}"
+            cell.font = Font(size=11)
+            cell.border = border
+            cell.number_format = '₹#,##0.00'
+            summary_row += 1
         
         # GRAND TOTAL AMOUNT
         summary_row += 1
         grand_total = total_rules_amount + total_categories_amount
         cell = ws.cell(row=summary_row, column=1)
-        cell.value = "GRAND TOTAL AMOUNT:"
+        cell.value = "GRAND TOTAL (Rules + Categories):"
         cell.font = Font(bold=True, size=12, color='FFFFFF')
         cell.fill = PatternFill(start_color='00B050', end_color='00B050', fill_type='solid')
         cell.border = border
@@ -1773,3 +1853,373 @@ def export_rules_results_to_excel(request):
         print(f"ERROR - Traceback: {traceback_str}")
         messages.error(request, f'Error exporting results: {error_msg}')
         return redirect('rules_application_results')
+
+@login_required
+def export_rules_results_to_pdf(request):
+    """Export rule application results to PDF file with charts and transaction details"""
+    
+    try:
+        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
+        from reportlab.lib.colors import HexColor, black, white, lightgrey
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+        from io import BytesIO
+        import tempfile
+        import atexit
+        from datetime import datetime
+        from django.db.models import Sum
+        
+        print("DEBUG - Starting PDF export process")
+        account_id = request.GET.get('account_id', '')
+        show_changed = request.GET.get('show_changed', '') == '1'
+        transaction_ids = request.GET.getlist('transaction_ids')
+        
+        # Get selected rules and categories from GET or POST
+        selected_rule_ids = request.GET.getlist('rule_ids') or request.POST.getlist('rule_ids')
+        selected_category_ids = request.GET.getlist('category_ids') or request.POST.getlist('category_ids')
+        
+        print(f"DEBUG - Transaction IDs: {transaction_ids}")
+        print(f"DEBUG - Selected Rule IDs: {selected_rule_ids}")
+        print(f"DEBUG - Selected Category IDs: {selected_category_ids}")
+        
+        # Fetch transactions
+        if transaction_ids:
+            all_transactions = Transaction.objects.filter(
+                id__in=transaction_ids,
+                statement__account__user=request.user
+            ).select_related('statement', 'statement__account').order_by('-date')
+        else:
+            all_transactions = Transaction.objects.filter(
+                statement__account__user=request.user
+            ).select_related('statement', 'statement__account').order_by('-date')
+            
+            if account_id:
+                try:
+                    account = BankAccount.objects.get(id=account_id, user=request.user)
+                    all_transactions = all_transactions.filter(statement__account=account)
+                except BankAccount.DoesNotExist:
+                    pass
+        
+        print(f"DEBUG - Total transactions fetched: {all_transactions.count()}")
+        
+        # Build summary data
+        try:
+            selected_rules = Rule.objects.filter(id__in=selected_rule_ids, user=request.user).order_by('name')
+            selected_categories = CustomCategory.objects.filter(id__in=selected_category_ids, user=request.user).order_by('name')
+        except Exception as e:
+            print(f"ERROR - Failed to fetch rules/categories: {e}")
+            selected_rules = Rule.objects.none()
+            selected_categories = CustomCategory.objects.none()
+        
+        rule_totals_dict = {}
+        category_totals_dict = {}
+        category_chart_data = {}
+        
+        # Calculate rule totals
+        for rule in selected_rules:
+            try:
+                rule_count = 0
+                rule_total = 0
+                for tx in all_transactions:
+                    if tx.category == rule.category:
+                        rule_count += 1
+                        rule_total += float(tx.amount)
+                rule_totals_dict[rule.name] = {'total': rule_total, 'count': rule_count}
+            except Exception as e:
+                print(f"ERROR - Failed to calculate rule total for {rule.name}: {e}")
+        
+        # Calculate category totals for chart
+        expense_transactions = all_transactions.filter(transaction_type='DEBIT')
+        for category_code, category_name in Transaction.CATEGORY_CHOICES:
+            if category_code != 'INCOME':
+                category_total = expense_transactions.filter(category=category_code).aggregate(
+                    total=models.Sum('amount')
+                )['total'] or 0
+                if category_total > 0:
+                    category_chart_data[category_name] = float(category_total)
+        
+        # Calculate category totals (based on matching custom category rules)
+        for category in selected_categories:
+            try:
+                category_count = 0
+                category_total = 0
+                rules = CustomCategoryRule.objects.filter(custom_category=category, user=request.user)
+                
+                for tx in all_transactions:
+                    # Check if transaction matches this category's rules
+                    if rules.exists():
+                        for rule in rules:
+                            conditions = rule.conditions.all()
+                            if conditions.exists():
+                                match = True
+                                for condition in conditions:
+                                    field_value = getattr(tx, condition.field, '')
+                                    if condition.condition_type == 'contains':
+                                        if condition.value.lower() not in str(field_value).lower():
+                                            match = False
+                                            break
+                                    elif condition.condition_type == 'exact':
+                                        if condition.value.lower() != str(field_value).lower():
+                                            match = False
+                                            break
+                                if match:
+                                    category_count += 1
+                                    category_total += float(tx.amount) if tx.amount else 0
+                                    break
+                
+                if category_count > 0 or category_total > 0:
+                    category_totals_dict[category.name] = {'total': category_total, 'count': category_count}
+            except Exception as e:
+                print(f"ERROR - Failed to calculate category total for {category.name}: {e}")
+        
+        print("DEBUG - Starting to build PDF document")
+        
+        # Create PDF
+        pdf_buffer = BytesIO()
+        doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, topMargin=0.5*inch, bottomMargin=0.5*inch)
+        elements = []
+        
+        # Get styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            textColor=HexColor('#0D47A1'),
+            spaceAfter=10,
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold'
+        )
+        
+        header_style = ParagraphStyle(
+            'CustomHeader',
+            parent=styles['Heading2'],
+            fontSize=14,
+            textColor=HexColor('#0D47A1'),
+            spaceAfter=8,
+            spaceBefore=8,
+            fontName='Helvetica-Bold'
+        )
+        
+        # Title
+        title = Paragraph("BANKWATCH - Financial Analysis Report", title_style)
+        elements.append(title)
+        
+        # Date and metadata
+        current_date = datetime.now()
+        date_text = f"<b>Date:</b> {current_date.strftime('%Y-%m-%d')} | <b>Day:</b> {current_date.strftime('%A')}"
+        elements.append(Paragraph(date_text, styles['Normal']))
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Selected Rules and Categories
+        if selected_rules.exists():
+            rule_names = ', '.join([rule.name for rule in selected_rules])
+            elements.append(Paragraph(f"<b>Selected Rules:</b> {rule_names}", styles['Normal']))
+        
+        if selected_categories.exists():
+            category_names = ', '.join([cat.name for cat in selected_categories])
+            elements.append(Paragraph(f"<b>Selected Categories:</b> {category_names}", styles['Normal']))
+        
+        elements.append(Spacer(1, 0.3*inch))
+        
+        # Create pie chart from category data
+        if category_chart_data:
+            try:
+                import matplotlib
+                import matplotlib.pyplot as plt
+                matplotlib.use('Agg')  # Use non-GUI backend before creating figure
+                
+                fig, ax = plt.subplots(figsize=(8, 6))
+                categories = list(category_chart_data.keys())
+                amounts = list(category_chart_data.values())
+                
+                colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2']
+                ax.pie(amounts, labels=categories, autopct='%1.1f%%', startangle=90, colors=colors[:len(categories)])
+                ax.set_title('Spending by Category', fontsize=14, fontweight='bold')
+                
+                # Save chart to temporary file
+                import os
+                chart_file = os.path.join(tempfile.gettempdir(), f'chart_{int(datetime.now().timestamp())}.png')
+                plt.savefig(chart_file, format='png', bbox_inches='tight', dpi=100)
+                plt.close(fig)
+                
+                # Add chart to PDF
+                from reportlab.platypus import Image as ReportLabImage
+                if os.path.exists(chart_file):
+                    chart_image = ReportLabImage(chart_file, width=5*inch, height=4*inch)
+                    elements.append(chart_image)
+                    elements.append(Spacer(1, 0.2*inch))
+                    
+                    # Clean up temp file after building PDF
+                    atexit.register(lambda: os.unlink(chart_file) if os.path.exists(chart_file) else None)
+                else:
+                    print(f"ERROR - Chart file not created at {chart_file}")
+                    elements.append(Paragraph("(Chart file not found)", styles['Normal']))
+                    
+            except Exception as e:
+                import traceback
+                print(f"ERROR - Failed to create chart: {e}")
+                print(f"Traceback: {traceback.format_exc()}")
+                elements.append(Paragraph(f"(Chart generation failed: {str(e)[:50]})", styles['Normal']))
+        
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Summary Section
+        elements.append(Paragraph("SUMMARY", header_style))
+        
+        # Create summary table
+        summary_data = [['Metric', 'Value']]
+        summary_data.append(['Total Transactions', str(all_transactions.count())])
+        
+        # Calculate total transaction amount
+        total_transaction_amount = sum(float(tx.amount) for tx in all_transactions if tx.amount)
+        summary_data.append(['Total Transaction Amount', f"₹{total_transaction_amount:,.2f}"])
+        
+        summary_data.append(['Total Rules Selected', str(len(rule_totals_dict))])
+        summary_data.append(['Total Categories Selected', str(len(category_totals_dict))])
+        
+        total_rules_amount = sum(item['total'] for item in rule_totals_dict.values())
+        if total_rules_amount > 0:
+            summary_data.append(['Total Rule Amount', f"₹{total_rules_amount:,.2f}"])
+        
+        total_categories_amount = sum(item['total'] for item in category_totals_dict.values())
+        if total_categories_amount > 0:
+            summary_data.append(['Total Category Amount', f"₹{total_categories_amount:,.2f}"])
+        
+        grand_total = total_rules_amount + total_categories_amount
+        if grand_total > 0:
+            summary_data.append(['GRAND TOTAL (Rules + Categories)', f"₹{grand_total:,.2f}"])
+        
+        summary_table = Table(summary_data, colWidths=[3*inch, 2*inch])
+        summary_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), HexColor('#0D47A1')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), white),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -2), lightgrey),
+            ('BACKGROUND', (0, -1), (-1, -1), HexColor('#00B050')),
+            ('TEXTCOLOR', (0, -1), (-1, -1), white),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, -1), (-1, -1), 12),
+            ('GRID', (0, 0), (-1, -1), 1, black),
+        ]))
+        elements.append(summary_table)
+        elements.append(Spacer(1, 0.3*inch))
+        
+        # Transactions Detail Section
+        elements.append(PageBreak())
+        elements.append(Paragraph("TRANSACTION DETAILS", header_style))
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Build transactions table
+        if all_transactions.count() > 0:
+            # Prepare table data
+            if show_changed:
+                headers = ['Date', 'Account', 'Description', 'Amount', 'Previous', 'Current', 'Rule', 'Category']
+                col_widths = [0.7*inch, 0.9*inch, 1.5*inch, 0.9*inch, 0.7*inch, 0.7*inch, 0.8*inch, 0.8*inch]
+            else:
+                headers = ['Date', 'Account', 'Description', 'Amount', 'Category', 'Rule']
+                col_widths = [0.7*inch, 0.9*inch, 1.5*inch, 0.9*inch, 0.9*inch, 0.9*inch]
+            
+            table_data = [headers]
+            
+            for transaction in all_transactions:
+                try:
+                    row = []
+                    row.append(transaction.date.strftime('%Y-%m-%d') if transaction.date else '')
+                    row.append(transaction.statement.account.account_name if transaction.statement else '')
+                    # Truncate description more aggressively for PDF
+                    desc = transaction.description[:35] if transaction.description else ''
+                    row.append(desc)
+                    row.append(f"₹{float(transaction.amount):,.2f}" if transaction.amount else '')
+                    
+                    if show_changed:
+                        row.append('-')  # Previous category
+                    
+                    try:
+                        category_display = transaction.get_category_display()
+                    except:
+                        category_display = str(transaction.category)
+                    row.append(category_display if category_display else '-')
+                    
+                    # Matched Rule
+                    matched_rule = '-'
+                    try:
+                        if selected_rules.exists():
+                            for rule in selected_rules:
+                                if rule.category == transaction.category:
+                                    matched_rule = rule.name
+                                    break
+                    except Exception as e:
+                        print(f"ERROR - Failed to match rule: {e}")
+                    
+                    row.append(matched_rule)
+                    
+                    table_data.append(row)
+                except Exception as e:
+                    print(f"ERROR - Failed to process transaction {transaction.id}: {e}")
+                    continue
+            
+            # Create transactions table
+            transactions_table = Table(table_data, colWidths=col_widths)
+            transactions_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), HexColor('#0D47A1')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), white),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, lightgrey),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [white, HexColor('#F5F5F5')]),
+                ('TOPPADDING', (0, 1), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
+            ]))
+            elements.append(transactions_table)
+        else:
+            elements.append(Paragraph("No transactions found", styles['Normal']))
+        
+        print("DEBUG - Building PDF document")
+        
+        # Build PDF
+        doc.build(elements)
+        
+        # Get PDF content
+        pdf_content = pdf_buffer.getvalue()
+        pdf_buffer.close()
+        
+        # Create HTTP response
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="rule_results.pdf"'
+        response.write(pdf_content)
+        
+        print("DEBUG - PDF generated successfully")
+        return response
+        
+    except ImportError as e:
+        import traceback
+        print(f"ERROR - Missing required library: {e}")
+        print(f"ERROR - Full traceback:\n{traceback.format_exc()}")
+        error_response = HttpResponse(
+            f"Error: PDF export requires reportlab and matplotlib. Please install them.\n\nDetails: {str(e)}\n\nTraceback:\n{traceback.format_exc()}",
+            content_type='text/plain',
+            status=500
+        )
+        return error_response
+    except Exception as e:
+        import traceback
+        error_msg = str(e)
+        traceback_str = traceback.format_exc()
+        print(f"ERROR - Exception in export_rules_results_to_pdf: {error_msg}")
+        print(f"ERROR - Traceback: {traceback_str}")
+        error_response = HttpResponse(
+            f"Error generating PDF: {error_msg}\n\n{traceback_str}",
+            content_type='text/plain',
+            status=500
+        )
+        return error_response
