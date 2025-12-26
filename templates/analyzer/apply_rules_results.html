@@ -33,6 +33,9 @@
           </div>
       </div>
 
+      <!-- Status Messages -->
+      <div id="rulesApplyStatus" style="display: none; margin-bottom: 15px;"></div>
+
       <!-- Rules Management Panel (Hidden by default) -->
       <div id="rulesManagementPanel" class="card shadow-sm" style="display: none; margin-bottom: 30px;">
           <div class="card-header bg-primary text-white">
@@ -108,12 +111,79 @@
           </div>
       </div>
 
+      <!-- SUMMARY SECTION -->
+      {% if results %}
+      <div class="row mb-4">
+        <div class="col-md-12">
+          <div class="card bg-light border-0">
+            <div class="card-body">
+              <h6 class="card-title mb-4">SUMMARY</h6>
+              <div class="row">
+                <!-- Total Transactions -->
+                <div class="col-md-3 col-sm-6 mb-3">
+                  <div class="p-3 border rounded bg-white">
+                    <p class="mb-1 text-muted small"><strong>Total Transactions</strong></p>
+                    <h5 class="mb-0">{{ results|length }}</h5>
+                  </div>
+                </div>
+                
+                <!-- Total Transaction Amount -->
+                <div class="col-md-3 col-sm-6 mb-3">
+                  <div class="p-3 border rounded bg-white">
+                    <p class="mb-1 text-muted small"><strong>Total Transaction Amount</strong></p>
+                    <h5 class="mb-0">₹{{ total_transactions_amount|floatformat:2 }}</h5>
+                  </div>
+                </div>
+                
+                <!-- Total Rules Selected -->
+                <div class="col-md-3 col-sm-6 mb-3">
+                  <div class="p-3 border rounded bg-white">
+                    <p class="mb-1 text-muted small"><strong>Total Rules Selected</strong></p>
+                    <h5 class="mb-0">{{ selected_rules_count }}</h5>
+                  </div>
+                </div>
+                
+                <!-- Total Categories Selected -->
+                <div class="col-md-3 col-sm-6 mb-3">
+                  <div class="p-3 border rounded bg-white">
+                    <p class="mb-1 text-muted small"><strong>Total Categories Selected</strong></p>
+                    <h5 class="mb-0">{{ selected_categories_count }}</h5>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Total Rule Amount (if rules are selected) -->
+              {% if rule_totals %}
+              <div class="row mt-3">
+                <div class="col-md-3 col-sm-6 mb-3">
+                  <div class="p-3 border rounded bg-white">
+                    <p class="mb-1 text-muted small"><strong>Total Rule Amount</strong></p>
+                    <h5 class="mb-0">₹{{ total_transactions_amount|floatformat:2 }}</h5>
+                  </div>
+                </div>
+                
+                <!-- Grand Total -->
+                <div class="col-md-9 col-sm-6 mb-3">
+                  <div class="p-3 border rounded" style="background-color: #28a745; color: white;">
+                    <p class="mb-1 small"><strong>GRAND TOTAL (Rules + Categories)</strong></p>
+                    <h5 class="mb-0">₹{{ total_transactions_amount|floatformat:2 }}</h5>
+                  </div>
+                </div>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Breakdown by Rule/Category (if results exist) -->
       {% if not no_changes and rule_totals %}
         <div class="row mb-4">
           <div class="col-md-12">
             <div class="card bg-light">
               <div class="card-body">
-                <h6 class="card-title mb-3">Summary: Total Amount by Rule</h6>
+                <h6 class="card-title mb-3">Breakdown by Rule/Category</h6>
                 <div class="row">
                   {% for rt in rule_totals %}
                     <div class="col-md-3 col-sm-6 mb-3">
@@ -324,7 +394,7 @@ function applyRulesCustomCategoryFilter() {
         categoryIds.forEach(id => formData.append('category_ids', id));
         formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
 
-        // Send AJAX request
+        // Send AJAX request to apply categories and store in session
         fetch('/analyzer/apply-custom-category-rules/', {
             method: 'POST',
             body: formData
@@ -337,10 +407,11 @@ function applyRulesCustomCategoryFilter() {
             }
 
             if (data.success) {
-                // Filter by both rules and categories
-                filterTransactionsByRulesAndCategories(ruleIds, categoryIds, data.matched_transaction_ids);
-                showRulesNotification('success', `Found matching transactions`, 'rulesApplyStatus');
-                toggleRulesCustomCategoryPanel();
+                showRulesNotification('success', `Applied ${data.applied_count} transactions`, 'rulesApplyStatus');
+                // Refresh the page to show updated summary with stored session data
+                setTimeout(() => {
+                    window.location.href = window.location.href;
+                }, 1000);
             } else {
                 showRulesNotification('error', data.message || 'Error applying filter', 'rulesApplyStatus');
             }
@@ -354,13 +425,14 @@ function applyRulesCustomCategoryFilter() {
             showRulesNotification('error', 'An error occurred while applying the filter', 'rulesApplyStatus');
         });
     } else {
-        // Only rules selected, no AJAX needed
-        if (applyBtn) {
-            applyBtn.disabled = false;
-            applyBtn.innerHTML = '<i class="fas fa-check me-1"></i> Apply Filter';
-        }
+        // Only rules selected - store in session via a separate call
+        const formData = new FormData();
+        ruleIds.forEach(id => formData.append('rule_ids', id));
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        
+        // For rules, we'll just filter client-side and store in sessionStorage
         filterTransactionsByRulesAndCategories(ruleIds, categoryIds);
-        showRulesNotification('success', `Found matching transactions`, 'rulesApplyStatus');
+        showRulesNotification('success', `Filtered by ${ruleIds.length} rule(s)`, 'rulesApplyStatus');
         toggleRulesCustomCategoryPanel();
     }
 }
@@ -473,8 +545,7 @@ function downloadRulesPDF() {
         const rulesForm = document.getElementById('rulesApplyForm');
         const categoriesForm = document.getElementById('rulesCustomCategoryForm');
         
-        // Build query string with rule IDs
-        let queryString = '?';
+        // Build query string with rule IDs and category IDs
         let params = [];
         
         if (rulesForm) {
@@ -532,10 +603,10 @@ function downloadRulesExcel() {
     }
     
     // Get all visible rows
-    const rows = table.querySelectorAll('tbody tr');
+    const rows = table.querySelectorAll('tbody tr:not(.no-filter-results)');
     
     if (rows.length === 0) {
-        alert('No data to download. Apply rules first to see results.');
+        alert('No data to download. Apply filters first to see results.');
         return;
     }
     
@@ -565,26 +636,21 @@ function downloadRulesExcel() {
         return;
     }
     
-    // Add transaction IDs as query params
-    const queryParams = new URLSearchParams();
-    transactionIds.forEach(id => queryParams.append('transaction_ids', id));
-    
-    // Get account ID from current context if available
-    const accountSelect = document.getElementById('accountSelect');
-    if (accountSelect && accountSelect.value) {
-        queryParams.append('account_id', accountSelect.value);
-    }
-    
-    // Get show_changed flag
-    const showChangedCheckbox = document.getElementById('showChangedCheckbox');
-    if (showChangedCheckbox && showChangedCheckbox.checked) {
-        queryParams.append('show_changed', '1');
-    }
-    
     // Build URL with query parameters
     let url = '{% url "export_rules_results" %}';
-    if (queryParams.toString()) {
-        url += '?' + queryParams.toString();
+    
+    // Build query params for transaction IDs
+    const queryParams = [];
+    transactionIds.forEach(id => queryParams.push('transaction_ids=' + encodeURIComponent(id)));
+    
+    // Get account ID from current context if available
+    const accountSelect = document.querySelector('select[name="account_id"]');
+    if (accountSelect && accountSelect.value) {
+        queryParams.push('account_id=' + encodeURIComponent(accountSelect.value));
+    }
+    
+    if (queryParams.length > 0) {
+        url += '?' + queryParams.join('&');
     }
     
     console.log('Export URL:', url);
