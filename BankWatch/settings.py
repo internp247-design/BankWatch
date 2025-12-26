@@ -145,7 +145,8 @@ LOGIN_URL = 'login'
 
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://*.trycloudflare.com",
+    "https://*.railway.app",
 ]
+
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
