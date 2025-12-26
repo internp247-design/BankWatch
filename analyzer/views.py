@@ -617,11 +617,6 @@ def rules_application_results(request):
     from .rules_engine import CustomCategoryRulesEngine
     custom_category_engine = CustomCategoryRulesEngine(request.user)
     
-    # Get selected filters from session (set by AJAX filtering)
-    selected_rule_ids = request.session.get('selected_filter_rule_ids', [])
-    selected_category_ids = request.session.get('selected_filter_category_ids', [])
-    selected_category_transactions = request.session.get('selected_filter_category_transactions', [])
-    
     # If show_changed requested, read the list of ids from session (set by apply_rules)
     if show_changed:
         updated_ids = request.session.get('last_rules_applied_ids', [])
@@ -661,12 +656,10 @@ def rules_application_results(request):
         matched_rule = engine.find_matching_rule(tx_data)
         matched_rule_category = matched_rule.category if matched_rule else None
         matched_rule_name = matched_rule.name if matched_rule else None
-        matched_rule_id = matched_rule.id if matched_rule else None
         
         # Check for custom category match
         matched_custom_category = custom_category_engine.apply_rules_to_transaction(tx_data)
         matched_custom_category_name = matched_custom_category.name if matched_custom_category else None
-        matched_custom_category_id = matched_custom_category.id if matched_custom_category else None
         
         # Only include if there's a match (rule or custom category)
         if matched_rule_name or matched_custom_category_name:
@@ -678,9 +671,7 @@ def rules_application_results(request):
                 'current_category': tx.category,
                 'matched_rule_category': matched_rule_category,
                 'matched_rule_name': matched_rule_name,
-                'matched_rule_id': matched_rule_id,
                 'matched_custom_category_name': matched_custom_category_name,
-                'matched_custom_category_id': matched_custom_category_id,
                 'previous_category': request.session.get('last_rules_applied_prev', {}).get(str(tx.id)) if show_changed else None,
                 'account_name': tx.statement.account.account_name,
                 'account_id': tx.statement.account.id,
@@ -692,54 +683,15 @@ def rules_application_results(request):
 
     # Compute totals per matched rule/category (always compute if there are results)
     rule_totals = []
-    selected_rules_count = 0
-    selected_categories_count = 0
-    total_transactions_count = 0
-    total_transactions_amount = 0
-    
     if results:
         totals = {}
         counts = {}
-        
-        # If filters are applied, only count selected rules/categories
-        if selected_rule_ids or selected_category_ids:
-            # Count selected rules
-            selected_rules_count = len(selected_rule_ids)
-            
-            # Count selected categories
-            selected_categories_count = len(selected_category_ids)
-            
-            # Only include results that match selected filters
-            filtered_results = []
-            for r in results:
-                should_include = False
-                
-                # Check if rule matches selected
-                if selected_rule_ids and r.get('matched_rule_id') in selected_rule_ids:
-                    should_include = True
-                
-                # Check if category matches selected
-                if selected_category_ids and r.get('id') in selected_category_transactions:
-                    should_include = True
-                
-                if should_include:
-                    filtered_results.append(r)
-                    matched_name = r.get('matched_custom_category_name') or r.get('matched_rule_name') or 'Unmatched'
-                    amt = float(r.get('amount') or 0)
-                    totals[matched_name] = totals.get(matched_name, 0.0) + amt
-                    counts[matched_name] = counts.get(matched_name, 0) + 1
-                    total_transactions_count += 1
-                    total_transactions_amount += amt
-        else:
-            # No filters applied, count all results
-            for r in results:
-                matched_name = r.get('matched_custom_category_name') or r.get('matched_rule_name') or 'Unmatched'
-                amt = float(r.get('amount') or 0)
-                totals[matched_name] = totals.get(matched_name, 0.0) + amt
-                counts[matched_name] = counts.get(matched_name, 0) + 1
-                total_transactions_count += 1
-                total_transactions_amount += amt
-        
+        for r in results:
+            # Prefer custom category, then rule, then unmatched
+            matched_name = r.get('matched_custom_category_name') or r.get('matched_rule_name') or 'Unmatched'
+            amt = float(r.get('amount') or 0)
+            totals[matched_name] = totals.get(matched_name, 0.0) + amt
+            counts[matched_name] = counts.get(matched_name, 0) + 1
         # Build list sorted by total desc
         rule_totals = [
             {'rule_name': name, 'total': totals[name], 'count': counts[name]}
@@ -765,12 +717,6 @@ def rules_application_results(request):
         'colspan': colspan,
         'custom_categories': custom_categories,
         'rules': rules,
-        'selected_rule_ids': selected_rule_ids,
-        'selected_category_ids': selected_category_ids,
-        'selected_rules_count': selected_rules_count,
-        'selected_categories_count': selected_categories_count,
-        'total_transactions_count': total_transactions_count,
-        'total_transactions_amount': total_transactions_amount,
     })
 
 
@@ -1336,11 +1282,6 @@ def apply_custom_category_rules(request):
                             matched_transaction_ids.append(transaction.id)
             
             if matched_transaction_ids:
-                # Store selected categories in session for the results page
-                request.session['selected_filter_category_ids'] = [int(cid) for cid in category_ids]
-                request.session['selected_filter_category_transactions'] = matched_transaction_ids
-                request.session['selected_filter_rule_ids'] = []  # Clear rule IDs when categories are applied
-                
                 return JsonResponse({
                     'success': True,
                     'message': f'Applied {len(custom_categories)} categor{"ies" if len(custom_categories) > 1 else "y"} to {len(matched_transaction_ids)} matching transactions.',
@@ -1820,7 +1761,7 @@ def export_rules_results_to_excel(request):
         cell.border = border
         
         cell = ws.cell(row=summary_row, column=2)
-        cell.value = len(rule_totals_dict)
+        cell.value = selected_rules.count()
         cell.font = Font(size=11)
         cell.border = border
         summary_row += 1
@@ -1832,7 +1773,7 @@ def export_rules_results_to_excel(request):
         cell.border = border
         
         cell = ws.cell(row=summary_row, column=2)
-        cell.value = len(category_totals_dict)
+        cell.value = selected_categories.count()
         cell.font = Font(size=11)
         cell.border = border
         summary_row += 1
@@ -2136,8 +2077,8 @@ def export_rules_results_to_pdf(request):
         total_transaction_amount = sum(float(tx.amount) for tx in all_transactions if tx.amount)
         summary_data.append(['Total Transaction Amount', f"₹{total_transaction_amount:,.2f}"])
         
-        summary_data.append(['Total Rules Selected', str(len(rule_totals_dict))])
-        summary_data.append(['Total Categories Selected', str(len(category_totals_dict))])
+        summary_data.append(['Total Rules Selected', str(selected_rules.count())])
+        summary_data.append(['Total Categories Selected', str(selected_categories.count())])
         
         total_rules_amount = sum(item['total'] for item in rule_totals_dict.values())
         if total_rules_amount > 0:

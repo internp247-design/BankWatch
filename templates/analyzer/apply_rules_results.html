@@ -33,9 +33,6 @@
           </div>
       </div>
 
-      <!-- Status Messages -->
-      <div id="rulesApplyStatus" style="display: none; margin-bottom: 15px;"></div>
-
       <!-- Rules Management Panel (Hidden by default) -->
       <div id="rulesManagementPanel" class="card shadow-sm" style="display: none; margin-bottom: 30px;">
           <div class="card-header bg-primary text-white">
@@ -111,79 +108,12 @@
           </div>
       </div>
 
-      <!-- SUMMARY SECTION -->
-      {% if results %}
-      <div class="row mb-4">
-        <div class="col-md-12">
-          <div class="card bg-light border-0">
-            <div class="card-body">
-              <h6 class="card-title mb-4">SUMMARY</h6>
-              <div class="row">
-                <!-- Total Transactions -->
-                <div class="col-md-3 col-sm-6 mb-3">
-                  <div class="p-3 border rounded bg-white">
-                    <p class="mb-1 text-muted small"><strong>Total Transactions</strong></p>
-                    <h5 class="mb-0">{{ results|length }}</h5>
-                  </div>
-                </div>
-                
-                <!-- Total Transaction Amount -->
-                <div class="col-md-3 col-sm-6 mb-3">
-                  <div class="p-3 border rounded bg-white">
-                    <p class="mb-1 text-muted small"><strong>Total Transaction Amount</strong></p>
-                    <h5 class="mb-0">₹{{ total_transactions_amount|floatformat:2 }}</h5>
-                  </div>
-                </div>
-                
-                <!-- Total Rules Selected -->
-                <div class="col-md-3 col-sm-6 mb-3">
-                  <div class="p-3 border rounded bg-white">
-                    <p class="mb-1 text-muted small"><strong>Total Rules Selected</strong></p>
-                    <h5 class="mb-0">{{ selected_rules_count }}</h5>
-                  </div>
-                </div>
-                
-                <!-- Total Categories Selected -->
-                <div class="col-md-3 col-sm-6 mb-3">
-                  <div class="p-3 border rounded bg-white">
-                    <p class="mb-1 text-muted small"><strong>Total Categories Selected</strong></p>
-                    <h5 class="mb-0">{{ selected_categories_count }}</h5>
-                  </div>
-                </div>
-              </div>
-              
-              <!-- Total Rule Amount (if rules are selected) -->
-              {% if rule_totals %}
-              <div class="row mt-3">
-                <div class="col-md-3 col-sm-6 mb-3">
-                  <div class="p-3 border rounded bg-white">
-                    <p class="mb-1 text-muted small"><strong>Total Rule Amount</strong></p>
-                    <h5 class="mb-0">₹{{ total_transactions_amount|floatformat:2 }}</h5>
-                  </div>
-                </div>
-                
-                <!-- Grand Total -->
-                <div class="col-md-9 col-sm-6 mb-3">
-                  <div class="p-3 border rounded" style="background-color: #28a745; color: white;">
-                    <p class="mb-1 small"><strong>GRAND TOTAL (Rules + Categories)</strong></p>
-                    <h5 class="mb-0">₹{{ total_transactions_amount|floatformat:2 }}</h5>
-                  </div>
-                </div>
-              </div>
-              {% endif %}
-            </div>
-          </div>
-        </div>
-      </div>
-      {% endif %}
-
-      <!-- Breakdown by Rule/Category (if results exist) -->
       {% if not no_changes and rule_totals %}
         <div class="row mb-4">
           <div class="col-md-12">
             <div class="card bg-light">
               <div class="card-body">
-                <h6 class="card-title mb-3">Breakdown by Rule/Category</h6>
+                <h6 class="card-title mb-3">Summary: Total Amount by Rule</h6>
                 <div class="row">
                   {% for rt in rule_totals %}
                     <div class="col-md-3 col-sm-6 mb-3">
@@ -265,6 +195,43 @@
                       <a href="{% url 'create_custom_category' %}" class="alert-link">Create a custom category first</a> to apply it to transactions.
                   </div>
               {% endif %}
+          </div>
+      </div>
+
+      <!-- Summary Section -->
+      <div id="summarySection" class="row mb-4">
+          <div class="col-md-12">
+              <div class="card bg-light">
+                  <div class="card-body">
+                      <h6 class="card-title mb-3" style="color: #0D47A1;"><i class="fas fa-chart-bar me-2"></i>Summary</h6>
+                      <div class="row">
+                          <div class="col-md-3 col-sm-6 mb-3">
+                              <div class="p-3 border rounded bg-white">
+                                  <p class="mb-1 text-muted small">Total Transactions</p>
+                                  <h5 class="mb-0" id="summaryTotalTransactions">{{ results|length }}</h5>
+                              </div>
+                          </div>
+                          <div class="col-md-3 col-sm-6 mb-3">
+                              <div class="p-3 border rounded bg-white">
+                                  <p class="mb-1 text-muted small">Total Rules Selected</p>
+                                  <h5 class="mb-0" id="summaryRulesSelected">0</h5>
+                              </div>
+                          </div>
+                          <div class="col-md-3 col-sm-6 mb-3">
+                              <div class="p-3 border rounded bg-white">
+                                  <p class="mb-1 text-muted small">Total Categories Selected</p>
+                                  <h5 class="mb-0" id="summaryCategoriesSelected">0</h5>
+                              </div>
+                          </div>
+                          <div class="col-md-3 col-sm-6 mb-3">
+                              <div class="p-3 border rounded bg-white" style="background: linear-gradient(135deg, #00B050 0%, #00B050 100%); color: white;">
+                                  <p class="mb-1 small" style="opacity: 0.9;">Grand Total Amount</p>
+                                  <h5 class="mb-0" id="summaryGrandTotal">₹0.00</h5>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
           </div>
       </div>
 
@@ -394,7 +361,7 @@ function applyRulesCustomCategoryFilter() {
         categoryIds.forEach(id => formData.append('category_ids', id));
         formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
 
-        // Send AJAX request to apply categories and store in session
+        // Send AJAX request
         fetch('/analyzer/apply-custom-category-rules/', {
             method: 'POST',
             body: formData
@@ -407,11 +374,10 @@ function applyRulesCustomCategoryFilter() {
             }
 
             if (data.success) {
-                showRulesNotification('success', `Applied ${data.applied_count} transactions`, 'rulesApplyStatus');
-                // Refresh the page to show updated summary with stored session data
-                setTimeout(() => {
-                    window.location.href = window.location.href;
-                }, 1000);
+                // Filter by both rules and categories
+                filterTransactionsByRulesAndCategories(ruleIds, categoryIds, data.matched_transaction_ids);
+                showRulesNotification('success', `Found matching transactions`, 'rulesApplyStatus');
+                toggleRulesCustomCategoryPanel();
             } else {
                 showRulesNotification('error', data.message || 'Error applying filter', 'rulesApplyStatus');
             }
@@ -425,14 +391,13 @@ function applyRulesCustomCategoryFilter() {
             showRulesNotification('error', 'An error occurred while applying the filter', 'rulesApplyStatus');
         });
     } else {
-        // Only rules selected - store in session via a separate call
-        const formData = new FormData();
-        ruleIds.forEach(id => formData.append('rule_ids', id));
-        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
-        
-        // For rules, we'll just filter client-side and store in sessionStorage
+        // Only rules selected, no AJAX needed
+        if (applyBtn) {
+            applyBtn.disabled = false;
+            applyBtn.innerHTML = '<i class="fas fa-check me-1"></i> Apply Filter';
+        }
         filterTransactionsByRulesAndCategories(ruleIds, categoryIds);
-        showRulesNotification('success', `Filtered by ${ruleIds.length} rule(s)`, 'rulesApplyStatus');
+        showRulesNotification('success', `Found matching transactions`, 'rulesApplyStatus');
         toggleRulesCustomCategoryPanel();
     }
 }
@@ -545,7 +510,8 @@ function downloadRulesPDF() {
         const rulesForm = document.getElementById('rulesApplyForm');
         const categoriesForm = document.getElementById('rulesCustomCategoryForm');
         
-        // Build query string with rule IDs and category IDs
+        // Build query string with rule IDs
+        let queryString = '?';
         let params = [];
         
         if (rulesForm) {
@@ -603,10 +569,10 @@ function downloadRulesExcel() {
     }
     
     // Get all visible rows
-    const rows = table.querySelectorAll('tbody tr:not(.no-filter-results)');
+    const rows = table.querySelectorAll('tbody tr');
     
     if (rows.length === 0) {
-        alert('No data to download. Apply filters first to see results.');
+        alert('No data to download. Apply rules first to see results.');
         return;
     }
     
@@ -636,21 +602,26 @@ function downloadRulesExcel() {
         return;
     }
     
-    // Build URL with query parameters
-    let url = '{% url "export_rules_results" %}';
-    
-    // Build query params for transaction IDs
-    const queryParams = [];
-    transactionIds.forEach(id => queryParams.push('transaction_ids=' + encodeURIComponent(id)));
+    // Add transaction IDs as query params
+    const queryParams = new URLSearchParams();
+    transactionIds.forEach(id => queryParams.append('transaction_ids', id));
     
     // Get account ID from current context if available
-    const accountSelect = document.querySelector('select[name="account_id"]');
+    const accountSelect = document.getElementById('accountSelect');
     if (accountSelect && accountSelect.value) {
-        queryParams.push('account_id=' + encodeURIComponent(accountSelect.value));
+        queryParams.append('account_id', accountSelect.value);
     }
     
-    if (queryParams.length > 0) {
-        url += '?' + queryParams.join('&');
+    // Get show_changed flag
+    const showChangedCheckbox = document.getElementById('showChangedCheckbox');
+    if (showChangedCheckbox && showChangedCheckbox.checked) {
+        queryParams.append('show_changed', '1');
+    }
+    
+    // Build URL with query parameters
+    let url = '{% url "export_rules_results" %}';
+    if (queryParams.toString()) {
+        url += '?' + queryParams.toString();
     }
     
     console.log('Export URL:', url);
@@ -810,6 +781,9 @@ function filterTransactionsByRulesAndCategories(ruleIds, categoryIds, matchedCat
             noResultsRow.remove();
         }
     }
+    
+    // Update summary with new filtered data
+    updateSummary();
 }
 
 // Clear both rules and categories filters and show all transactions
@@ -847,7 +821,49 @@ function showAllRulesTransactions() {
     if (noResultsRow) {
         noResultsRow.remove();
     }
+    
+    // Update summary with all transactions
+    updateSummary();
 }
+
+// Update summary metrics
+function updateSummary() {
+    const table = document.querySelector('table tbody');
+    const rows = table.querySelectorAll('tr:not(.no-filter-results)');
+    let visibleCount = 0;
+    let totalAmount = 0;
+    
+    rows.forEach(row => {
+        const style = window.getComputedStyle(row);
+        if (style.display !== 'none') {
+            visibleCount++;
+            
+            // Get amount from the 4th column (Amount column)
+            const cells = row.querySelectorAll('td');
+            if (cells.length >= 4) {
+                const amountText = cells[3].textContent.replace('₹', '').replace(/,/g, '');
+                const amount = parseFloat(amountText) || 0;
+                totalAmount += amount;
+            }
+        }
+    });
+    
+    // Get selected rules and categories
+    const selectedRules = document.querySelectorAll('#rulesApplyForm input[type="checkbox"]:checked').length;
+    const selectedCategories = document.querySelectorAll('#rulesCustomCategoryForm input[type="checkbox"]:checked').length;
+    
+    // Update summary elements
+    document.getElementById('summaryTotalTransactions').textContent = visibleCount;
+    document.getElementById('summaryRulesSelected').textContent = selectedRules;
+    document.getElementById('summaryCategoriesSelected').textContent = selectedCategories;
+    document.getElementById('summaryGrandTotal').textContent = '₹' + totalAmount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+// Initialize summary on page load
+window.addEventListener('load', function() {
+    // Initial summary calculation
+    updateSummary();
+});
 
 </script>
 
