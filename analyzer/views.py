@@ -610,206 +610,213 @@ def test_rules(request):
 @login_required
 def rules_application_results(request):
     """Show which rule (if any) and custom category (if any) matches each transaction. Supports optional account filter and filtering by selected rules/categories."""
-    account_id = request.GET.get('account_id')
-    show_changed = request.GET.get('show_changed') in ['1', 'true', 'True']
-    
-    # Get selected rule IDs and category IDs from GET parameters
-    selected_rule_ids = request.GET.getlist('rule_ids')
-    selected_category_ids = request.GET.getlist('category_ids')
-    
-    # Convert to integers
-    selected_rule_ids = [int(rid) for rid in selected_rule_ids if rid.isdigit()]
-    selected_category_ids = [int(cid) for cid in selected_category_ids if cid.isdigit()]
-    
-    print(f"DEBUG: selected_rule_ids={selected_rule_ids}, selected_category_ids={selected_category_ids}")
-    
-    engine = RulesEngine(request.user)
-    
-    # Import custom category engine
-    from .rules_engine import CustomCategoryRulesEngine
-    custom_category_engine = CustomCategoryRulesEngine(request.user)
-    
-    # If show_changed requested, read the list of ids from session (set by apply_rules)
-    if show_changed:
-        updated_ids = request.session.get('last_rules_applied_ids', [])
-        # ensure we only fetch transactions belonging to this user (and optional account)
-        if account_id:
-            transactions = Transaction.objects.filter(
-                id__in=updated_ids,
-                statement__account__user=request.user,
-                statement__account_id=account_id
-            ).select_related('statement', 'statement__account').order_by('-date')
+    try:
+        account_id = request.GET.get('account_id')
+        show_changed = request.GET.get('show_changed') in ['1', 'true', 'True']
+        
+        print(f"DEBUG: rules_application_results called with show_changed={show_changed}, account_id={account_id}")
+        
+        # Get selected rule IDs and category IDs from GET parameters
+        selected_rule_ids = request.GET.getlist('rule_ids')
+        selected_category_ids = request.GET.getlist('category_ids')
+        
+        # Convert to integers
+        selected_rule_ids = [int(rid) for rid in selected_rule_ids if rid.isdigit()]
+        selected_category_ids = [int(cid) for cid in selected_category_ids if cid.isdigit()]
+        
+        print(f"DEBUG: selected_rule_ids={selected_rule_ids}, selected_category_ids={selected_category_ids}")
+        
+        engine = RulesEngine(request.user)
+        
+        # Import custom category engine
+        from .rules_engine import CustomCategoryRulesEngine
+        custom_category_engine = CustomCategoryRulesEngine(request.user)
+        
+        # If show_changed requested, read the list of ids from session (set by apply_rules)
+        if show_changed:
+            updated_ids = request.session.get('last_rules_applied_ids', [])
+            print(f"DEBUG: show_changed=True, updated_ids={updated_ids}")
+            # ensure we only fetch transactions belonging to this user (and optional account)
+            if account_id:
+                transactions = Transaction.objects.filter(
+                    id__in=updated_ids,
+                    statement__account__user=request.user,
+                    statement__account_id=account_id
+                ).select_related('statement', 'statement__account').order_by('-date')
+            else:
+                transactions = Transaction.objects.filter(
+                    id__in=updated_ids,
+                    statement__account__user=request.user
+                ).select_related('statement', 'statement__account').order_by('-date')
         else:
-            transactions = Transaction.objects.filter(
-                id__in=updated_ids,
-                statement__account__user=request.user
-            ).select_related('statement', 'statement__account').order_by('-date')
-    else:
-        if account_id:
-            transactions = Transaction.objects.filter(
-                statement__account__user=request.user,
-                statement__account_id=account_id
-            ).select_related('statement', 'statement__account').order_by('-date')
-        else:
-            transactions = Transaction.objects.filter(
-                statement__account__user=request.user
-            ).select_related('statement', 'statement__account').order_by('-date')
+            if account_id:
+                transactions = Transaction.objects.filter(
+                    statement__account__user=request.user,
+                    statement__account_id=account_id
 
-    results = []
-    for tx in transactions:
-        try:
-            tx_data = {
-                'date': tx.date,
-                'description': tx.description,
-                'amount': float(tx.amount),
-                'transaction_type': tx.transaction_type
-            }
-            
-            # Check for rule match
-            matched_rule = engine.find_matching_rule(tx_data)
-            matched_rule_id = matched_rule.id if matched_rule else None
-            matched_rule_category = matched_rule.category if matched_rule else None
-            matched_rule_name = matched_rule.name if matched_rule else None
-            
-            # Check for custom category match
-            matched_custom_category = custom_category_engine.apply_rules_to_transaction(tx_data)
-            matched_custom_category_id = matched_custom_category.id if matched_custom_category else None
-            matched_custom_category_name = matched_custom_category.name if matched_custom_category else None
-            
-            # Only include if there's a match (rule or custom category)
-            if matched_rule_name or matched_custom_category_name:
-                # Safely access statement and account
-                account_name = 'Unknown'
-                account_id = None
-                try:
-                    if tx.statement and tx.statement.account:
-                        account_name = tx.statement.account.account_name
-                        account_id = tx.statement.account.id
-                except (AttributeError, ObjectDoesNotExist):
-                    pass
-                
-                results.append({
-                    'id': tx.id,
-                    'date': str(tx.date),  # Convert date to string for session serialization
+        results = []
+        for tx in transactions:
+            try:
+                tx_data = {
+                    'date': tx.date,
                     'description': tx.description,
                     'amount': float(tx.amount),
-                    'current_category': tx.category,
-                    'matched_rule_id': matched_rule_id,
-                    'matched_rule_category': matched_rule_category,
-                    'matched_rule_name': matched_rule_name,
-                    'matched_custom_category_id': matched_custom_category_id,
-                    'matched_custom_category_name': matched_custom_category_name,
-                    'previous_category': request.session.get('last_rules_applied_prev', {}).get(str(tx.id)) if show_changed else None,
-                    'account_name': account_name,
-                    'account_id': account_id,
-                })
-        except Exception as e:
-            print(f"ERROR - Failed to process transaction {tx.id}: {str(e)}")
-            continue
+                    'transaction_type': tx.transaction_type
+                }
+                
+                # Check for rule match
+                matched_rule = engine.find_matching_rule(tx_data)
+                matched_rule_id = matched_rule.id if matched_rule else None
+                matched_rule_category = matched_rule.category if matched_rule else None
+                matched_rule_name = matched_rule.name if matched_rule else None
+                
+                # Check for custom category match
+                matched_custom_category = custom_category_engine.apply_rules_to_transaction(tx_data)
+                matched_custom_category_id = matched_custom_category.id if matched_custom_category else None
+                matched_custom_category_name = matched_custom_category.name if matched_custom_category else None
+                
+                # Only include if there's a match (rule or custom category)
+                if matched_rule_name or matched_custom_category_name:
+                    # Safely access statement and account
+                    account_name = 'Unknown'
+                    account_id = None
+                    try:
+                        if tx.statement and tx.statement.account:
+                            account_name = tx.statement.account.account_name
+                            account_id = tx.statement.account.id
+                    except (AttributeError, ObjectDoesNotExist):
+                        pass
+                    
+                    results.append({
+                        'id': tx.id,
+                        'date': str(tx.date),  # Convert date to string for session serialization
+                        'description': tx.description,
+                        'amount': float(tx.amount),
+                        'current_category': tx.category,
+                        'matched_rule_id': matched_rule_id,
+                        'matched_rule_category': matched_rule_category,
+                        'matched_rule_name': matched_rule_name,
+                        'matched_custom_category_id': matched_custom_category_id,
+                        'matched_custom_category_name': matched_custom_category_name,
+                        'previous_category': request.session.get('last_rules_applied_prev', {}).get(str(tx.id)) if show_changed else None,
+                        'account_name': account_name,
+                        'account_id': account_id,
+                    })
+            except Exception as e:
+                print(f"ERROR - Failed to process transaction {tx.id}: {str(e)}")
+                continue
 
-    # Get list of user's accounts for selector
-    accounts = BankAccount.objects.filter(user=request.user)
-    no_changes = show_changed and len(results) == 0
+        # Get list of user's accounts for selector
+        accounts = BankAccount.objects.filter(user=request.user)
+        no_changes = show_changed and len(results) == 0
 
-    # Get all user's custom categories and rules for filter panels
-    all_custom_categories = CustomCategory.objects.filter(user=request.user, is_active=True).order_by('name')
-    all_rules = Rule.objects.filter(user=request.user, is_active=True).order_by('name')
-    
-    # Filter categories and rules based on selection
-    if selected_category_ids:
-        custom_categories = all_custom_categories.filter(id__in=selected_category_ids)
-    else:
-        custom_categories = CustomCategory.objects.none()
-    
-    if selected_rule_ids:
-        rules = all_rules.filter(id__in=selected_rule_ids)
-    else:
-        rules = Rule.objects.none()
-
-    # Compute summary report table - ONLY for selected rules and categories
-    rule_category_report = []
-    
-    if selected_rule_ids or selected_category_ids:
-        # Initialize data for selected items
-        if selected_rule_ids:
-            for rule in rules:
-                rule_category_report.append({
-                    'type': 'rule',
-                    'id': rule.id,
-                    'name': rule.name,
-                    'category': rule.get_category_display(),
-                    'transaction_count': 0,
-                    'total_amount': 0.0
-                })
+        # Get all user's custom categories and rules for filter panels
+        all_custom_categories = CustomCategory.objects.filter(user=request.user, is_active=True).order_by('name')
+        all_rules = Rule.objects.filter(user=request.user, is_active=True).order_by('name')
         
+        # Filter categories and rules based on selection
         if selected_category_ids:
-            for category in custom_categories:
-                rule_category_report.append({
-                    'type': 'category',
-                    'id': category.id,
-                    'name': category.name,
-                    'category': 'Custom',
-                    'transaction_count': 0,
-                    'total_amount': 0.0
-                })
+            custom_categories = all_custom_categories.filter(id__in=selected_category_ids)
+        else:
+            custom_categories = CustomCategory.objects.none()
         
-        # Populate counts and amounts from results
-        for result in results:
-            # Update rule if matched and selected
-            if result['matched_rule_id'] and result['matched_rule_id'] in selected_rule_ids:
-                for item in rule_category_report:
-                    if item['type'] == 'rule' and item['id'] == result['matched_rule_id']:
-                        item['transaction_count'] += 1
-                        item['total_amount'] += float(result['amount'] or 0)
+        if selected_rule_ids:
+            rules = all_rules.filter(id__in=selected_rule_ids)
+        else:
+            rules = Rule.objects.none()
+
+        # Compute summary report table - ONLY for selected rules and categories
+        rule_category_report = []
+        
+        if selected_rule_ids or selected_category_ids:
+            # Initialize data for selected items
+            if selected_rule_ids:
+                for rule in rules:
+                    rule_category_report.append({
+                        'type': 'rule',
+                        'id': rule.id,
+                        'name': rule.name,
+                        'category': rule.get_category_display(),
+                        'transaction_count': 0,
+                        'total_amount': 0.0
+                    })
             
-            # Update category if matched and selected
-            if result['matched_custom_category_id'] and result['matched_custom_category_id'] in selected_category_ids:
-                for item in rule_category_report:
-                    if item['type'] == 'category' and item['id'] == result['matched_custom_category_id']:
-                        item['transaction_count'] += 1
-                        item['total_amount'] += float(result['amount'] or 0)
-    
-    # Filter results to show only those matching selected rules/categories
-    filtered_results = []
-    if selected_rule_ids or selected_category_ids:
-        for r in results:
-            include = False
-            # Include if matched rule is selected
-            if r['matched_rule_id'] and r['matched_rule_id'] in selected_rule_ids:
-                include = True
-            # Include if matched category is selected
-            if r['matched_custom_category_id'] and r['matched_custom_category_id'] in selected_category_ids:
-                include = True
+            if selected_category_ids:
+                for category in custom_categories:
+                    rule_category_report.append({
+                        'type': 'category',
+                        'id': category.id,
+                        'name': category.name,
+                        'category': 'Custom',
+                        'transaction_count': 0,
+                        'total_amount': 0.0
+                    })
             
-            if include:
-                filtered_results.append(r)
-    else:
-        filtered_results = results
+            # Populate counts and amounts from results
+            for result in results:
+                # Update rule if matched and selected
+                if result['matched_rule_id'] and result['matched_rule_id'] in selected_rule_ids:
+                    for item in rule_category_report:
+                        if item['type'] == 'rule' and item['id'] == result['matched_rule_id']:
+                            item['transaction_count'] += 1
+                            item['total_amount'] += float(result['amount'] or 0)
+                
+                # Update category if matched and selected
+                if result['matched_custom_category_id'] and result['matched_custom_category_id'] in selected_category_ids:
+                    for item in rule_category_report:
+                        if item['type'] == 'category' and item['id'] == result['matched_custom_category_id']:
+                            item['transaction_count'] += 1
+                            item['total_amount'] += float(result['amount'] or 0)
+        
+        # Filter results to show only those matching selected rules/categories
+        filtered_results = []
+        if selected_rule_ids or selected_category_ids:
+            for r in results:
+                include = False
+                # Include if matched rule is selected
+                if r['matched_rule_id'] and r['matched_rule_id'] in selected_rule_ids:
+                    include = True
+                # Include if matched category is selected
+                if r['matched_custom_category_id'] and r['matched_custom_category_id'] in selected_category_ids:
+                    include = True
+                
+                if include:
+                    filtered_results.append(r)
+        else:
+            filtered_results = results
 
-    # Store filtered results in session for export functions
-    request.session['export_filtered_results'] = filtered_results
-    request.session['export_selected_rule_ids'] = selected_rule_ids
-    request.session['export_selected_category_ids'] = selected_category_ids
-    request.session.modified = True  # Ensure session is saved
+        # Store filtered results in session for export functions
+        request.session['export_filtered_results'] = filtered_results
+        request.session['export_selected_rule_ids'] = selected_rule_ids
+        request.session['export_selected_category_ids'] = selected_category_ids
+        request.session.modified = True  # Ensure session is saved
 
-    # compute colspan for template (base 7 columns + previous column if show_changed)
-    colspan = 7 + (1 if show_changed else 0)
+        # compute colspan for template (base 7 columns + previous column if show_changed)
+        colspan = 7 + (1 if show_changed else 0)
 
-    return render(request, 'analyzer/apply_rules_results.html', {
-        'results': filtered_results,
-        'all_results': results,
-        'rule_category_report': rule_category_report,
-        'accounts': accounts,
-        'selected_account_id': int(account_id) if account_id else None,
-        'show_changed': show_changed,
-        'no_changes': show_changed and len(filtered_results) == 0,
-        'colspan': colspan,
-        'custom_categories': all_custom_categories,
-        'all_custom_categories': all_custom_categories,
-        'rules': all_rules,
-        'selected_rule_ids': selected_rule_ids,
-        'selected_category_ids': selected_category_ids,
-    })
+        return render(request, 'analyzer/apply_rules_results.html', {
+            'results': filtered_results,
+            'all_results': results,
+            'rule_category_report': rule_category_report,
+            'accounts': accounts,
+            'selected_account_id': int(account_id) if account_id else None,
+            'show_changed': show_changed,
+            'no_changes': show_changed and len(filtered_results) == 0,
+            'colspan': colspan,
+            'custom_categories': all_custom_categories,
+            'all_custom_categories': all_custom_categories,
+            'rules': all_rules,
+            'selected_rule_ids': selected_rule_ids,
+            'selected_category_ids': selected_category_ids,
+        })
+        
+    except Exception as e:
+        import traceback
+        error_msg = f"ERROR in rules_application_results: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        messages.error(request, f"Error loading results: {str(e)}")
+        return redirect('rules_list')
+
 
 
 @login_required
