@@ -183,7 +183,7 @@
                                   <i class="fas fa-times me-1"></i> Cancel
                               </button>
                           </div>
-                          <button type="button" class="btn btn-success" id="rulesApplyBtn" onclick="applyRulesCustomCategoryFilter()">
+                          <button type="button" class="btn btn-success" id="customCategoryApplyBtn" onclick="applyRulesCustomCategoryFilter()">
                               <i class="fas fa-check me-1"></i> Apply Filter
                           </button>
                       </div>
@@ -195,6 +195,21 @@
                       <a href="{% url 'create_custom_category' %}" class="alert-link">Create a custom category first</a> to apply it to transactions.
                   </div>
               {% endif %}
+          </div>
+      </div>
+
+      <!-- Applied Filters Indicator -->
+      <div id="appliedFiltersSection" class="alert alert-info" style="display: none; margin-bottom: 20px;">
+          <div class="d-flex justify-content-between align-items-start">
+              <div>
+                  <h6 class="mb-2"><i class="fas fa-filter me-2"></i>Active Filters</h6>
+                  <div id="appliedFiltersContent">
+                      <p class="text-muted mb-0">No filters applied. Showing all transactions.</p>
+                  </div>
+              </div>
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearRulesCustomCategoryFilter()">
+                  <i class="fas fa-times me-1"></i> Clear All Filters
+              </button>
           </div>
       </div>
 
@@ -348,7 +363,7 @@ function applyRulesCustomCategoryFilter() {
     const categoryIds = Array.from(categoryCheckboxes).map(cb => cb.value);
     
     // Show loading state
-    const applyBtn = document.getElementById('rulesApplyBtn');
+    const applyBtn = document.getElementById('customCategoryApplyBtn');
     if (applyBtn) {
         applyBtn.disabled = true;
         applyBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Applying...';
@@ -450,6 +465,10 @@ function clearRulesCustomCategoryFilter() {
 
     // Show all table rows
     showRulesAllTransactions();
+    
+    // Hide applied filters section
+    document.getElementById('appliedFiltersSection').style.display = 'none';
+    
     showRulesNotification('success', 'Filter cleared - showing all transactions', 'rulesApplyStatus');
     
     // Close the category panel
@@ -510,48 +529,86 @@ function downloadRulesPDF() {
         const rulesForm = document.getElementById('rulesApplyForm');
         const categoriesForm = document.getElementById('rulesCustomCategoryForm');
         
-        // Build query string with rule IDs
-        let queryString = '?';
-        let params = [];
+        // Get only visible rows
+        const table = document.querySelector('table tbody');
+        const rows = table.querySelectorAll('tr:not(.no-filter-results)');
+        const visibleRows = Array.from(rows).filter(row => {
+            const style = window.getComputedStyle(row);
+            return style.display !== 'none';
+        });
         
+        if (visibleRows.length === 0) {
+            alert('No data to download. Apply rules/categories first to see results.');
+            return;
+        }
+        
+        // Build form data with selected filters and transaction IDs
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{% url "export_rules_results_pdf" %}';
+        
+        // Add CSRF token
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        form.appendChild(csrfInput);
+        
+        // Collect rule IDs
+        let queryParams = [];
         if (rulesForm) {
             const checkedRules = rulesForm.querySelectorAll('input[type="checkbox"]:checked');
             checkedRules.forEach(checkbox => {
-                params.push('rule_ids=' + encodeURIComponent(checkbox.value));
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'rule_ids';
+                input.value = checkbox.value;
+                form.appendChild(input);
+                queryParams.push('rule_ids=' + encodeURIComponent(checkbox.value));
             });
             console.log('Rules selected:', checkedRules.length);
         }
         
+        // Collect category IDs
         if (categoriesForm) {
             const checkedCategories = categoriesForm.querySelectorAll('input[type="checkbox"]:checked');
             checkedCategories.forEach(checkbox => {
-                params.push('category_ids=' + encodeURIComponent(checkbox.value));
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'category_ids';
+                input.value = checkbox.value;
+                form.appendChild(input);
+                queryParams.push('category_ids=' + encodeURIComponent(checkbox.value));
             });
             console.log('Categories selected:', checkedCategories.length);
         }
         
-        // Get table data
-        const table = document.querySelector('table tbody');
-        if (table) {
-            const rows = table.querySelectorAll('tr:not(.no-filter-results)');
-            rows.forEach(row => {
-                const transactionId = row.getAttribute('data-transaction-id');
-                if (transactionId) {
-                    params.push('transaction_ids=' + encodeURIComponent(transactionId));
-                }
-            });
-            console.log('Transactions to export:', rows.length);
+        // Collect transaction IDs from visible rows
+        visibleRows.forEach(row => {
+            const transactionId = row.getAttribute('data-transaction-id');
+            if (transactionId) {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'transaction_ids';
+                input.value = transactionId;
+                form.appendChild(input);
+                queryParams.push('transaction_ids=' + encodeURIComponent(transactionId));
+            }
+        });
+        console.log('Visible transactions to export:', visibleRows.length);
+        
+        // Update form action with query string
+        if (queryParams.length > 0) {
+            form.action = '{% url "export_rules_results_pdf" %}?' + queryParams.join('&');
         }
         
-        // Build the download URL
-        const baseUrl = '{% url "export_rules_results_pdf" %}';
-        const downloadUrl = baseUrl + (params.length > 0 ? '?' + params.join('&') : '');
-        
-        console.log('Download URL:', downloadUrl);
+        console.log('Download URL:', form.action);
         console.log('=== Initiating Download ===');
         
         // Trigger the download
-        window.location.href = downloadUrl;
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
         
     } catch (error) {
         console.error('PDF Download Error:', error);
@@ -568,11 +625,15 @@ function downloadRulesExcel() {
         return;
     }
     
-    // Get all visible rows
-    const rows = table.querySelectorAll('tbody tr');
+    // Get only visible rows (not hidden by filtering)
+    const rows = table.querySelectorAll('tbody tr:not(.no-filter-results)');
+    const visibleRows = Array.from(rows).filter(row => {
+        const style = window.getComputedStyle(row);
+        return style.display !== 'none';
+    });
     
-    if (rows.length === 0) {
-        alert('No data to download. Apply rules first to see results.');
+    if (visibleRows.length === 0) {
+        alert('No data to download. Apply rules/categories first to see results.');
         return;
     }
     
@@ -586,50 +647,29 @@ function downloadRulesExcel() {
     console.log('Rule IDs:', ruleIds);
     console.log('Category IDs:', categoryIds);
     
-    // Get all transaction IDs from visible rows
+    // Get transaction IDs from visible rows only
     const transactionIds = [];
-    rows.forEach(row => {
+    visibleRows.forEach(row => {
         const transactionId = row.getAttribute('data-transaction-id');
         if (transactionId) {
-            transactionIds.push(transactionId);
+            const style = window.getComputedStyle(row);
+            if (style.display !== 'none') {
+                transactionIds.push(transactionId);
+            }
         }
     });
     
-    console.log('Transaction IDs:', transactionIds);
+    console.log('Visible Transaction IDs for export:', transactionIds);
     
     if (transactionIds.length === 0) {
-        alert('No transaction IDs found. Please refresh the page and try again.');
+        alert('No visible transactions to export. Please apply a filter first.');
         return;
     }
     
-    // Add transaction IDs as query params
-    const queryParams = new URLSearchParams();
-    transactionIds.forEach(id => queryParams.append('transaction_ids', id));
-    
-    // Get account ID from current context if available
-    const accountSelect = document.getElementById('accountSelect');
-    if (accountSelect && accountSelect.value) {
-        queryParams.append('account_id', accountSelect.value);
-    }
-    
-    // Get show_changed flag
-    const showChangedCheckbox = document.getElementById('showChangedCheckbox');
-    if (showChangedCheckbox && showChangedCheckbox.checked) {
-        queryParams.append('show_changed', '1');
-    }
-    
-    // Build URL with query parameters
-    let url = '{% url "export_rules_results" %}';
-    if (queryParams.toString()) {
-        url += '?' + queryParams.toString();
-    }
-    
-    console.log('Export URL:', url);
-    
-    // Submit form via POST with selected filters
+    // Submit form via POST with selected filters and transaction IDs
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = url;
+    form.action = '{% url "export_rules_results" %}';
     
     // Add CSRF token
     const csrfInput = document.createElement('input');
@@ -638,6 +678,17 @@ function downloadRulesExcel() {
     csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
     form.appendChild(csrfInput);
     
+    // Add transaction IDs as query string for better handling
+    let queryParams = [];
+    transactionIds.forEach(id => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'transaction_ids';
+        input.value = id;
+        form.appendChild(input);
+        queryParams.push('transaction_ids=' + encodeURIComponent(id));
+    });
+    
     // Add rule IDs
     ruleIds.forEach(id => {
         const input = document.createElement('input');
@@ -645,6 +696,7 @@ function downloadRulesExcel() {
         input.name = 'rule_ids';
         input.value = id;
         form.appendChild(input);
+        queryParams.push('rule_ids=' + encodeURIComponent(id));
     });
     
     // Add category IDs
@@ -654,9 +706,15 @@ function downloadRulesExcel() {
         input.name = 'category_ids';
         input.value = id;
         form.appendChild(input);
+        queryParams.push('category_ids=' + encodeURIComponent(id));
     });
     
-    console.log('Submitting form to:', form.action);
+    // Update form action with query string
+    if (queryParams.length > 0) {
+        form.action = '{% url "export_rules_results" %}?' + queryParams.join('&');
+    }
+    
+    console.log('Submitting Excel export form to:', form.action);
     document.body.appendChild(form);
     form.submit();
     document.body.removeChild(form);
@@ -708,6 +766,35 @@ function filterTransactionsByRulesAndCategories(ruleIds, categoryIds, matchedCat
     const rows = table.querySelectorAll('tr:not(.no-filter-results)');
     let visibleCount = 0;
     
+    // Get rule and category names from checkboxes for exact matching
+    const selectedRuleNames = new Set();
+    const selectedCategoryNames = new Set();
+    
+    ruleIds.forEach(ruleId => {
+        const checkbox = document.querySelector(`#rule_${ruleId}`);
+        if (checkbox) {
+            const label = checkbox.closest('.list-group-item').querySelector('.form-check-label');
+            if (label) {
+                const badge = label.querySelector('.badge');
+                if (badge) {
+                    const ruleName = badge.nextSibling.textContent.trim();
+                    selectedRuleNames.add(ruleName);
+                }
+            }
+        }
+    });
+    
+    categoryIds.forEach(catId => {
+        const checkbox = document.querySelector(`#rules_category_${catId}`);
+        if (checkbox) {
+            const label = checkbox.closest('.list-group-item').querySelector('.form-check-label');
+            if (label) {
+                const categoryName = label.textContent.trim();
+                selectedCategoryNames.add(categoryName);
+            }
+        }
+    });
+    
     rows.forEach(row => {
         const cells = row.querySelectorAll('td');
         const transactionId = row.getAttribute('data-transaction-id');
@@ -725,7 +812,7 @@ function filterTransactionsByRulesAndCategories(ruleIds, categoryIds, matchedCat
             matchedCategoryCell = cells[6];  // Matched Category
         }
         
-        // Get rule and category badges
+        // Get rule and category badges with their text content
         const ruleBadge = matchedRuleCell ? matchedRuleCell.querySelector('span.badge') : null;
         const categoryBadge = matchedCategoryCell ? matchedCategoryCell.querySelector('span.badge') : null;
         
@@ -735,27 +822,43 @@ function filterTransactionsByRulesAndCategories(ruleIds, categoryIds, matchedCat
         // Determine if row should be shown
         let showRow = false;
         
-        // Check if we have rules selected
-        if (ruleIds.length > 0) {
-            // Show if rule matches
-            if (ruleText && ruleText !== '-') {
+        // If no filters selected, show nothing
+        if (ruleIds.length === 0 && categoryIds.length === 0) {
+            showRow = false;
+        }
+        // If only rules selected
+        else if (ruleIds.length > 0 && categoryIds.length === 0) {
+            // Show if the matched rule name is in the selected rules
+            if (ruleText && selectedRuleNames.has(ruleText)) {
                 showRow = true;
             }
         }
-        
-        // Check if we have categories selected
-        if (categoryIds.length > 0) {
+        // If only categories selected
+        else if (categoryIds.length > 0 && ruleIds.length === 0) {
             // Show if category matches by checking if transaction ID is in matched list
             if (transactionId && matchedCategoryTransactionIds.includes(parseInt(transactionId))) {
                 showRow = true;
             }
-            // Also check if custom category badge exists and is not '-'
-            if (categoryText && categoryText !== '-') {
+            // Also check if custom category badge matches selected categories
+            if (categoryText && selectedCategoryNames.has(categoryText)) {
+                showRow = true;
+            }
+        }
+        // If both rules and categories selected, show if EITHER matches
+        else {
+            // Check rule match
+            if (ruleText && selectedRuleNames.has(ruleText)) {
+                showRow = true;
+            }
+            // Check category match
+            if (transactionId && matchedCategoryTransactionIds.includes(parseInt(transactionId))) {
+                showRow = true;
+            }
+            if (categoryText && selectedCategoryNames.has(categoryText)) {
                 showRow = true;
             }
         }
         
-        // If both rules and categories are selected, show if either matches
         if (showRow) {
             row.style.display = '';
             visibleCount++;
@@ -782,8 +885,9 @@ function filterTransactionsByRulesAndCategories(ruleIds, categoryIds, matchedCat
         }
     }
     
-    // Update summary with new filtered data
+    // Update summary and applied filters display
     updateSummary();
+    updateAppliedFiltersDisplay(ruleIds, categoryIds);
 }
 
 // Clear both rules and categories filters and show all transactions
@@ -798,6 +902,10 @@ function clearRulesFilter() {
 
     // Show all table rows
     showAllRulesTransactions();
+    
+    // Hide applied filters section
+    document.getElementById('appliedFiltersSection').style.display = 'none';
+    
     alert('Filter cleared - showing all transactions');
     
     // Close the rule panel
@@ -824,6 +932,54 @@ function showAllRulesTransactions() {
     
     // Update summary with all transactions
     updateSummary();
+}
+
+// Update applied filters display
+function updateAppliedFiltersDisplay(ruleIds, categoryIds) {
+    const filtersSection = document.getElementById('appliedFiltersSection');
+    const filtersContent = document.getElementById('appliedFiltersContent');
+    
+    if (ruleIds.length === 0 && categoryIds.length === 0) {
+        // No filters applied
+        filtersSection.style.display = 'none';
+        return;
+    }
+    
+    // Show filters section
+    filtersSection.style.display = 'block';
+    
+    let filtersHTML = '<div class="row">';
+    
+    // Display applied rules
+    if (ruleIds.length > 0) {
+        filtersHTML += '<div class="col-md-6"><strong>Applied Rules:</strong><br>';
+        ruleIds.forEach(ruleId => {
+            const ruleCheckbox = document.querySelector(`#rule_${ruleId}`);
+            if (ruleCheckbox) {
+                const label = ruleCheckbox.parentElement.textContent.trim();
+                const ruleName = label.split('\n')[0].trim();
+                filtersHTML += `<span class="badge bg-primary me-2 mb-2">${ruleName}</span>`;
+            }
+        });
+        filtersHTML += '</div>';
+    }
+    
+    // Display applied categories
+    if (categoryIds.length > 0) {
+        filtersHTML += '<div class="col-md-6"><strong>Applied Categories:</strong><br>';
+        categoryIds.forEach(catId => {
+            const catCheckbox = document.querySelector(`#rules_category_${catId}`);
+            if (catCheckbox) {
+                const label = catCheckbox.parentElement.textContent.trim();
+                const catName = label.split('\n')[0].trim();
+                filtersHTML += `<span class="badge bg-success me-2 mb-2">${catName}</span>`;
+            }
+        });
+        filtersHTML += '</div>';
+    }
+    
+    filtersHTML += '</div>';
+    filtersContent.innerHTML = filtersHTML;
 }
 
 // Update summary metrics
