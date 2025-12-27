@@ -2250,7 +2250,7 @@ def export_rules_results_to_pdf(request):
             parent=styles['Heading1'],
             fontSize=16,
             textColor=white,
-            backColor=HexColor('0D47A1'),
+            backColor=HexColor('#0D47A1'),
             spaceAfter=12,
             alignment=TA_CENTER,
             fontName='Helvetica-Bold'
@@ -2260,7 +2260,7 @@ def export_rules_results_to_pdf(request):
             'CustomHeading',
             parent=styles['Heading2'],
             fontSize=11,
-            textColor=HexColor('0D47A1'),
+            textColor=HexColor('#0D47A1'),
             spaceAfter=6,
             fontName='Helvetica-Bold'
         )
@@ -2315,9 +2315,14 @@ def export_rules_results_to_pdf(request):
         )
         
         # Add transaction rows from filtered results ONLY
-        for result in export_filtered_results:
+        for idx, result in enumerate(export_filtered_results):
             try:
-                date_str = result['date'].strftime('%Y-%m-%d') if hasattr(result['date'], 'strftime') else str(result['date'])
+                # Handle date - it's stored as string in session
+                if isinstance(result['date'], str):
+                    date_str = result['date']
+                else:
+                    date_str = result['date'].strftime('%Y-%m-%d') if hasattr(result['date'], 'strftime') else str(result['date'])
+                
                 amount = float(result['amount']) if result['amount'] else 0
                 # Use full description text - wrap it in Paragraph for proper cell handling
                 description = result['description'] if result['description'] else ''
@@ -2330,7 +2335,7 @@ def export_rules_results_to_pdf(request):
                 
                 table_data.append([
                     date_str,
-                    result['account_name'],
+                    result.get('account_name', 'Unknown'),
                     description_para,  # Wrapped text stays within column
                     f"₹{amount:,.2f}",
                     matched_rule,
@@ -2340,7 +2345,10 @@ def export_rules_results_to_pdf(request):
                 total_amount += amount
                 transaction_count += 1
             except Exception as e:
-                print(f"ERROR - Failed to process result: {e}")
+                print(f"ERROR - Failed to process result {idx}: {e}")
+                print(f"  Result data: {result}")
+                import traceback
+                print(f"  Traceback: {traceback.format_exc()}")
                 continue
         
         # Add summary row
@@ -2354,7 +2362,7 @@ def export_rules_results_to_pdf(request):
         table = Table(table_data, colWidths=col_widths, splitByRow=True)
         table.setStyle(TableStyle([
             # Header styling
-            ('BACKGROUND', (0, 0), (-1, 0), HexColor('0D47A1')),
+            ('BACKGROUND', (0, 0), (-1, 0), HexColor('#0D47A1')),
             ('TEXTCOLOR', (0, 0), (-1, 0), white),
             ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
             ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
@@ -2368,7 +2376,7 @@ def export_rules_results_to_pdf(request):
             ('VALIGN', (0, 1), (-1, -2), 'TOP'),  # Top-align for wrapped text
             ('FONTNAME', (0, 1), (-1, -2), 'Helvetica'),
             ('FONTSIZE', (0, 1), (-1, -2), 8),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -2), [white, HexColor('F5F5F5')]),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -2), [white, HexColor('#F5F5F5')]),
             
             # Description column - FIXED: keep description in single column with wrapping
             ('ALIGN', (2, 0), (2, -1), 'LEFT'),
@@ -2385,7 +2393,7 @@ def export_rules_results_to_pdf(request):
             ('VALIGN', (4, 1), (-1, -2), 'TOP'),
             
             # Total row
-            ('BACKGROUND', (0, -1), (-1, -1), HexColor('FFF2CC')),
+            ('BACKGROUND', (0, -1), (-1, -1), HexColor('#FFF2CC')),
             ('ALIGN', (2, -1), (2, -1), 'LEFT'),
             ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
             ('TOPPADDING', (0, -1), (-1, -1), 8),
@@ -2415,23 +2423,38 @@ def export_rules_results_to_pdf(request):
         
         summary_table = Table(summary_data, colWidths=[3*inch, 2*inch])
         summary_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), HexColor('0D47A1')),
+            ('BACKGROUND', (0, 0), (-1, 0), HexColor('#0D47A1')),
             ('TEXTCOLOR', (0, 0), (-1, 0), white),
             ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('GRID', (0, 0), (-1, -1), 1, lightgrey),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [white, HexColor('F5F5F5')]),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [white, HexColor('#F5F5F5')]),
         ]))
         
         elements.append(summary_table)
         
         # Build PDF
-        doc.build(elements)
+        try:
+            print("DEBUG - Building PDF with reportlab...")
+            doc.build(elements)
+            print("DEBUG - PDF build complete")
+        except Exception as build_error:
+            print(f"ERROR - PDF build failed: {build_error}")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
+            raise
         
-        # Prepare response
-        pdf_buffer.seek(0)
-        response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
-        response['Content-Disposition'] = 'attachment; filename=filtered_rules_results.pdf'
+        # Prepare response - ensure buffer has data
+        pdf_data = pdf_buffer.getvalue()
+        print(f"DEBUG - PDF buffer size: {len(pdf_data)} bytes")
+        
+        if not pdf_data:
+            print("ERROR - PDF buffer is empty!")
+            messages.error(request, 'Error generating PDF: Output is empty')
+            return redirect('rules_application_results')
+        
+        response = HttpResponse(pdf_data, content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="filtered_rules_results.pdf"'
         
         return response
         

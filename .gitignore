@@ -9,5 +9,6 @@ __pycache__/
 # Media / uploads
 media/
 
-# OS
-.DS_Store
+# Test files
+test_output*.pdf
+
