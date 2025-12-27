@@ -2285,7 +2285,7 @@ def export_rules_results_to_pdf(request):
         # Build transaction table with proper column widths
         # Column widths: Date, Account, Description (wider), Amount, Rule, Category
         # Adjust column widths for better description display: Date, Account, Description (wider), Amount, Rule, Category
-        col_widths = [1.0*inch, 1.0*inch, 3.8*inch, 0.9*inch, 1.3*inch, 1.3*inch]
+        col_widths = [0.9*inch, 0.9*inch, 3.2*inch, 0.85*inch, 1.2*inch, 1.2*inch]
         
         # Table header
         table_data = [
@@ -2295,13 +2295,25 @@ def export_rules_results_to_pdf(request):
         total_amount = 0
         transaction_count = 0
         
+        # Create a style for wrapped text in description
+        desc_style = ParagraphStyle(
+            'DescriptionStyle',
+            parent=normal_style,
+            fontSize=8,
+            alignment=TA_LEFT,
+            wordWrap='CJK',
+            leading=10
+        )
+        
         # Add transaction rows from filtered results
         for result in export_filtered_results:
             try:
                 date_str = result['date'].strftime('%Y-%m-%d') if hasattr(result['date'], 'strftime') else str(result['date'])
                 amount = float(result['amount']) if result['amount'] else 0
-                # Use full description text - let PDF handle wrapping
+                # Use full description text - wrap it in Paragraph for proper handling
                 description = result['description'] if result['description'] else ''
+                # Create Paragraph object for proper text wrapping in table cell
+                description_para = Paragraph(description, desc_style)
                 
                 matched_rule = result.get('matched_rule_name', '') or '-'
                 matched_category = result.get('matched_custom_category_name', '') or '-'
@@ -2309,7 +2321,7 @@ def export_rules_results_to_pdf(request):
                 table_data.append([
                     date_str,
                     result['account_name'],
-                    description,
+                    description_para,  # Use Paragraph for wrapping
                     f"₹{amount:,.2f}",
                     matched_rule,
                     matched_category
@@ -2323,13 +2335,13 @@ def export_rules_results_to_pdf(request):
         
         # Add summary row
         table_data.append([
-            '', '', '<b>TOTAL</b>',
-            f'<b>₹{total_amount:,.2f}</b>',
+            '', '', Paragraph('<b>TOTAL</b>', desc_style),
+            Paragraph(f'<b>₹{total_amount:,.2f}</b>', desc_style),
             '', ''
         ])
         
         # Create table with proper styling
-        table = Table(table_data, colWidths=col_widths)
+        table = Table(table_data, colWidths=col_widths, splitByRow=True)
         table.setStyle(TableStyle([
             # Header styling
             ('BACKGROUND', (0, 0), (-1, 0), HexColor('0D47A1')),
@@ -2345,25 +2357,32 @@ def export_rules_results_to_pdf(request):
             ('ALIGN', (0, 1), (-1, -2), 'LEFT'),
             ('VALIGN', (0, 1), (-1, -2), 'TOP'),
             ('FONTNAME', (0, 1), (-1, -2), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -2), 9),
+            ('FONTSIZE', (0, 1), (-1, -2), 8),
             ('ROWBACKGROUNDS', (0, 1), (-1, -2), [white, HexColor('F5F5F5')]),
             
             # Description column - left align, allow wrapping
-            ('ALIGN', (2, 1), (2, -2), 'LEFT'),
+            ('ALIGN', (2, 0), (2, -1), 'LEFT'),
             ('VALIGN', (2, 0), (2, -1), 'TOP'),
             
             # Amount column - right align
             ('ALIGN', (3, 1), (3, -2), 'RIGHT'),
+            ('ALIGN', (3, -1), (3, -1), 'RIGHT'),
+            
+            # Rule and Category columns - left align
+            ('ALIGN', (4, 1), (-1, -2), 'LEFT'),
             
             # Total row
             ('BACKGROUND', (0, -1), (-1, -1), HexColor('FFF2CC')),
-            ('ALIGN', (0, -1), (-1, -1), 'RIGHT'),
+            ('ALIGN', (2, -1), (2, -1), 'LEFT'),
             ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('TOPPADDING', (0, -1), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, -1), (-1, -1), 8),
             
             # Padding for all cells
-            ('LEFTPADDING', (0, 0), (-1, -1), 8),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, 0), 8),
+            ('TOPPADDING', (0, 1), (-1, -2), 6),
             ('BOTTOMPADDING', (0, 1), (-1, -2), 6),
         ]))
         
