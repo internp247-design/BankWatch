@@ -286,7 +286,7 @@
                               </thead>
                               <tbody>
                                   {% for result in results %}
-                                  <tr data-rule-id="{{ result.matched_rule_id }}" data-category-id="{{ result.matched_custom_category_id }}">
+                                  <tr data-transaction-id="{{ result.transaction_id }}" data-rule-id="{{ result.matched_rule_id }}" data-category-id="{{ result.matched_custom_category_id }}">
                                       <td>{{ result.date }}</td>
                                       <td>{{ result.description }}</td>
                                       <td class="text-end">₹{{ result.amount|floatformat:2 }}</td>
@@ -569,10 +569,6 @@ function downloadRulesPDF() {
     try {
         console.log('=== PDF Download Started ===');
         
-        // Get the current filter form to extract rule and category IDs
-        const rulesForm = document.getElementById('rulesApplyForm');
-        const categoriesForm = document.getElementById('rulesCustomCategoryForm');
-        
         // Get only visible rows
         const table = document.querySelector('table tbody');
         if (!table) return; // Table no longer exists, skip
@@ -587,43 +583,72 @@ function downloadRulesPDF() {
             return;
         }
         
-        // Build query params
-        let queryParams = [];
+        // Collect visible transaction IDs
+        const transactionIds = [];
+        visibleRows.forEach(row => {
+            const txId = row.getAttribute('data-transaction-id');
+            if (txId) {
+                transactionIds.push(txId);
+            }
+        });
         
-        // Collect rule IDs
+        console.log('Transactions to export:', transactionIds.length);
+        
+        // Build form data
+        const formData = new FormData();
+        
+        // Add transaction IDs
+        transactionIds.forEach(id => {
+            formData.append('transaction_ids', id);
+        });
+        
+        // Add rule IDs
+        const rulesForm = document.getElementById('rulesApplyForm');
         if (rulesForm) {
             const checkedRules = rulesForm.querySelectorAll('input[type="checkbox"]:checked');
             checkedRules.forEach(checkbox => {
-                queryParams.push('rule_ids=' + encodeURIComponent(checkbox.value));
+                formData.append('rule_ids', checkbox.value);
             });
             console.log('Rules selected:', checkedRules.length);
         }
         
-        // Collect category IDs
+        // Add category IDs
+        const categoriesForm = document.getElementById('rulesCustomCategoryForm');
         if (categoriesForm) {
             const checkedCategories = categoriesForm.querySelectorAll('input[type="checkbox"]:checked');
             checkedCategories.forEach(checkbox => {
-                queryParams.push('category_ids=' + encodeURIComponent(checkbox.value));
+                formData.append('category_ids', checkbox.value);
             });
             console.log('Categories selected:', checkedCategories.length);
         }
         
-        // Build download URL
-        let downloadUrl = '{% url "export_rules_results_pdf" %}';
-        if (queryParams.length > 0) {
-            downloadUrl += '?' + queryParams.join('&');
-        }
+        // Add CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        formData.append('csrfmiddlewaretoken', csrfToken);
         
+        const downloadUrl = '{% url "export_rules_results_pdf" %}';
         console.log('Download URL:', downloadUrl);
         console.log('=== Initiating Download ===');
         
-        // Download by opening in a new tab then closing it, or use fetch with blob
-        // This approach doesn't navigate away from the current page
+        // Download by POST with blob
         fetch(downloadUrl, {
-            method: 'GET'
+            method: 'POST',
+            body: formData
         })
-        .then(response => response.blob())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok: ' + response.status);
+            }
+            return response.blob();
+        })
         .then(blob => {
+            // Check if it's a valid PDF
+            if (blob.type !== 'application/pdf') {
+                console.error('Invalid PDF type:', blob.type);
+                alert('Error: Downloaded file is not a valid PDF. Response type: ' + blob.type);
+                return;
+            }
+            
             // Create a blob URL and download
             const blobUrl = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -633,10 +658,11 @@ function downloadRulesPDF() {
             a.click();
             document.body.removeChild(a);
             window.URL.revokeObjectURL(blobUrl);
+            console.log('PDF downloaded successfully');
         })
         .catch(error => {
             console.error('PDF Download Error:', error);
-            alert('Error initiating PDF download. Please check the browser console for details.');
+            alert('Error: ' + error.message);
         });
         
     } catch (error) {
@@ -654,9 +680,6 @@ function downloadRulesExcel() {
         return;
     }
     
-    // Get the summary report table if it exists
-    const summaryTable = document.querySelector('.card-body p-0 table');
-    
     // Get only visible rows from transaction table
     const rows = table.querySelectorAll('tbody tr:not(.no-filter-results)');
     const visibleRows = Array.from(rows).filter(row => {
@@ -664,45 +687,72 @@ function downloadRulesExcel() {
         return style.display !== 'none';
     });
     
-    if (visibleRows.length === 0 && !summaryTable) {
+    if (visibleRows.length === 0) {
         alert('No data to download. Apply rules/categories first to see results.');
         return;
     }
     
-    // Get selected rules and categories
-    const ruleCheckboxes = document.querySelectorAll('#rulesApplyForm input[type="checkbox"]:checked');
-    const categoryCheckboxes = document.querySelectorAll('#rulesCustomCategoryForm input[type="checkbox"]:checked');
+    // Collect visible transaction IDs
+    const transactionIds = [];
+    visibleRows.forEach(row => {
+        const txId = row.getAttribute('data-transaction-id');
+        if (txId) {
+            transactionIds.push(txId);
+        }
+    });
     
-    const ruleIds = Array.from(ruleCheckboxes).map(cb => cb.value);
-    const categoryIds = Array.from(categoryCheckboxes).map(cb => cb.value);
+    console.log('Transactions to export:', transactionIds.length);
     
-    // Build query params
-    let queryParams = [];
+    // Build form data
+    const formData = new FormData();
+    
+    // Add transaction IDs
+    transactionIds.forEach(id => {
+        formData.append('transaction_ids', id);
+    });
     
     // Add rule IDs
+    const ruleCheckboxes = document.querySelectorAll('#rulesApplyForm input[type="checkbox"]:checked');
+    const ruleIds = Array.from(ruleCheckboxes).map(cb => cb.value);
     ruleIds.forEach(id => {
-        queryParams.push('rule_ids=' + encodeURIComponent(id));
+        formData.append('rule_ids', id);
     });
     
     // Add category IDs
+    const categoryCheckboxes = document.querySelectorAll('#rulesCustomCategoryForm input[type="checkbox"]:checked');
+    const categoryIds = Array.from(categoryCheckboxes).map(cb => cb.value);
     categoryIds.forEach(id => {
-        queryParams.push('category_ids=' + encodeURIComponent(id));
+        formData.append('category_ids', id);
     });
     
-    // Build download URL
-    let downloadUrl = '{% url "export_rules_results" %}';
-    if (queryParams.length > 0) {
-        downloadUrl += '?' + queryParams.join('&');
-    }
+    // Add CSRF token
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    formData.append('csrfmiddlewaretoken', csrfToken);
     
-    console.log('Submitting Excel export to:', downloadUrl);
+    const downloadUrl = '{% url "export_rules_results" %}';
+    console.log('Excel export URL:', downloadUrl);
+    console.log('Rules selected:', ruleIds.length);
+    console.log('Categories selected:', categoryIds.length);
     
     // Download using fetch with blob - doesn't navigate away
     fetch(downloadUrl, {
-        method: 'GET'
+        method: 'POST',
+        body: formData
     })
-    .then(response => response.blob())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok: ' + response.status);
+        }
+        return response.blob();
+    })
     .then(blob => {
+        // Check if it's a valid Excel file
+        if (!blob.type.includes('spreadsheet') && !blob.type.includes('application/vnd')) {
+            console.error('Invalid Excel type:', blob.type);
+            alert('Error: Downloaded file is not a valid Excel file. Response type: ' + blob.type);
+            return;
+        }
+        
         // Create a blob URL and download
         const blobUrl = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -712,10 +762,11 @@ function downloadRulesExcel() {
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(blobUrl);
+        console.log('Excel downloaded successfully');
     })
     .catch(error => {
         console.error('Excel Download Error:', error);
-        alert('Error initiating Excel download. Please check the browser console for details.');
+        alert('Error: ' + error.message);
     });
 }
 

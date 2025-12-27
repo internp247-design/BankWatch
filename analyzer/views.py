@@ -705,6 +705,7 @@ def rules_application_results(request):
                         pass
                     
                     results.append({
+                        'transaction_id': tx.id,
                         'id': tx.id,
                         'date': str(tx.date),  # Convert date to string for session serialization
                         'description': tx.description,
@@ -1522,30 +1523,60 @@ def export_rules_results_to_excel(request):
         from datetime import datetime
         from django.db.models import Sum
         
-        print("DEBUG - Starting export process")
+        print("DEBUG - Starting Excel export process")
         
-        # Get filtered results from session
-        export_filtered_results = request.session.get('export_filtered_results', [])
-        selected_rule_ids_str = request.session.get('export_selected_rule_ids', [])
-        selected_category_ids_str = request.session.get('export_selected_category_ids', [])
+        # Try to get transaction IDs from POST first (direct collection from DOM)
+        post_transaction_ids = request.POST.getlist('transaction_ids')
+        post_rule_ids = request.POST.getlist('rule_ids')
+        post_category_ids = request.POST.getlist('category_ids')
         
-        # Convert to integers
-        selected_rule_ids = [int(rid) for rid in selected_rule_ids_str if rid.isdigit()] if isinstance(selected_rule_ids_str, list) else []
-        selected_category_ids = [int(cid) for cid in selected_category_ids_str if cid.isdigit()] if isinstance(selected_category_ids_str, list) else []
+        print(f"DEBUG - POST transaction_ids: {len(post_transaction_ids) if post_transaction_ids else 0}")
+        print(f"DEBUG - POST rule_ids: {post_rule_ids}")
+        print(f"DEBUG - POST category_ids: {post_category_ids}")
         
-        # Also get from POST for backup (if called directly)
-        if not export_filtered_results:
-            selected_rule_ids = request.POST.getlist('rule_ids') if request.method == 'POST' else []
-            selected_category_ids = request.POST.getlist('category_ids') if request.method == 'POST' else []
-            selected_rule_ids = [int(rid) for rid in selected_rule_ids if rid.isdigit()]
-            selected_category_ids = [int(cid) for cid in selected_category_ids if cid.isdigit()]
+        # If POST data provided, use it; otherwise fall back to session
+        if post_transaction_ids:
+            # Convert to integers
+            transaction_ids = [int(tid) for tid in post_transaction_ids if tid.isdigit()]
+            selected_rule_ids = [int(rid) for rid in post_rule_ids if rid.isdigit()]
+            selected_category_ids = [int(cid) for cid in post_category_ids if cid.isdigit()]
+            
+            print(f"DEBUG - Using POST data: {len(transaction_ids)} transactions")
+            
+            # Fetch transactions by ID for user
+            from django.db.models import Q
+            export_filtered_results = []
+            transactions = Transaction.objects.filter(
+                id__in=transaction_ids,
+                bank_statement__user=request.user
+            ).values('id', 'date', 'description', 'amount', 'bank_account__account_number', 'matched_rule__name', 'matched_custom_category__name')
+            
+            for tx in transactions:
+                export_filtered_results.append({
+                    'date': tx['date'],
+                    'description': tx['description'],
+                    'amount': tx['amount'],
+                    'account_name': tx['bank_account__account_number'] or 'Unknown',
+                    'matched_rule_name': tx['matched_rule__name'] or '-',
+                    'matched_custom_category_name': tx['matched_custom_category__name'] or '-',
+                })
+        else:
+            # Fall back to session data
+            export_filtered_results = request.session.get('export_filtered_results', [])
+            selected_rule_ids_str = request.session.get('export_selected_rule_ids', [])
+            selected_category_ids_str = request.session.get('export_selected_category_ids', [])
+            
+            # Convert to integers
+            selected_rule_ids = [int(rid) for rid in selected_rule_ids_str if rid.isdigit()] if isinstance(selected_rule_ids_str, list) else []
+            selected_category_ids = [int(cid) for cid in selected_category_ids_str if cid.isdigit()] if isinstance(selected_category_ids_str, list) else []
         
         print(f"DEBUG - Filtered Results Count: {len(export_filtered_results)}")
         print(f"DEBUG - Selected Rule IDs: {selected_rule_ids}")
         print(f"DEBUG - Selected Category IDs: {selected_category_ids}")
         
-        # If no filtered results in session, return error
+        # If no filtered results, return error
         if not export_filtered_results:
+            print("DEBUG - No filtered results found!")
             messages.warning(request, 'No filtered data to export. Apply rules/categories first.')
             return redirect('rules_application_results')
         
@@ -2211,21 +2242,60 @@ def export_rules_results_to_pdf(request):
         
         print("DEBUG - Starting PDF export process")
         
-        # Get filtered results from session (ONLY filtered data)
-        export_filtered_results = request.session.get('export_filtered_results', [])
-        selected_rule_ids_str = request.session.get('export_selected_rule_ids', [])
-        selected_category_ids_str = request.session.get('export_selected_category_ids', [])
+        # Try to get transaction IDs from POST first (direct collection from DOM)
+        post_transaction_ids = request.POST.getlist('transaction_ids')
+        post_rule_ids = request.POST.getlist('rule_ids')
+        post_category_ids = request.POST.getlist('category_ids')
         
-        # Convert to integers
-        selected_rule_ids = [int(rid) for rid in selected_rule_ids_str if rid.isdigit()] if isinstance(selected_rule_ids_str, list) else []
-        selected_category_ids = [int(cid) for cid in selected_category_ids_str if cid.isdigit()] if isinstance(selected_category_ids_str, list) else []
+        print(f"DEBUG - POST transaction_ids: {len(post_transaction_ids) if post_transaction_ids else 0}")
+        print(f"DEBUG - POST rule_ids: {post_rule_ids}")
+        print(f"DEBUG - POST category_ids: {post_category_ids}")
+        
+        # If POST data provided, use it; otherwise fall back to session
+        if post_transaction_ids:
+            # Convert to integers
+            transaction_ids = [int(tid) for tid in post_transaction_ids if tid.isdigit()]
+            selected_rule_ids = [int(rid) for rid in post_rule_ids if rid.isdigit()]
+            selected_category_ids = [int(cid) for cid in post_category_ids if cid.isdigit()]
+            
+            print(f"DEBUG - Using POST data: {len(transaction_ids)} transactions")
+            
+            # Fetch transactions by ID for user
+            from django.db.models import Q
+            export_filtered_results = []
+            transactions = Transaction.objects.filter(
+                id__in=transaction_ids,
+                bank_statement__user=request.user
+            ).values('id', 'date', 'description', 'amount', 'bank_account__account_number', 'matched_rule__name', 'matched_custom_category__name')
+            
+            for tx in transactions:
+                export_filtered_results.append({
+                    'date': tx['date'],
+                    'description': tx['description'],
+                    'amount': tx['amount'],
+                    'account_name': tx['bank_account__account_number'] or 'Unknown',
+                    'matched_rule_name': tx['matched_rule__name'] or '-',
+                    'matched_custom_category_name': tx['matched_custom_category__name'] or '-',
+                })
+        else:
+            # Fall back to session data
+            export_filtered_results = request.session.get('export_filtered_results', [])
+            selected_rule_ids_str = request.session.get('export_selected_rule_ids', [])
+            selected_category_ids_str = request.session.get('export_selected_category_ids', [])
+            
+            # Convert to integers
+            selected_rule_ids = [int(rid) for rid in selected_rule_ids_str if rid.isdigit()] if isinstance(selected_rule_ids_str, list) else []
+            selected_category_ids = [int(cid) for cid in selected_category_ids_str if cid.isdigit()] if isinstance(selected_category_ids_str, list) else []
+            
+            print(f"DEBUG - Using session data")
         
         print(f"DEBUG - Filtered Results Count: {len(export_filtered_results)}")
         print(f"DEBUG - Selected Rule IDs: {selected_rule_ids}")
         print(f"DEBUG - Selected Category IDs: {selected_category_ids}")
         
-        # If no filtered results in session, return error
+        # If no filtered results, return error
         if not export_filtered_results:
+            print("DEBUG - No filtered results found!")
             messages.warning(request, 'No filtered data to export. Apply rules/categories first.')
             return redirect('rules_application_results')
         
