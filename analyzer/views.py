@@ -620,6 +620,8 @@ def rules_application_results(request):
     selected_rule_ids = [int(rid) for rid in selected_rule_ids if rid.isdigit()]
     selected_category_ids = [int(cid) for cid in selected_category_ids if cid.isdigit()]
     
+    print(f"DEBUG: selected_rule_ids={selected_rule_ids}, selected_category_ids={selected_category_ids}")
+    
     engine = RulesEngine(request.user)
     
     # Import custom category engine
@@ -676,9 +678,9 @@ def rules_application_results(request):
         if matched_rule_name or matched_custom_category_name:
             results.append({
                 'id': tx.id,
-                'date': tx.date,
+                'date': str(tx.date),  # Convert date to string for session serialization
                 'description': tx.description,
-                'amount': tx.amount,
+                'amount': float(tx.amount),
                 'current_category': tx.category,
                 'matched_rule_id': matched_rule_id,
                 'matched_rule_category': matched_rule_category,
