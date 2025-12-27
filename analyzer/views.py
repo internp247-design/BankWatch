@@ -653,6 +653,11 @@ def rules_application_results(request):
                 transactions = Transaction.objects.filter(
                     statement__account__user=request.user,
                     statement__account_id=account_id
+                ).select_related('statement', 'statement__account').order_by('-date')
+            else:
+                transactions = Transaction.objects.filter(
+                    statement__account__user=request.user
+                ).select_related('statement', 'statement__account').order_by('-date')
 
         results = []
         for tx in transactions:
