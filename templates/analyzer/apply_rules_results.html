@@ -167,11 +167,6 @@
         </div>
 
         <!-- Divider -->
-        <hr class="my-4">
-
-        <!-- Detailed Transactions Table Header -->
-        <h5 class="mb-3">Detailed Transactions</h5>
-      {% endif %}
 
       <!-- Custom Category Application Panel (Hidden by default) -->
       <div id="rulesCustomCategoryPanel" class="card shadow-sm" style="display: none; margin-bottom: 30px;">
@@ -288,87 +283,6 @@
           </div>
       </div>
 
-      <!-- Export Results -->
-      <div class="d-flex justify-content-between align-items-center mb-3">
-          <h5 class="mb-0">Filtered Results</h5>
-          <div class="btn-group" role="group">
-              <button class="btn btn-success btn-sm" onclick="downloadRulesExcel()">
-                  <i class="fas fa-download me-1"></i> Download Excel
-              </button>
-              <button class="btn btn-info btn-sm" onclick="downloadRulesPDF()">
-                  <i class="fas fa-file-pdf me-1"></i> Download PDF
-              </button>
-          </div>
-      </div>
-
-      <div class="card">
-        <div class="card-body">
-          <table class="table table-striped">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Account</th>
-                <th>Description</th>
-                <th>Amount</th>
-                {% if show_changed %}
-                  <th>Previous Category</th>
-                {% endif %}
-                <th>Current Category</th>
-                <th>Matched Rule</th>
-                <th>Matched Category</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% if no_changes %}
-                <tr>
-                  <td colspan="{{ colspan }}" class="text-center py-4">
-                    <div class="mb-2">
-                      <i class="fas fa-info-circle fa-2x text-muted"></i>
-                    </div>
-                    <h5>No transactions were changed by the last apply.</h5>
-                    <p class="text-muted mb-3">Either no rules matched, or the selected account had no matching transactions.</p>
-                    <a href="{% url 'rules_application_results' %}{% if selected_account_id %}?account_id={{ selected_account_id }}{% endif %}" class="btn btn-outline-primary me-2">View All Transactions</a>
-                    <a href="{% url 'rules_list' %}" class="btn btn-outline-secondary">Back to Rules</a>
-                  </td>
-                </tr>
-              {% else %}
-                {% for r in results %}
-                  {% if r.matched_rule_name or r.matched_custom_category_name %}
-                    <tr data-transaction-id="{{ r.id }}">
-                      <td>{{ r.date }}</td>
-                      <td>{{ r.account_name }}</td>
-                      <td>{{ r.description|truncatechars:80 }}</td>
-                      <td>₹{{ r.amount }}</td>
-                      {% if show_changed %}
-                        <td>{{ r.previous_category|default:'-' }}</td>
-                      {% endif %}
-                      <td>{{ r.current_category }}</td>
-                      <td>
-                        {% if r.matched_rule_name %}
-                          <span class="badge bg-primary">{{ r.matched_rule_name }}</span>
-                        {% else %}
-                          <span class="text-muted">-</span>
-                        {% endif %}
-                      </td>
-                      <td>
-                        {% if r.matched_custom_category_name %}
-                          <span class="badge bg-success">{{ r.matched_custom_category_name }}</span>
-                        {% else %}
-                          <span class="text-muted">-</span>
-                        {% endif %}
-                      </td>
-                    </tr>
-                  {% endif %}
-                {% empty %}
-                  <tr><td colspan="{{ colspan }}" class="text-center">No transactions found.</td></tr>
-                {% endfor %}
-                {% if results|length == 0 %}
-                  <tr><td colspan="{{ colspan }}" class="text-center">No matched transactions found.</td></tr>
-                {% endif %}
-              {% endif %}
-            </tbody>
-          </table>
-        </div>
       </div>
     </div>
   </div>
@@ -458,6 +372,7 @@ function applyRulesCustomCategoryFilter() {
 // Filter transactions in rules results table
 function filterRulesTransactionsByIds(transactionIds) {
     const table = document.querySelector('table tbody');
+    if (!table) return; // Table no longer exists, skip filtering
     const rows = table.querySelectorAll('tr');
     let visibleCount = 0;
 
@@ -519,6 +434,7 @@ function clearRulesCustomCategoryFilter() {
 // Show all transactions in rules results table
 function showRulesAllTransactions() {
     const table = document.querySelector('table tbody');
+    if (!table) return; // Table no longer exists, skip
     const rows = table.querySelectorAll('tr');
     
     rows.forEach(row => {
@@ -569,6 +485,7 @@ function downloadRulesPDF() {
         
         // Get only visible rows
         const table = document.querySelector('table tbody');
+        if (!table) return; // Table no longer exists, skip
         const rows = table.querySelectorAll('tr:not(.no-filter-results)');
         const visibleRows = Array.from(rows).filter(row => {
             const style = window.getComputedStyle(row);
@@ -796,6 +713,7 @@ function applyRulesFilter() {
 // Filter transactions by selected rules and categories
 function filterTransactionsByRulesAndCategories(ruleIds, categoryIds, matchedCategoryTransactionIds = []) {
     const table = document.querySelector('table tbody');
+    if (!table) return; // Table no longer exists, skip
     const rows = table.querySelectorAll('tr:not(.no-filter-results)');
     let visibleCount = 0;
     
@@ -954,6 +872,7 @@ function clearRulesFilter() {
 // Show all transactions in rules results table
 function showAllRulesTransactions() {
     const table = document.querySelector('table tbody');
+    if (!table) return; // Table no longer exists, skip
     const rows = table.querySelectorAll('tr');
     
     rows.forEach(row => {
@@ -1022,6 +941,7 @@ function updateAppliedFiltersDisplay(ruleIds, categoryIds) {
 function updateSummary() {
     // Count transactions from the transaction results table
     const table = document.querySelector('table tbody');
+    if (!table) return; // Table no longer exists, skip
     if (!table) return;
     
     const rows = table.querySelectorAll('tr:not(.no-filter-results)');

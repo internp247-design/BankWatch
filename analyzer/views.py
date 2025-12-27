@@ -775,6 +775,7 @@ def rules_application_results(request):
     request.session['export_filtered_results'] = filtered_results
     request.session['export_selected_rule_ids'] = selected_rule_ids
     request.session['export_selected_category_ids'] = selected_category_ids
+    request.session.modified = True  # Ensure session is saved
 
     # compute colspan for template (base 7 columns + previous column if show_changed)
     colspan = 7 + (1 if show_changed else 0)
@@ -2244,7 +2245,8 @@ def export_rules_results_to_pdf(request):
         
         # Build transaction table with proper column widths
         # Column widths: Date, Account, Description (wider), Amount, Rule, Category
-        col_widths = [1.0*inch, 1.2*inch, 3.0*inch, 0.9*inch, 1.3*inch, 1.3*inch]
+        # Adjust column widths for better description display: Date, Account, Description (wider), Amount, Rule, Category
+        col_widths = [1.0*inch, 1.0*inch, 3.8*inch, 0.9*inch, 1.3*inch, 1.3*inch]
         
         # Table header
         table_data = [
@@ -2259,7 +2261,8 @@ def export_rules_results_to_pdf(request):
             try:
                 date_str = result['date'].strftime('%Y-%m-%d') if hasattr(result['date'], 'strftime') else str(result['date'])
                 amount = float(result['amount']) if result['amount'] else 0
-                description = result['description'][:50] if result['description'] else ''  # Truncate to prevent overflow
+                # Use full description text - let PDF handle wrapping
+                description = result['description'] if result['description'] else ''
                 
                 matched_rule = result.get('matched_rule_name', '') or '-'
                 matched_category = result.get('matched_custom_category_name', '') or '-'
@@ -2293,6 +2296,7 @@ def export_rules_results_to_pdf(request):
             ('BACKGROUND', (0, 0), (-1, 0), HexColor('0D47A1')),
             ('TEXTCOLOR', (0, 0), (-1, 0), white),
             ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, 0), 10),
             ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
@@ -2300,9 +2304,14 @@ def export_rules_results_to_pdf(request):
             
             # Data rows
             ('ALIGN', (0, 1), (-1, -2), 'LEFT'),
+            ('VALIGN', (0, 1), (-1, -2), 'TOP'),
             ('FONTNAME', (0, 1), (-1, -2), 'Helvetica'),
             ('FONTSIZE', (0, 1), (-1, -2), 9),
             ('ROWBACKGROUNDS', (0, 1), (-1, -2), [white, HexColor('F5F5F5')]),
+            
+            # Description column - left align, allow wrapping
+            ('ALIGN', (2, 1), (2, -2), 'LEFT'),
+            ('VALIGN', (2, 0), (2, -1), 'TOP'),
             
             # Amount column - right align
             ('ALIGN', (3, 1), (3, -2), 'RIGHT'),
@@ -2312,10 +2321,11 @@ def export_rules_results_to_pdf(request):
             ('ALIGN', (0, -1), (-1, -1), 'RIGHT'),
             ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
             
-            # Description column - enable text wrapping
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            # Padding for all cells
             ('LEFTPADDING', (0, 0), (-1, -1), 8),
             ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 1), (-1, -2), 6),
         ]))
         
         elements.append(table)
