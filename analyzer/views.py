@@ -477,96 +477,108 @@ def delete_rule(request, rule_id):
 @login_required
 def apply_rules(request):
     """Apply rules to existing transactions"""
-    # Get stats for display
-    active_rules_count = Rule.objects.filter(user=request.user, is_active=True).count()
-    total_transactions = Transaction.objects.filter(
-        statement__account__user=request.user
-    ).count()
-    
-    if request.method == 'POST':
-        # Support account-scoped application: an optional account_id can be passed
-        account_id = request.POST.get('account_id') or request.GET.get('account_id')
+    try:
+        # Get stats for display
+        active_rules_count = Rule.objects.filter(user=request.user, is_active=True).count()
+        total_transactions = Transaction.objects.filter(
+            statement__account__user=request.user
+        ).count()
+        
+        if request.method == 'POST':
+            # Support account-scoped application: an optional account_id can be passed
+            account_id = request.POST.get('account_id') or request.GET.get('account_id')
 
-        # Support AJAX requests so the frontend can stop the spinner and show results
-        engine = RulesEngine(request.user)
-        if account_id:
-            transactions = Transaction.objects.filter(
-                statement__account__user=request.user,
-                statement__account_id=account_id
-            )
-        else:
-            transactions = Transaction.objects.filter(
-                statement__account__user=request.user
-            )
-
-        updated_count = 0
-        updated_ids = []
-        prev_map = {}
-        matched_map = {}
-        with db_transaction.atomic():
-            for transaction in transactions:
-                transaction_data = {
-                    'date': transaction.date,
-                    'description': transaction.description,
-                    'amount': float(transaction.amount),
-                    'transaction_type': transaction.transaction_type
-                }
-
-                # Determine which rule (if any) matches and the target category
-                matched_rule = engine.find_matching_rule(transaction_data)
-                category = matched_rule.category if matched_rule else None
-
-                if category and category != transaction.category:
-                    # record previous category so we can show changes
-                    prev_map[str(transaction.id)] = transaction.category
-                    # record which rule matched
-                    matched_map[str(transaction.id)] = matched_rule.name if matched_rule else None
-                    transaction.category = category
-                    transaction.save()
-                    updated_count += 1
-                    updated_ids.append(transaction.id)
-
-        # If AJAX request, return JSON so JS can stop spinner and update UI
-        # Store list of updated ids and previous categories in session so results view can show only changed
-        if updated_ids:
-            request.session['last_rules_applied_ids'] = updated_ids
-            request.session['last_rules_applied_prev'] = prev_map
-            request.session['last_rules_applied_rule'] = matched_map
-        else:
-            # clear previous session keys if nothing changed
-            request.session.pop('last_rules_applied_ids', None)
-            request.session.pop('last_rules_applied_prev', None)
-            request.session.pop('last_rules_applied_rule', None)
-
-        if request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest':
-            redirect_url = reverse('rules_application_results')
-            sep = '?'
+            # Support AJAX requests so the frontend can stop the spinner and show results
+            engine = RulesEngine(request.user)
             if account_id:
-                redirect_url += f'?account_id={account_id}'
-                sep = '&'
-            # instruct results page to show only changed transactions
-            redirect_url += f"{sep}show_changed=1"
+                transactions = Transaction.objects.filter(
+                    statement__account__user=request.user,
+                    statement__account_id=account_id
+                )
+            else:
+                transactions = Transaction.objects.filter(
+                    statement__account__user=request.user
+                )
+
+            updated_count = 0
+            updated_ids = []
+            prev_map = {}
+            matched_map = {}
+            with db_transaction.atomic():
+                for transaction in transactions:
+                    transaction_data = {
+                        'date': transaction.date,
+                        'description': transaction.description,
+                        'amount': float(transaction.amount),
+                        'transaction_type': transaction.transaction_type
+                    }
+
+                    # Determine which rule (if any) matches and the target category
+                    matched_rule = engine.find_matching_rule(transaction_data)
+                    category = matched_rule.category if matched_rule else None
+
+                    if category and category != transaction.category:
+                        # record previous category so we can show changes
+                        prev_map[str(transaction.id)] = transaction.category
+                        # record which rule matched
+                        matched_map[str(transaction.id)] = matched_rule.name if matched_rule else None
+                        transaction.category = category
+                        transaction.save()
+                        updated_count += 1
+                        updated_ids.append(transaction.id)
+
+            # If AJAX request, return JSON so JS can stop spinner and update UI
+            # Store list of updated ids and previous categories in session so results view can show only changed
+            if updated_ids:
+                request.session['last_rules_applied_ids'] = updated_ids
+                request.session['last_rules_applied_prev'] = prev_map
+                request.session['last_rules_applied_rule'] = matched_map
+            else:
+                # clear previous session keys if nothing changed
+                request.session.pop('last_rules_applied_ids', None)
+                request.session.pop('last_rules_applied_prev', None)
+                request.session.pop('last_rules_applied_rule', None)
+
+            if request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest':
+                redirect_url = reverse('rules_application_results')
+                sep = '?'
+                if account_id:
+                    redirect_url += f'?account_id={account_id}'
+                    sep = '&'
+                # instruct results page to show only changed transactions
+                redirect_url += f"{sep}show_changed=1"
+                return JsonResponse({
+                    'status': 'ok',
+                    'updated': updated_count,
+                    'total': transactions.count(),
+                    'message': f'Rules applied successfully! Updated {updated_count} out of {transactions.count()} transactions.',
+                    'redirect_url': redirect_url,
+                })
+
+            messages.success(request,
+                f'Rules applied successfully! Updated {updated_count} out of {transactions.count()} transactions.'
+            )
+            return redirect('rules_list')
+        
+        # Provide accounts for the selector
+        accounts = BankAccount.objects.filter(user=request.user)
+
+        return render(request, 'analyzer/apply_rules.html', {
+            'active_rules_count': active_rules_count,
+            'total_transactions': total_transactions,
+            'accounts': accounts,
+        })
+    except Exception as e:
+        import traceback
+        error_msg = f"ERROR in apply_rules: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        if request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest':
             return JsonResponse({
-                'status': 'ok',
-                'updated': updated_count,
-                'total': transactions.count(),
-                'message': f'Rules applied successfully! Updated {updated_count} out of {transactions.count()} transactions.',
-                'redirect_url': redirect_url,
-            })
-
-        messages.success(request,
-            f'Rules applied successfully! Updated {updated_count} out of {transactions.count()} transactions.'
-        )
+                'status': 'error',
+                'message': f'Error applying rules: {str(e)}'
+            }, status=500)
+        messages.error(request, f"Error applying rules: {str(e)}")
         return redirect('rules_list')
-    
-    # Provide accounts for the selector
-    accounts = BankAccount.objects.filter(user=request.user)
-
-    return render(request, 'analyzer/apply_rules.html', {
-        'active_rules_count': active_rules_count,
-        'total_transactions': total_transactions,
-        'accounts': accounts,
-    })
 
 @login_required
 def test_rules(request):

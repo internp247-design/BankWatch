@@ -162,7 +162,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: formData
             });
 
-            if (!response.ok) throw new Error('Network response was not ok');
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Server error (${response.status}): ${errorText.substring(0, 200)}`);
+            }
 
             const data = await response.json();
             if (data.status === 'ok') {
@@ -177,6 +180,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (err) {
             console.error(err);
+            alert('Error applying rules: ' + err.message);
             applyBtn.innerHTML = originalHtml;
             applyBtn.disabled = false;
         }
