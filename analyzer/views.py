@@ -769,6 +769,11 @@ def rules_application_results(request):
     else:
         filtered_results = results
 
+    # Store filtered results in session for export functions
+    request.session['export_filtered_results'] = filtered_results
+    request.session['export_selected_rule_ids'] = selected_rule_ids
+    request.session['export_selected_category_ids'] = selected_category_ids
+
     # compute colspan for template (base 7 columns + previous column if show_changed)
     colspan = 7 + (1 if show_changed else 0)
 
@@ -1463,7 +1468,7 @@ def get_financial_overview_data(request):
 @login_required
 @login_required
 def export_rules_results_to_excel(request):
-    """Export rule application results to Excel file with comprehensive details"""
+    """Export rule application results to Excel file with filtered transactions only"""
     
     # Check if openpyxl is available
     if not EXCEL_EXPORT_AVAILABLE:
@@ -1477,38 +1482,258 @@ def export_rules_results_to_excel(request):
         
         print("DEBUG - Starting export process")
         
-        # Get query parameters and POST data for selected filters
-        account_id = request.GET.get('account_id', '')
-        show_changed = request.GET.get('show_changed', '') == '1'
-        transaction_ids = request.GET.getlist('transaction_ids')
+        # Get filtered results from session
+        export_filtered_results = request.session.get('export_filtered_results', [])
+        selected_rule_ids_str = request.session.get('export_selected_rule_ids', [])
+        selected_category_ids_str = request.session.get('export_selected_category_ids', [])
         
-        # Get selected rules and categories from POST
-        selected_rule_ids = request.POST.getlist('rule_ids') if request.method == 'POST' else []
-        selected_category_ids = request.POST.getlist('category_ids') if request.method == 'POST' else []
+        # Convert to integers
+        selected_rule_ids = [int(rid) for rid in selected_rule_ids_str if rid.isdigit()] if isinstance(selected_rule_ids_str, list) else []
+        selected_category_ids = [int(cid) for cid in selected_category_ids_str if cid.isdigit()] if isinstance(selected_category_ids_str, list) else []
         
-        print(f"DEBUG - Transaction IDs: {transaction_ids}")
+        # Also get from POST for backup (if called directly)
+        if not export_filtered_results:
+            selected_rule_ids = request.POST.getlist('rule_ids') if request.method == 'POST' else []
+            selected_category_ids = request.POST.getlist('category_ids') if request.method == 'POST' else []
+            selected_rule_ids = [int(rid) for rid in selected_rule_ids if rid.isdigit()]
+            selected_category_ids = [int(cid) for cid in selected_category_ids if cid.isdigit()]
+        
+        print(f"DEBUG - Filtered Results Count: {len(export_filtered_results)}")
         print(f"DEBUG - Selected Rule IDs: {selected_rule_ids}")
         print(f"DEBUG - Selected Category IDs: {selected_category_ids}")
         
-        # Fetch transactions
-        if transaction_ids:
-            all_transactions = Transaction.objects.filter(
-                id__in=transaction_ids,
-                statement__account__user=request.user
-            ).select_related('statement', 'statement__account').order_by('-date')
-        else:
-            all_transactions = Transaction.objects.filter(
-                statement__account__user=request.user
-            ).select_related('statement', 'statement__account').order_by('-date')
-            
-            if account_id:
-                try:
-                    account = BankAccount.objects.get(id=account_id, user=request.user)
-                    all_transactions = all_transactions.filter(statement__account=account)
-                except BankAccount.DoesNotExist:
-                    pass
+        # Create workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = 'Filtered Results'
         
-        print(f"DEBUG - Total transactions fetched: {all_transactions.count()}")
+        # Define styles
+        header_fill = PatternFill(start_color='0D47A1', end_color='0D47A1', fill_type='solid')
+        header_font = Font(bold=True, color='FFFFFF', size=11)
+        section_fill = PatternFill(start_color='1565C0', end_color='1565C0', fill_type='solid')
+        summary_fill = PatternFill(start_color='E8F0F7', end_color='E8F0F7', fill_type='solid')
+        total_fill = PatternFill(start_color='FFF2CC', end_color='FFF2CC', fill_type='solid')
+        border = Border(
+            left=Side(style='thin', color='D3D3D3'),
+            right=Side(style='thin', color='D3D3D3'),
+            top=Side(style='thin', color='D3D3D3'),
+            bottom=Side(style='thin', color='D3D3D3')
+        )
+        center_align = Alignment(horizontal='center', vertical='center')
+        left_align = Alignment(horizontal='left', vertical='center')
+        
+        # Professional Report Header Layout
+        current_date = datetime.now()
+        current_row = 1
+        
+        # Row 1: Date and Day on left side
+        cell = ws.cell(row=current_row, column=1)
+        cell.value = f"Date: {current_date.strftime('%Y-%m-%d')}   Day: {current_date.strftime('%A')}"
+        cell.font = Font(bold=True, size=10)
+        current_row += 1
+        
+        # Row 2: Empty line for spacing
+        current_row += 1
+        
+        # Row 3: Project Name "BANKWATCH" - Centered, merged across columns
+        ws.merge_cells(f'A{current_row}:G{current_row}')
+        cell = ws.cell(row=current_row, column=1)
+        cell.value = "BANKWATCH - Filtered Transactions Report"
+        cell.font = Font(bold=True, size=14, color='FFFFFF')
+        cell.fill = PatternFill(start_color='0D47A1', end_color='0D47A1', fill_type='solid')
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        current_row += 1
+        
+        # Row 4: Selected Rules
+        cell = ws.cell(row=current_row, column=1)
+        cell.value = "Selected Rules:"
+        cell.font = Font(bold=True, size=11)
+        
+        try:
+            selected_rules = Rule.objects.filter(id__in=selected_rule_ids, user=request.user)
+            rule_names = ', '.join([rule.name for rule in selected_rules]) if selected_rules.exists() else "None"
+        except:
+            rule_names = "None"
+        
+        cell = ws.cell(row=current_row, column=2)
+        cell.value = rule_names
+        current_row += 1
+        
+        # Row 5: Selected Categories
+        cell = ws.cell(row=current_row, column=1)
+        cell.value = "Selected Categories:"
+        cell.font = Font(bold=True, size=11)
+        
+        try:
+            selected_categories = CustomCategory.objects.filter(id__in=selected_category_ids, user=request.user)
+            category_names = ', '.join([cat.name for cat in selected_categories]) if selected_categories.exists() else "None"
+        except:
+            category_names = "None"
+        
+        cell = ws.cell(row=current_row, column=2)
+        cell.value = category_names
+        current_row += 2
+        
+        # Prepare headers - include rule and category columns
+        headers = ['Date', 'Account', 'Description', 'Amount', 'Matched Rule', 'Category Applied']
+        column_widths = [12, 18, 35, 12, 20, 20]
+        
+        print(f"DEBUG - Headers: {headers}")
+        
+        # Add headers
+        table_start_row = current_row
+        for col_num, header in enumerate(headers, 1):
+            cell = ws.cell(row=table_start_row, column=col_num)
+            cell.value = header
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.border = border
+            cell.alignment = center_align
+        
+        # Set column widths
+        for col_num, width in enumerate(column_widths, 1):
+            ws.column_dimensions[chr(64 + col_num)].width = width
+        
+        print(f"DEBUG - Starting to add {len(export_filtered_results)} filtered transactions")
+        
+        # Add only filtered transaction data
+        row_num = table_start_row + 1
+        total_amount = 0
+        
+        for result in export_filtered_results:
+            try:
+                # Fetch the actual transaction object
+                tx = Transaction.objects.get(id=result['id'], statement__account__user=request.user)
+                
+                col_num = 1
+                
+                # Date
+                cell = ws.cell(row=row_num, column=col_num)
+                cell.value = tx.date.strftime('%Y-%m-%d') if tx.date else ''
+                cell.border = border
+                cell.alignment = center_align
+                col_num += 1
+                
+                # Account
+                cell = ws.cell(row=row_num, column=col_num)
+                cell.value = result['account_name']
+                cell.border = border
+                cell.alignment = left_align
+                col_num += 1
+                
+                # Description
+                desc = result['description'] if result['description'] else ''
+                cell = ws.cell(row=row_num, column=col_num)
+                cell.value = desc
+                cell.border = border
+                cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+                col_num += 1
+                
+                # Amount
+                amount = float(result['amount']) if result['amount'] else 0
+                cell = ws.cell(row=row_num, column=col_num)
+                cell.value = amount
+                cell.border = border
+                cell.number_format = '#,##0.00'
+                cell.alignment = center_align
+                total_amount += amount
+                col_num += 1
+                
+                # Matched Rule Name
+                matched_rule_name = result.get('matched_rule_name', '')
+                cell = ws.cell(row=row_num, column=col_num)
+                cell.value = matched_rule_name if matched_rule_name else '-'
+                cell.border = border
+                cell.alignment = left_align
+                col_num += 1
+                
+                # Custom Category Name
+                matched_category_name = result.get('matched_custom_category_name', '')
+                cell = ws.cell(row=row_num, column=col_num)
+                cell.value = matched_category_name if matched_category_name else '-'
+                cell.border = border
+                cell.alignment = left_align
+                
+                row_num += 1
+            except Exception as e:
+                print(f"ERROR - Failed to process result {result.get('id')}: {e}")
+                continue
+        
+        print(f"DEBUG - Completed adding transactions at row {row_num}")
+        
+        # Add Summary Section
+        summary_row = row_num + 2
+        
+        # Summary Header
+        cell = ws.cell(row=summary_row, column=1)
+        cell.value = "FILTERED SUMMARY"
+        cell.font = Font(bold=True, size=12, color='FFFFFF')
+        cell.fill = PatternFill(start_color='0D47A1', end_color='0D47A1', fill_type='solid')
+        cell.border = border
+        summary_row += 1
+        
+        # Total Transactions (from filtered results only)
+        cell = ws.cell(row=summary_row, column=1)
+        cell.value = "Total Filtered Transactions:"
+        cell.font = Font(bold=True, size=11)
+        cell.border = border
+        
+        cell = ws.cell(row=summary_row, column=2)
+        cell.value = len(export_filtered_results)
+        cell.font = Font(size=11)
+        cell.border = border
+        summary_row += 1
+        
+        # Total Amount (from filtered results only)
+        cell = ws.cell(row=summary_row, column=1)
+        cell.value = "Total Filtered Amount:"
+        cell.font = Font(bold=True, size=11)
+        cell.border = border
+        
+        cell = ws.cell(row=summary_row, column=2)
+        cell.value = total_amount
+        cell.font = Font(size=11)
+        cell.border = border
+        cell.number_format = '#,##0.00'
+        summary_row += 1
+        
+        # Rules Selected Count
+        cell = ws.cell(row=summary_row, column=1)
+        cell.value = "Rules Selected:"
+        cell.font = Font(bold=True, size=11)
+        cell.border = border
+        
+        cell = ws.cell(row=summary_row, column=2)
+        cell.value = len(selected_rule_ids)
+        cell.font = Font(size=11)
+        cell.border = border
+        summary_row += 1
+        
+        # Categories Selected Count
+        cell = ws.cell(row=summary_row, column=1)
+        cell.value = "Categories Selected:"
+        cell.font = Font(bold=True, size=11)
+        cell.border = border
+        
+        cell = ws.cell(row=summary_row, column=2)
+        cell.value = len(selected_category_ids)
+        cell.font = Font(size=11)
+        cell.border = border
+        
+        # Prepare response
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename=filtered_rules_results.xlsx'
+        
+        wb.save(response)
+        return response
+        
+    except Exception as e:
+        error_msg = f"Exception in export_rules_results_to_excel: {str(e)}"
+        print(f"ERROR - {error_msg}")
+        messages.error(request, f'Error exporting to Excel: {error_msg}')
+        return redirect('rules_application_results')
         
         # Create workbook
         wb = Workbook()
@@ -1925,62 +2150,216 @@ def export_rules_results_to_excel(request):
 
 @login_required
 def export_rules_results_to_pdf(request):
-    """Export rule application results to PDF file with charts and transaction details"""
+    """Export filtered rule application results to PDF file"""
     
     try:
-        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.lib.pagesizes import letter, landscape
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import inch
-        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
+        from reportlab.lib.units import inch, cm
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
         from reportlab.lib.colors import HexColor, black, white, lightgrey
         from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
         from io import BytesIO
-        import tempfile
-        import atexit
         from datetime import datetime
-        from django.db.models import Sum
         
         print("DEBUG - Starting PDF export process")
-        account_id = request.GET.get('account_id', '')
-        show_changed = request.GET.get('show_changed', '') == '1'
-        transaction_ids = request.GET.getlist('transaction_ids')
         
-        # Get selected rules and categories from GET or POST
-        selected_rule_ids = request.GET.getlist('rule_ids') or request.POST.getlist('rule_ids')
-        selected_category_ids = request.GET.getlist('category_ids') or request.POST.getlist('category_ids')
+        # Get filtered results from session
+        export_filtered_results = request.session.get('export_filtered_results', [])
+        selected_rule_ids_str = request.session.get('export_selected_rule_ids', [])
+        selected_category_ids_str = request.session.get('export_selected_category_ids', [])
         
-        print(f"DEBUG - Transaction IDs: {transaction_ids}")
+        # Convert to integers
+        selected_rule_ids = [int(rid) for rid in selected_rule_ids_str if rid.isdigit()] if isinstance(selected_rule_ids_str, list) else []
+        selected_category_ids = [int(cid) for cid in selected_category_ids_str if cid.isdigit()] if isinstance(selected_category_ids_str, list) else []
+        
+        print(f"DEBUG - Filtered Results Count: {len(export_filtered_results)}")
         print(f"DEBUG - Selected Rule IDs: {selected_rule_ids}")
         print(f"DEBUG - Selected Category IDs: {selected_category_ids}")
         
-        # Fetch transactions
-        if transaction_ids:
-            all_transactions = Transaction.objects.filter(
-                id__in=transaction_ids,
-                statement__account__user=request.user
-            ).select_related('statement', 'statement__account').order_by('-date')
-        else:
-            all_transactions = Transaction.objects.filter(
-                statement__account__user=request.user
-            ).select_related('statement', 'statement__account').order_by('-date')
-            
-            if account_id:
-                try:
-                    account = BankAccount.objects.get(id=account_id, user=request.user)
-                    all_transactions = all_transactions.filter(statement__account=account)
-                except BankAccount.DoesNotExist:
-                    pass
+        # Create PDF document in memory using landscape orientation for better column layout
+        pdf_buffer = BytesIO()
+        doc = SimpleDocTemplate(
+            pdf_buffer,
+            pagesize=landscape(letter),
+            rightMargin=0.5*inch,
+            leftMargin=0.5*inch,
+            topMargin=0.5*inch,
+            bottomMargin=0.5*inch
+        )
         
-        print(f"DEBUG - Total transactions fetched: {all_transactions.count()}")
+        # Container for PDF elements
+        elements = []
         
-        # Build summary data
+        # Define styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=16,
+            textColor=white,
+            backColor=HexColor('0D47A1'),
+            spaceAfter=12,
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold'
+        )
+        
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=11,
+            textColor=HexColor('0D47A1'),
+            spaceAfter=6,
+            fontName='Helvetica-Bold'
+        )
+        
+        normal_style = styles['Normal']
+        
+        # Add title
+        elements.append(Paragraph("BANKWATCH - Filtered Transactions Report", title_style))
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Add report metadata
+        current_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        elements.append(Paragraph(f"Report Generated: {current_date}", normal_style))
+        
+        # Get rule and category names
         try:
-            selected_rules = Rule.objects.filter(id__in=selected_rule_ids, user=request.user).order_by('name')
-            selected_categories = CustomCategory.objects.filter(id__in=selected_category_ids, user=request.user).order_by('name')
-        except Exception as e:
-            print(f"ERROR - Failed to fetch rules/categories: {e}")
-            selected_rules = Rule.objects.none()
-            selected_categories = CustomCategory.objects.none()
+            selected_rules = Rule.objects.filter(id__in=selected_rule_ids, user=request.user)
+            rule_names = ', '.join([rule.name for rule in selected_rules]) if selected_rules.exists() else "None"
+        except:
+            rule_names = "None"
+        
+        try:
+            selected_categories = CustomCategory.objects.filter(id__in=selected_category_ids, user=request.user)
+            category_names = ', '.join([cat.name for cat in selected_categories]) if selected_categories.exists() else "None"
+        except:
+            category_names = "None"
+        
+        elements.append(Paragraph(f"<b>Selected Rules:</b> {rule_names}", normal_style))
+        elements.append(Paragraph(f"<b>Selected Categories:</b> {category_names}", normal_style))
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Build transaction table with proper column widths
+        # Column widths: Date, Account, Description (wider), Amount, Rule, Category
+        col_widths = [1.0*inch, 1.2*inch, 3.0*inch, 0.9*inch, 1.3*inch, 1.3*inch]
+        
+        # Table header
+        table_data = [
+            ['Date', 'Account', 'Description', 'Amount', 'Matched Rule', 'Category Applied']
+        ]
+        
+        total_amount = 0
+        transaction_count = 0
+        
+        # Add transaction rows from filtered results
+        for result in export_filtered_results:
+            try:
+                date_str = result['date'].strftime('%Y-%m-%d') if hasattr(result['date'], 'strftime') else str(result['date'])
+                amount = float(result['amount']) if result['amount'] else 0
+                description = result['description'][:50] if result['description'] else ''  # Truncate to prevent overflow
+                
+                matched_rule = result.get('matched_rule_name', '') or '-'
+                matched_category = result.get('matched_custom_category_name', '') or '-'
+                
+                table_data.append([
+                    date_str,
+                    result['account_name'],
+                    description,
+                    f"₹{amount:,.2f}",
+                    matched_rule,
+                    matched_category
+                ])
+                
+                total_amount += amount
+                transaction_count += 1
+            except Exception as e:
+                print(f"ERROR - Failed to process result: {e}")
+                continue
+        
+        # Add summary row
+        table_data.append([
+            '', '', '<b>TOTAL</b>',
+            f'<b>₹{total_amount:,.2f}</b>',
+            '', ''
+        ])
+        
+        # Create table with proper styling
+        table = Table(table_data, colWidths=col_widths)
+        table.setStyle(TableStyle([
+            # Header styling
+            ('BACKGROUND', (0, 0), (-1, 0), HexColor('0D47A1')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), white),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('GRID', (0, 0), (-1, -2), 1, lightgrey),
+            
+            # Data rows
+            ('ALIGN', (0, 1), (-1, -2), 'LEFT'),
+            ('FONTNAME', (0, 1), (-1, -2), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -2), 9),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -2), [white, HexColor('F5F5F5')]),
+            
+            # Amount column - right align
+            ('ALIGN', (3, 1), (3, -2), 'RIGHT'),
+            
+            # Total row
+            ('BACKGROUND', (0, -1), (-1, -1), HexColor('FFF2CC')),
+            ('ALIGN', (0, -1), (-1, -1), 'RIGHT'),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            
+            # Description column - enable text wrapping
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ]))
+        
+        elements.append(table)
+        elements.append(Spacer(1, 0.3*inch))
+        
+        # Add summary section
+        elements.append(Paragraph("FILTERED SUMMARY", heading_style))
+        
+        summary_data = [
+            ['Metric', 'Value'],
+            ['Total Filtered Transactions', str(transaction_count)],
+            ['Total Filtered Amount', f'₹{total_amount:,.2f}'],
+            ['Rules Selected', str(len(selected_rule_ids))],
+            ['Categories Selected', str(len(selected_category_ids))],
+        ]
+        
+        summary_table = Table(summary_data, colWidths=[3*inch, 2*inch])
+        summary_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), HexColor('0D47A1')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), white),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('GRID', (0, 0), (-1, -1), 1, lightgrey),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [white, HexColor('F5F5F5')]),
+        ]))
+        
+        elements.append(summary_table)
+        
+        # Build PDF
+        doc.build(elements)
+        
+        # Prepare response
+        pdf_buffer.seek(0)
+        response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename=filtered_rules_results.pdf'
+        
+        return response
+        
+    except Exception as e:
+        import traceback
+        error_msg = str(e)
+        print(f"ERROR - Exception in export_rules_results_to_pdf: {error_msg}")
+        print(f"ERROR - Traceback: {traceback.format_exc()}")
+        messages.error(request, f'Error exporting to PDF: {error_msg}')
+        return redirect('rules_application_results')
+
         
         rule_totals_dict = {}
         category_totals_dict = {}

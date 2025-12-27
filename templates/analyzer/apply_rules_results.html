@@ -1018,19 +1018,23 @@ function updateAppliedFiltersDisplay(ruleIds, categoryIds) {
     filtersContent.innerHTML = filtersHTML;
 }
 
-// Update summary metrics
+// Update summary metrics - Calculate ONLY from filtered results
 function updateSummary() {
+    // Count transactions from the transaction results table
     const table = document.querySelector('table tbody');
+    if (!table) return;
+    
     const rows = table.querySelectorAll('tr:not(.no-filter-results)');
     let visibleCount = 0;
     let totalAmount = 0;
     
+    // Iterate only visible transaction rows (those in table, not hidden)
     rows.forEach(row => {
         const style = window.getComputedStyle(row);
         if (style.display !== 'none') {
             visibleCount++;
             
-            // Get amount from the 4th column (Amount column)
+            // Get amount from the 4th column (Amount column in transaction table)
             const cells = row.querySelectorAll('td');
             if (cells.length >= 4) {
                 const amountText = cells[3].textContent.replace('₹', '').replace(/,/g, '');
@@ -1040,18 +1044,34 @@ function updateSummary() {
         }
     });
     
-    // Get selected rules and categories
+    // Get selected rules and categories count
     const selectedRules = document.querySelectorAll('#rulesApplyForm input[type="checkbox"]:checked').length;
     const selectedCategories = document.querySelectorAll('#rulesCustomCategoryForm input[type="checkbox"]:checked').length;
     
-    // Update summary elements
+    // Update summary elements with filtered totals
     document.getElementById('summaryTotalTransactions').textContent = visibleCount;
     document.getElementById('summaryRulesSelected').textContent = selectedRules;
     document.getElementById('summaryCategoriesSelected').textContent = selectedCategories;
-    document.getElementById('summaryGrandTotal').textContent = '₹' + totalAmount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    
+    // Update Grand Total - this is from filtered transaction rows
+    const formattedTotal = totalAmount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    document.getElementById('summaryGrandTotal').textContent = '₹' + formattedTotal;
+    
+    // Also update the summary table total to match
+    updateSummaryTableTotal(totalAmount);
 }
 
-// Calculate summary table total
+// Calculate and update summary table total to match Grand Total
+function updateSummaryTableTotal(fromTransactionTotal) {
+    const totalElement = document.getElementById('summary-total');
+    if (!totalElement) return;
+    
+    // Use the total calculated from transaction rows to ensure consistency
+    const formattedTotal = fromTransactionTotal.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    totalElement.textContent = formattedTotal;
+}
+
+// Calculate summary table total (standalone, in case called independently)
 function calculateSummaryTotal() {
     const totalElement = document.getElementById('summary-total');
     if (!totalElement) return;
@@ -1068,7 +1088,8 @@ function calculateSummaryTotal() {
         }
     });
     
-    totalElement.textContent = total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const formattedTotal = total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    totalElement.textContent = formattedTotal;
 }
 
 // Initialize summary on page load
