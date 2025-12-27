@@ -587,28 +587,13 @@ function downloadRulesPDF() {
             return;
         }
         
-        // Build form data with selected filters and transaction IDs
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '{% url "export_rules_results_pdf" %}';
-        
-        // Add CSRF token
-        const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden';
-        csrfInput.name = 'csrfmiddlewaretoken';
-        csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
-        form.appendChild(csrfInput);
+        // Build query params
+        let queryParams = [];
         
         // Collect rule IDs
-        let queryParams = [];
         if (rulesForm) {
             const checkedRules = rulesForm.querySelectorAll('input[type="checkbox"]:checked');
             checkedRules.forEach(checkbox => {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'rule_ids';
-                input.value = checkbox.value;
-                form.appendChild(input);
                 queryParams.push('rule_ids=' + encodeURIComponent(checkbox.value));
             });
             console.log('Rules selected:', checkedRules.length);
@@ -618,42 +603,41 @@ function downloadRulesPDF() {
         if (categoriesForm) {
             const checkedCategories = categoriesForm.querySelectorAll('input[type="checkbox"]:checked');
             checkedCategories.forEach(checkbox => {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'category_ids';
-                input.value = checkbox.value;
-                form.appendChild(input);
                 queryParams.push('category_ids=' + encodeURIComponent(checkbox.value));
             });
             console.log('Categories selected:', checkedCategories.length);
         }
         
-        // Collect transaction IDs from visible rows
-        visibleRows.forEach(row => {
-            const transactionId = row.getAttribute('data-transaction-id');
-            if (transactionId) {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'transaction_ids';
-                input.value = transactionId;
-                form.appendChild(input);
-                queryParams.push('transaction_ids=' + encodeURIComponent(transactionId));
-            }
-        });
-        console.log('Visible transactions to export:', visibleRows.length);
-        
-        // Update form action with query string
+        // Build download URL
+        let downloadUrl = '{% url "export_rules_results_pdf" %}';
         if (queryParams.length > 0) {
-            form.action = '{% url "export_rules_results_pdf" %}?' + queryParams.join('&');
+            downloadUrl += '?' + queryParams.join('&');
         }
         
-        console.log('Download URL:', form.action);
+        console.log('Download URL:', downloadUrl);
         console.log('=== Initiating Download ===');
         
-        // Trigger the download
-        document.body.appendChild(form);
-        form.submit();
-        document.body.removeChild(form);
+        // Download by opening in a new tab then closing it, or use fetch with blob
+        // This approach doesn't navigate away from the current page
+        fetch(downloadUrl, {
+            method: 'GET'
+        })
+        .then(response => response.blob())
+        .then(blob => {
+            // Create a blob URL and download
+            const blobUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = 'bankwatch_transactions_' + new Date().toISOString().split('T')[0] + '.pdf';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(blobUrl);
+        })
+        .catch(error => {
+            console.error('PDF Download Error:', error);
+            alert('Error initiating PDF download. Please check the browser console for details.');
+        });
         
     } catch (error) {
         console.error('PDF Download Error:', error);
@@ -692,70 +676,47 @@ function downloadRulesExcel() {
     const ruleIds = Array.from(ruleCheckboxes).map(cb => cb.value);
     const categoryIds = Array.from(categoryCheckboxes).map(cb => cb.value);
     
-    // Get transaction IDs from visible rows only
-    const transactionIds = [];
-    visibleRows.forEach(row => {
-        const transactionId = row.getAttribute('data-transaction-id');
-        if (transactionId) {
-            const style = window.getComputedStyle(row);
-            if (style.display !== 'none') {
-                transactionIds.push(transactionId);
-            }
-        }
-    });
-    
-    // Submit form via POST with both hidden fields and query params
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '{% url "export_rules_results" %}';
-    
-    // Add CSRF token
-    const csrfInput = document.createElement('input');
-    csrfInput.type = 'hidden';
-    csrfInput.name = 'csrfmiddlewaretoken';
-    csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
-    form.appendChild(csrfInput);
-    
-    // Add transaction IDs as hidden fields and query string
+    // Build query params
     let queryParams = [];
-    transactionIds.forEach(id => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'transaction_ids';
-        input.value = id;
-        form.appendChild(input);
-        queryParams.push('transaction_ids=' + encodeURIComponent(id));
-    });
     
     // Add rule IDs
     ruleIds.forEach(id => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'rule_ids';
-        input.value = id;
-        form.appendChild(input);
         queryParams.push('rule_ids=' + encodeURIComponent(id));
     });
     
     // Add category IDs
     categoryIds.forEach(id => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'category_ids';
-        input.value = id;
-        form.appendChild(input);
         queryParams.push('category_ids=' + encodeURIComponent(id));
     });
     
-    // Update form action with query string for backend convenience
+    // Build download URL
+    let downloadUrl = '{% url "export_rules_results" %}';
     if (queryParams.length > 0) {
-        form.action = '{% url "export_rules_results" %}?' + queryParams.join('&');
+        downloadUrl += '?' + queryParams.join('&');
     }
     
-    console.log('Submitting Excel export form to:', form.action);
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
+    console.log('Submitting Excel export to:', downloadUrl);
+    
+    // Download using fetch with blob - doesn't navigate away
+    fetch(downloadUrl, {
+        method: 'GET'
+    })
+    .then(response => response.blob())
+    .then(blob => {
+        // Create a blob URL and download
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = 'bankwatch_transactions_' + new Date().toISOString().split('T')[0] + '.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+    })
+    .catch(error => {
+        console.error('Excel Download Error:', error);
+        alert('Error initiating Excel download. Please check the browser console for details.');
+    });
 }
 
 // Toggle rules management panel visibility
