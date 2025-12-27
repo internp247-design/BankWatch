@@ -5,6 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.db import models
 from django.contrib import messages
 from django.db import transaction as db_transaction
+from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse, HttpResponse
 from django.urls import reverse
 from datetime import timedelta
@@ -656,41 +657,55 @@ def rules_application_results(request):
 
     results = []
     for tx in transactions:
-        tx_data = {
-            'date': tx.date,
-            'description': tx.description,
-            'amount': float(tx.amount),
-            'transaction_type': tx.transaction_type
-        }
-        
-        # Check for rule match
-        matched_rule = engine.find_matching_rule(tx_data)
-        matched_rule_id = matched_rule.id if matched_rule else None
-        matched_rule_category = matched_rule.category if matched_rule else None
-        matched_rule_name = matched_rule.name if matched_rule else None
-        
-        # Check for custom category match
-        matched_custom_category = custom_category_engine.apply_rules_to_transaction(tx_data)
-        matched_custom_category_id = matched_custom_category.id if matched_custom_category else None
-        matched_custom_category_name = matched_custom_category.name if matched_custom_category else None
-        
-        # Only include if there's a match (rule or custom category)
-        if matched_rule_name or matched_custom_category_name:
-            results.append({
-                'id': tx.id,
-                'date': str(tx.date),  # Convert date to string for session serialization
+        try:
+            tx_data = {
+                'date': tx.date,
                 'description': tx.description,
                 'amount': float(tx.amount),
-                'current_category': tx.category,
-                'matched_rule_id': matched_rule_id,
-                'matched_rule_category': matched_rule_category,
-                'matched_rule_name': matched_rule_name,
-                'matched_custom_category_id': matched_custom_category_id,
-                'matched_custom_category_name': matched_custom_category_name,
-                'previous_category': request.session.get('last_rules_applied_prev', {}).get(str(tx.id)) if show_changed else None,
-                'account_name': tx.statement.account.account_name,
-                'account_id': tx.statement.account.id,
-            })
+                'transaction_type': tx.transaction_type
+            }
+            
+            # Check for rule match
+            matched_rule = engine.find_matching_rule(tx_data)
+            matched_rule_id = matched_rule.id if matched_rule else None
+            matched_rule_category = matched_rule.category if matched_rule else None
+            matched_rule_name = matched_rule.name if matched_rule else None
+            
+            # Check for custom category match
+            matched_custom_category = custom_category_engine.apply_rules_to_transaction(tx_data)
+            matched_custom_category_id = matched_custom_category.id if matched_custom_category else None
+            matched_custom_category_name = matched_custom_category.name if matched_custom_category else None
+            
+            # Only include if there's a match (rule or custom category)
+            if matched_rule_name or matched_custom_category_name:
+                # Safely access statement and account
+                account_name = 'Unknown'
+                account_id = None
+                try:
+                    if tx.statement and tx.statement.account:
+                        account_name = tx.statement.account.account_name
+                        account_id = tx.statement.account.id
+                except (AttributeError, ObjectDoesNotExist):
+                    pass
+                
+                results.append({
+                    'id': tx.id,
+                    'date': str(tx.date),  # Convert date to string for session serialization
+                    'description': tx.description,
+                    'amount': float(tx.amount),
+                    'current_category': tx.category,
+                    'matched_rule_id': matched_rule_id,
+                    'matched_rule_category': matched_rule_category,
+                    'matched_rule_name': matched_rule_name,
+                    'matched_custom_category_id': matched_custom_category_id,
+                    'matched_custom_category_name': matched_custom_category_name,
+                    'previous_category': request.session.get('last_rules_applied_prev', {}).get(str(tx.id)) if show_changed else None,
+                    'account_name': account_name,
+                    'account_id': account_id,
+                })
+        except Exception as e:
+            print(f"ERROR - Failed to process transaction {tx.id}: {str(e)}")
+            continue
 
     # Get list of user's accounts for selector
     accounts = BankAccount.objects.filter(user=request.user)
