@@ -108,31 +108,69 @@
           </div>
       </div>
 
-      {% if not no_changes and rule_totals %}
+      <!-- Summary Report Table - Only Selected Rules & Categories -->
+      {% if selected_rule_ids or selected_category_ids %}
         <div class="row mb-4">
           <div class="col-md-12">
-            <div class="card bg-light">
-              <div class="card-body">
-                <h6 class="card-title mb-3">Summary: Total Amount by Rule</h6>
-                <div class="row">
-                  {% for rt in rule_totals %}
-                    <div class="col-md-3 col-sm-6 mb-3">
-                      <div class="p-3 border rounded bg-white">
-                        <div class="d-flex justify-content-between align-items-start">
-                          <div>
-                            <p class="mb-1 text-muted small">{{ rt.rule_name }}</p>
-                            <h5 class="mb-0">₹{{ rt.total|floatformat:2 }}</h5>
-                            <small class="text-muted">{{ rt.count }} transaction{% if rt.count != 1 %}s{% endif %}</small>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  {% endfor %}
-                </div>
+            <div class="card border-0 shadow-sm">
+              <div class="card-header bg-primary text-white">
+                <h6 class="mb-0"><i class="fas fa-table me-2"></i>Summary Report - Selected Rules & Categories</h6>
+              </div>
+              <div class="card-body p-0">
+                {% if rule_category_report %}
+                  <table class="table table-striped table-hover mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Type</th>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th class="text-end">Transaction Count</th>
+                        <th class="text-end">Total Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for item in rule_category_report %}
+                        <tr>
+                          <td>
+                            {% if item.type == 'rule' %}
+                              <span class="badge bg-primary">Rule</span>
+                            {% else %}
+                              <span class="badge bg-success">Category</span>
+                            {% endif %}
+                          </td>
+                          <td><strong>{{ item.name }}</strong></td>
+                          <td>{{ item.category }}</td>
+                          <td class="text-end">{{ item.transaction_count }}</td>
+                          <td class="text-end"><strong>₹{{ item.total_amount|floatformat:2 }}</strong></td>
+                        </tr>
+                      {% endfor %}
+                      <tr class="table-light fw-bold">
+                        <td colspan="3">TOTAL</td>
+                        <td class="text-end">
+                          {% widthratio rule_category_report|length 1 1 %}{{ rule_category_report|length }}
+                        </td>
+                        <td class="text-end">
+                          ₹<span id="summary-total">0.00</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                {% else %}
+                  <div class="p-4 text-center text-muted">
+                    <i class="fas fa-inbox fa-2x mb-2"></i>
+                    <p>No matching data for selected rules and categories</p>
+                  </div>
+                {% endif %}
               </div>
             </div>
           </div>
         </div>
+
+        <!-- Divider -->
+        <hr class="my-4">
+
+        <!-- Detailed Transactions Table Header -->
+        <h5 class="mb-3">Detailed Transactions</h5>
       {% endif %}
 
       <!-- Custom Category Application Panel (Hidden by default) -->
@@ -625,14 +663,17 @@ function downloadRulesExcel() {
         return;
     }
     
-    // Get only visible rows (not hidden by filtering)
+    // Get the summary report table if it exists
+    const summaryTable = document.querySelector('.card-body p-0 table');
+    
+    // Get only visible rows from transaction table
     const rows = table.querySelectorAll('tbody tr:not(.no-filter-results)');
     const visibleRows = Array.from(rows).filter(row => {
         const style = window.getComputedStyle(row);
         return style.display !== 'none';
     });
     
-    if (visibleRows.length === 0) {
+    if (visibleRows.length === 0 && !summaryTable) {
         alert('No data to download. Apply rules/categories first to see results.');
         return;
     }
@@ -643,9 +684,6 @@ function downloadRulesExcel() {
     
     const ruleIds = Array.from(ruleCheckboxes).map(cb => cb.value);
     const categoryIds = Array.from(categoryCheckboxes).map(cb => cb.value);
-    
-    console.log('Rule IDs:', ruleIds);
-    console.log('Category IDs:', categoryIds);
     
     // Get transaction IDs from visible rows only
     const transactionIds = [];
@@ -659,14 +697,7 @@ function downloadRulesExcel() {
         }
     });
     
-    console.log('Visible Transaction IDs for export:', transactionIds);
-    
-    if (transactionIds.length === 0) {
-        alert('No visible transactions to export. Please apply a filter first.');
-        return;
-    }
-    
-    // Submit form via POST with selected filters and transaction IDs
+    // Submit form via POST with both hidden fields and query params
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = '{% url "export_rules_results" %}';
@@ -678,7 +709,7 @@ function downloadRulesExcel() {
     csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
     form.appendChild(csrfInput);
     
-    // Add transaction IDs as query string for better handling
+    // Add transaction IDs as hidden fields and query string
     let queryParams = [];
     transactionIds.forEach(id => {
         const input = document.createElement('input');
@@ -709,7 +740,7 @@ function downloadRulesExcel() {
         queryParams.push('category_ids=' + encodeURIComponent(id));
     });
     
-    // Update form action with query string
+    // Update form action with query string for backend convenience
     if (queryParams.length > 0) {
         form.action = '{% url "export_rules_results" %}?' + queryParams.join('&');
     }
@@ -737,27 +768,29 @@ function applyRulesFilter() {
     const ruleCheckboxes = document.querySelectorAll('#rulesApplyForm input[type="checkbox"]:checked');
     const categoryCheckboxes = document.querySelectorAll('#rulesCustomCategoryForm input[type="checkbox"]:checked');
     
-    if (ruleCheckboxes.length === 0 && categoryCheckboxes.length === 0) {
+    const ruleIds = Array.from(ruleCheckboxes).map(cb => cb.value);
+    const categoryIds = Array.from(categoryCheckboxes).map(cb => cb.value);
+    
+    if (ruleIds.length === 0 && categoryIds.length === 0) {
         alert('Please select at least one rule or category');
         return;
     }
 
-    const ruleIds = Array.from(ruleCheckboxes).map(cb => cb.value);
-    const categoryIds = Array.from(categoryCheckboxes).map(cb => cb.value);
+    // Build URL with selected rule and category IDs
+    let url = window.location.pathname;
+    const params = new URLSearchParams();
     
-    // Show loading state
-    document.getElementById('rulesApplyBtn').disabled = true;
-    document.getElementById('rulesApplyBtn').innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Applying...';
-
-    // Filter table rows based on matched rules and categories
-    filterTransactionsByRulesAndCategories(ruleIds, categoryIds);
+    ruleIds.forEach(id => params.append('rule_ids', id));
+    categoryIds.forEach(id => params.append('category_ids', id));
     
-    // Reset button
-    document.getElementById('rulesApplyBtn').disabled = false;
-    document.getElementById('rulesApplyBtn').innerHTML = '<i class="fas fa-check me-1"></i> Apply Filter';
+    // Preserve account filter if present
+    const accountSelect = document.getElementById('accountSelect');
+    if (accountSelect && accountSelect.value) {
+        params.append('account_id', accountSelect.value);
+    }
     
-    // Close panels
-    toggleRulesManagementPanel();
+    // Navigate to filtered results
+    window.location.href = url + '?' + params.toString();
 }
 
 // Filter transactions by selected rules and categories
@@ -900,18 +933,21 @@ function clearRulesFilter() {
         cb.checked = false;
     });
 
-    // Show all table rows
-    showAllRulesTransactions();
+    // Navigate to unfiltered results
+    let url = window.location.pathname;
+    const params = new URLSearchParams();
     
-    // Hide applied filters section
-    document.getElementById('appliedFiltersSection').style.display = 'none';
+    // Preserve account filter if present
+    const accountSelect = document.getElementById('accountSelect');
+    if (accountSelect && accountSelect.value) {
+        params.append('account_id', accountSelect.value);
+    }
     
-    alert('Filter cleared - showing all transactions');
-    
-    // Close the rule panel
-    const rulesPanel = document.getElementById('rulesManagementPanel');
-    if (rulesPanel && rulesPanel.style.display !== 'none') {
-        toggleRulesManagementPanel();
+    // Navigate
+    if (params.toString()) {
+        window.location.href = url + '?' + params.toString();
+    } else {
+        window.location.href = url;
     }
 }
 
@@ -1015,10 +1051,32 @@ function updateSummary() {
     document.getElementById('summaryGrandTotal').textContent = '₹' + totalAmount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
+// Calculate summary table total
+function calculateSummaryTotal() {
+    const totalElement = document.getElementById('summary-total');
+    if (!totalElement) return;
+    
+    let total = 0;
+    const rows = document.querySelectorAll('table tbody tr:not(.table-light)');
+    rows.forEach(row => {
+        const lastCell = row.querySelector('td:last-child');
+        if (lastCell) {
+            const amount = parseFloat(lastCell.textContent.replace('₹', '').replace(/,/g, ''));
+            if (!isNaN(amount)) {
+                total += amount;
+            }
+        }
+    });
+    
+    totalElement.textContent = total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
 // Initialize summary on page load
 window.addEventListener('load', function() {
     // Initial summary calculation
     updateSummary();
+    // Calculate summary table total
+    calculateSummaryTotal();
 });
 
 </script>

@@ -608,9 +608,18 @@ def test_rules(request):
 
 @login_required
 def rules_application_results(request):
-    """Show which rule (if any) and custom category (if any) matches each transaction. Supports optional account filter."""
+    """Show which rule (if any) and custom category (if any) matches each transaction. Supports optional account filter and filtering by selected rules/categories."""
     account_id = request.GET.get('account_id')
     show_changed = request.GET.get('show_changed') in ['1', 'true', 'True']
+    
+    # Get selected rule IDs and category IDs from GET parameters
+    selected_rule_ids = request.GET.getlist('rule_ids')
+    selected_category_ids = request.GET.getlist('category_ids')
+    
+    # Convert to integers
+    selected_rule_ids = [int(rid) for rid in selected_rule_ids if rid.isdigit()]
+    selected_category_ids = [int(cid) for cid in selected_category_ids if cid.isdigit()]
+    
     engine = RulesEngine(request.user)
     
     # Import custom category engine
@@ -654,11 +663,13 @@ def rules_application_results(request):
         
         # Check for rule match
         matched_rule = engine.find_matching_rule(tx_data)
+        matched_rule_id = matched_rule.id if matched_rule else None
         matched_rule_category = matched_rule.category if matched_rule else None
         matched_rule_name = matched_rule.name if matched_rule else None
         
         # Check for custom category match
         matched_custom_category = custom_category_engine.apply_rules_to_transaction(tx_data)
+        matched_custom_category_id = matched_custom_category.id if matched_custom_category else None
         matched_custom_category_name = matched_custom_category.name if matched_custom_category else None
         
         # Only include if there's a match (rule or custom category)
@@ -669,8 +680,10 @@ def rules_application_results(request):
                 'description': tx.description,
                 'amount': tx.amount,
                 'current_category': tx.category,
+                'matched_rule_id': matched_rule_id,
                 'matched_rule_category': matched_rule_category,
                 'matched_rule_name': matched_rule_name,
+                'matched_custom_category_id': matched_custom_category_id,
                 'matched_custom_category_name': matched_custom_category_name,
                 'previous_category': request.session.get('last_rules_applied_prev', {}).get(str(tx.id)) if show_changed else None,
                 'account_name': tx.statement.account.account_name,
@@ -681,42 +694,98 @@ def rules_application_results(request):
     accounts = BankAccount.objects.filter(user=request.user)
     no_changes = show_changed and len(results) == 0
 
-    # Compute totals per matched rule/category (always compute if there are results)
-    rule_totals = []
-    if results:
-        totals = {}
-        counts = {}
+    # Get all user's custom categories and rules for filter panels
+    all_custom_categories = CustomCategory.objects.filter(user=request.user, is_active=True).order_by('name')
+    all_rules = Rule.objects.filter(user=request.user, is_active=True).order_by('name')
+    
+    # Filter categories and rules based on selection
+    if selected_category_ids:
+        custom_categories = all_custom_categories.filter(id__in=selected_category_ids)
+    else:
+        custom_categories = CustomCategory.objects.none()
+    
+    if selected_rule_ids:
+        rules = all_rules.filter(id__in=selected_rule_ids)
+    else:
+        rules = Rule.objects.none()
+
+    # Compute summary report table - ONLY for selected rules and categories
+    rule_category_report = []
+    
+    if selected_rule_ids or selected_category_ids:
+        # Initialize data for selected items
+        if selected_rule_ids:
+            for rule in rules:
+                rule_category_report.append({
+                    'type': 'rule',
+                    'id': rule.id,
+                    'name': rule.name,
+                    'category': rule.get_category_display(),
+                    'transaction_count': 0,
+                    'total_amount': 0.0
+                })
+        
+        if selected_category_ids:
+            for category in custom_categories:
+                rule_category_report.append({
+                    'type': 'category',
+                    'id': category.id,
+                    'name': category.name,
+                    'category': 'Custom',
+                    'transaction_count': 0,
+                    'total_amount': 0.0
+                })
+        
+        # Populate counts and amounts from results
+        for result in results:
+            # Update rule if matched and selected
+            if result['matched_rule_id'] and result['matched_rule_id'] in selected_rule_ids:
+                for item in rule_category_report:
+                    if item['type'] == 'rule' and item['id'] == result['matched_rule_id']:
+                        item['transaction_count'] += 1
+                        item['total_amount'] += float(result['amount'] or 0)
+            
+            # Update category if matched and selected
+            if result['matched_custom_category_id'] and result['matched_custom_category_id'] in selected_category_ids:
+                for item in rule_category_report:
+                    if item['type'] == 'category' and item['id'] == result['matched_custom_category_id']:
+                        item['transaction_count'] += 1
+                        item['total_amount'] += float(result['amount'] or 0)
+    
+    # Filter results to show only those matching selected rules/categories
+    filtered_results = []
+    if selected_rule_ids or selected_category_ids:
         for r in results:
-            # Prefer custom category, then rule, then unmatched
-            matched_name = r.get('matched_custom_category_name') or r.get('matched_rule_name') or 'Unmatched'
-            amt = float(r.get('amount') or 0)
-            totals[matched_name] = totals.get(matched_name, 0.0) + amt
-            counts[matched_name] = counts.get(matched_name, 0) + 1
-        # Build list sorted by total desc
-        rule_totals = [
-            {'rule_name': name, 'total': totals[name], 'count': counts[name]}
-            for name in sorted(totals.keys(), key=lambda k: totals[k], reverse=True)
-        ]
+            include = False
+            # Include if matched rule is selected
+            if r['matched_rule_id'] and r['matched_rule_id'] in selected_rule_ids:
+                include = True
+            # Include if matched category is selected
+            if r['matched_custom_category_id'] and r['matched_custom_category_id'] in selected_category_ids:
+                include = True
+            
+            if include:
+                filtered_results.append(r)
+    else:
+        filtered_results = results
 
     # compute colspan for template (base 7 columns + previous column if show_changed)
     colspan = 7 + (1 if show_changed else 0)
 
-    # Get user's custom categories
-    custom_categories = CustomCategory.objects.filter(user=request.user, is_active=True)
-    
-    # Get user's rules
-    rules = Rule.objects.filter(user=request.user, is_active=True).order_by('name')
-
     return render(request, 'analyzer/apply_rules_results.html', {
-        'results': results,
+        'results': filtered_results,
+        'all_results': results,
+        'rule_category_report': rule_category_report,
         'accounts': accounts,
         'selected_account_id': int(account_id) if account_id else None,
         'show_changed': show_changed,
-        'no_changes': no_changes,
-        'rule_totals': rule_totals,
+        'no_changes': show_changed and len(filtered_results) == 0,
         'colspan': colspan,
-        'custom_categories': custom_categories,
-        'rules': rules,
+        'custom_categories': all_custom_categories,
+        'all_custom_categories': all_custom_categories,
+        'rules': all_rules,
+        'selected_rule_ids': selected_rule_ids,
+        'selected_category_ids': selected_category_ids,
     })
 
 
