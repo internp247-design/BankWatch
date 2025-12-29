@@ -22,6 +22,7 @@
         width: 100%;
         position: relative;
         overflow-x: hidden;
+        margin-left: 300px;
     }
 
     .sidebar {
@@ -31,8 +32,12 @@
         box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
         border-right: 1px solid #e9ecef;
         flex-shrink: 0;
+        position: fixed;
+        left: 0;
+        top: 0;
+        bottom: 0;
         overflow-y: auto;
-        max-height: 100vh;
+        z-index: 20;
     }
 
     .sidebar h3 {
@@ -128,7 +133,7 @@
         min-height: 100vh;
         overflow-x: hidden;
         overflow-y: auto;
-        width: calc(100% - 300px);
+        width: 100%;
     }
 
     .dashboard-section {
@@ -223,21 +228,22 @@
         padding: 1rem 1.2rem;
         border-bottom: 1px solid #e9ecef;
         word-wrap: break-word;
-        white-space: normal;
-    }
+        white-space: normal;        font-size: 0.9rem;    }
 
     th {
         background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
         color: white;
-        padding: 1.2rem;
+        padding: 0.8rem 0.6rem;
         text-align: left;
         font-weight: 700;
         position: sticky;
         top: 0;
-        font-size: 0.95rem;
+        font-size: 0.75rem;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.3px;
         z-index: 5;
+        white-space: normal;
+        line-height: 1.3;
     }
 
     tr:hover {
@@ -594,6 +600,7 @@
                             <th>Category</th>
                             <th>Type</th>
                             <th>Matched Rule</th>
+                            <th>Matched Category</th>
                             {% if show_changed %}<th>Previous Category</th>{% endif %}
                         </tr>
                     </thead>
@@ -622,6 +629,13 @@
                             <td>
                                 {% if result.matched_rule_name %}
                                     <span class="category-badge" style="background-color: #e3f2fd; color: #1e3c72;">{{ result.matched_rule_name }}</span>
+                                {% else %}
+                                    <span style="color: #6c757d;">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if result.matched_custom_category_name %}
+                                    <span class="category-badge" style="background-color: #d4edda; color: #155724;">{{ result.matched_custom_category_name }}</span>
                                 {% else %}
                                     <span style="color: #6c757d;">-</span>
                                 {% endif %}
