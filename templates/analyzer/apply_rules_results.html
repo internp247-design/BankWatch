@@ -937,19 +937,12 @@
             return;
         }
         
-        // Extract data from the table
+        // Extract data from the table - both rules and categories
         const tableRows = document.querySelectorAll('#resultsTable tbody tr');
-        const categoryData = {};
+        const combinedData = {};
         
         tableRows.forEach(row => {
             try {
-                // Get matched category from the 7th column (index 6)
-                const matchedCategoryCell = row.querySelector('td:nth-child(7)');
-                if (!matchedCategoryCell) return;
-                
-                const categoryText = matchedCategoryCell.textContent.trim();
-                if (categoryText === '-' || categoryText === '') return;
-                
                 // Get amount from the 3rd column (index 2)
                 const amountCell = row.querySelector('td:nth-child(3)');
                 if (!amountCell) return;
@@ -958,11 +951,36 @@
                 const amountText = amountCell.textContent.trim();
                 const amount = parseFloat(amountText.replace(/[^0-9.-]/g, '')) || 0;
                 
-                // Sum amounts by category
-                if (categoryData[categoryText]) {
-                    categoryData[categoryText] += Math.abs(amount);
-                } else {
-                    categoryData[categoryText] = Math.abs(amount);
+                // If user selected rules, extract matched rule from column 6
+                if (selectedRules.length > 0) {
+                    const matchedRuleCell = row.querySelector('td:nth-child(6)');
+                    if (matchedRuleCell) {
+                        const ruleText = matchedRuleCell.textContent.trim();
+                        if (ruleText !== '-' && ruleText !== '') {
+                            const label = `🔵 ${ruleText}`;
+                            if (combinedData[label]) {
+                                combinedData[label] += Math.abs(amount);
+                            } else {
+                                combinedData[label] = Math.abs(amount);
+                            }
+                        }
+                    }
+                }
+                
+                // If user selected categories, extract matched category from column 7
+                if (selectedCategories.length > 0) {
+                    const matchedCategoryCell = row.querySelector('td:nth-child(7)');
+                    if (matchedCategoryCell) {
+                        const categoryText = matchedCategoryCell.textContent.trim();
+                        if (categoryText !== '-' && categoryText !== '') {
+                            const label = `📁 ${categoryText}`;
+                            if (combinedData[label]) {
+                                combinedData[label] += Math.abs(amount);
+                            } else {
+                                combinedData[label] = Math.abs(amount);
+                            }
+                        }
+                    }
                 }
             } catch (e) {
                 console.error('Error parsing row:', e);
@@ -970,7 +988,7 @@
         });
         
         // Check if we have data
-        if (Object.keys(categoryData).length === 0) {
+        if (Object.keys(combinedData).length === 0) {
             chartSection.innerHTML = `
                 <div class="empty-chart-message">
                     <i class="fas fa-inbox"></i>
@@ -985,11 +1003,11 @@
         }
         
         // Create chart
-        const labels = Object.keys(categoryData);
-        const data = Object.values(categoryData);
+        const labels = Object.keys(combinedData);
+        const data = Object.values(combinedData);
         
-        // Generate colors
-        const colors = generateColors(labels.length);
+        // Generate colors based on whether it's rule or category
+        const colors = generateColorsForMixedChart(labels);
         
         // Update or create chart
         chartSection.innerHTML = '<div class="chart-wrapper"><canvas id="pieChart"></canvas></div>';
@@ -1040,6 +1058,42 @@
                 }
             }
         });
+    }
+
+    function generateColorsForMixedChart(labels) {
+        const ruleColors = [
+            '#1e3c72',
+            '#2a5298',
+            '#0052cc',
+            '#004085',
+            '#1a3a52'
+        ];
+        
+        const categoryColors = [
+            '#28a745',
+            '#20c997',
+            '#17a2b8',
+            '#138496',
+            '#0c5460'
+        ];
+        
+        const colors = [];
+        let ruleIndex = 0;
+        let categoryIndex = 0;
+        
+        labels.forEach(label => {
+            if (label.startsWith('🔵')) {
+                // It's a rule
+                colors.push(ruleColors[ruleIndex % ruleColors.length]);
+                ruleIndex++;
+            } else if (label.startsWith('📁')) {
+                // It's a category
+                colors.push(categoryColors[categoryIndex % categoryColors.length]);
+                categoryIndex++;
+            }
+        });
+        
+        return colors;
     }
 
     function generateColors(count) {
