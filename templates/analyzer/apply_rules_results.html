@@ -12,10 +12,16 @@
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
 
+    html, body {
+        overflow-x: hidden;
+        width: 100%;
+    }
+
     .main-content {
         display: flex;
         width: 100%;
         position: relative;
+        overflow-x: hidden;
     }
 
     .sidebar {
@@ -120,6 +126,9 @@
         gap: 2rem;
         background-color: #f5f7fa;
         min-height: 100vh;
+        overflow-x: hidden;
+        overflow-y: auto;
+        width: calc(100% - 300px);
     }
 
     .dashboard-section {
@@ -139,17 +148,21 @@
         margin-bottom: 1.5rem;
         flex-wrap: wrap;
         gap: 1.5rem;
+        width: 100%;
     }
 
     .section-header h2 {
         color: #1e3c72;
         font-size: 1.6rem;
         font-weight: 700;
+        min-width: 200px;
     }
 
     .download-buttons {
         display: flex;
         gap: 12px;
+        flex-wrap: wrap;
+        min-width: fit-content;
     }
 
     .download-btn {
@@ -184,18 +197,33 @@
 
     .table-container {
         overflow-x: auto;
+        overflow-y: auto;
         margin-top: 1.5rem;
         border: 1px solid #e9ecef;
         border-radius: 8px;
         flex: 1;
         display: flex;
         flex-direction: column;
+        max-width: 100%;
     }
 
     table {
         width: 100%;
         border-collapse: collapse;
         flex: 1;
+        table-layout: auto;
+        word-break: break-word;
+    }
+
+    tbody {
+        overflow-y: auto;
+    }
+
+    td {
+        padding: 1rem 1.2rem;
+        border-bottom: 1px solid #e9ecef;
+        word-wrap: break-word;
+        white-space: normal;
     }
 
     th {
@@ -209,11 +237,7 @@
         font-size: 0.95rem;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-    }
-
-    td {
-        padding: 1rem 1.2rem;
-        border-bottom: 1px solid #e9ecef;
+        z-index: 5;
     }
 
     tr:hover {
