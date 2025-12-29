@@ -259,6 +259,43 @@
         100% { transform: rotate(360deg); }
     }
 
+    .chart-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 350px;
+        gap: 1.5rem;
+    }
+
+    .chart-wrapper {
+        width: 100%;
+        height: 350px;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .chart-wrapper canvas {
+        max-width: 100%;
+        max-height: 100%;
+    }
+
+    .empty-chart-message {
+        text-align: center;
+        color: #6c757d;
+        padding: 2rem;
+        font-size: 1rem;
+    }
+
+    .empty-chart-message i {
+        font-size: 2rem;
+        color: #ddd;
+        margin-bottom: 1rem;
+        display: block;
+    }
+
     table {
         width: 100%;
         border-collapse: collapse;
@@ -637,6 +674,17 @@
             </div>
         </div>
 
+        <!-- Analytics Chart -->
+        <div class="dashboard-section">
+            <h2 style="margin-bottom: 1.5rem; color: #1e3c72;"><i class="fas fa-chart-pie"></i> Category Analytics</h2>
+            <div class="chart-section" id="chartSection">
+                <div class="empty-chart-message">
+                    <i class="fas fa-filter"></i>
+                    <p>Select a rule or category to view analytics</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Transaction Details -->
         <div class="dashboard-section">
             <div class="section-header">
@@ -849,6 +897,9 @@
                 // Replace the old table container with the new one
                 const oldTableContainer = document.getElementById('tableContainer');
                 oldTableContainer.innerHTML = newTableContainer.innerHTML;
+                
+                // Update the chart with filtered data
+                updateChartFromTable();
             } else {
                 // Fallback: just reload the page if we can't find the table
                 window.location.href = url;
@@ -863,6 +914,153 @@
             // Hide loading overlay
             loadingOverlay.classList.add('hidden');
         });
+    }
+
+    let pieChartInstance = null;
+
+    function updateChartFromTable() {
+        const hasFilters = selectedRules.length > 0 || selectedCategories.length > 0;
+        const chartSection = document.getElementById('chartSection');
+        
+        if (!hasFilters) {
+            // Show empty message when no filters are selected
+            chartSection.innerHTML = `
+                <div class="empty-chart-message">
+                    <i class="fas fa-filter"></i>
+                    <p>Select a rule or category to view analytics</p>
+                </div>
+            `;
+            if (pieChartInstance) {
+                pieChartInstance.destroy();
+                pieChartInstance = null;
+            }
+            return;
+        }
+        
+        // Extract data from the table
+        const tableRows = document.querySelectorAll('#resultsTable tbody tr');
+        const categoryData = {};
+        
+        tableRows.forEach(row => {
+            try {
+                // Get matched category from the 7th column (index 6)
+                const matchedCategoryCell = row.querySelector('td:nth-child(7)');
+                if (!matchedCategoryCell) return;
+                
+                const categoryText = matchedCategoryCell.textContent.trim();
+                if (categoryText === '-' || categoryText === '') return;
+                
+                // Get amount from the 3rd column (index 2)
+                const amountCell = row.querySelector('td:nth-child(3)');
+                if (!amountCell) return;
+                
+                // Extract numeric value from amount (remove currency symbols)
+                const amountText = amountCell.textContent.trim();
+                const amount = parseFloat(amountText.replace(/[^0-9.-]/g, '')) || 0;
+                
+                // Sum amounts by category
+                if (categoryData[categoryText]) {
+                    categoryData[categoryText] += Math.abs(amount);
+                } else {
+                    categoryData[categoryText] = Math.abs(amount);
+                }
+            } catch (e) {
+                console.error('Error parsing row:', e);
+            }
+        });
+        
+        // Check if we have data
+        if (Object.keys(categoryData).length === 0) {
+            chartSection.innerHTML = `
+                <div class="empty-chart-message">
+                    <i class="fas fa-inbox"></i>
+                    <p>No transactions found for selected filters</p>
+                </div>
+            `;
+            if (pieChartInstance) {
+                pieChartInstance.destroy();
+                pieChartInstance = null;
+            }
+            return;
+        }
+        
+        // Create chart
+        const labels = Object.keys(categoryData);
+        const data = Object.values(categoryData);
+        
+        // Generate colors
+        const colors = generateColors(labels.length);
+        
+        // Update or create chart
+        chartSection.innerHTML = '<div class="chart-wrapper"><canvas id="pieChart"></canvas></div>';
+        
+        const ctx = document.getElementById('pieChart').getContext('2d');
+        
+        if (pieChartInstance) {
+            pieChartInstance.destroy();
+        }
+        
+        pieChartInstance = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: colors,
+                    borderColor: '#fff',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 15,
+                            font: {
+                                size: 12
+                            },
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${label}: ₹${value.toFixed(2)} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function generateColors(count) {
+        const baseColors = [
+            '#1e3c72',
+            '#2a5298',
+            '#28a745',
+            '#dc3545',
+            '#ffc107',
+            '#17a2b8',
+            '#6f42c1',
+            '#e83e8c',
+            '#fd7e14',
+            '#20c997'
+        ];
+        
+        const colors = [];
+        for (let i = 0; i < count; i++) {
+            colors.push(baseColors[i % baseColors.length]);
+        }
+        return colors;
     }
 
     function clearFilters() {
@@ -940,6 +1138,9 @@
         });
         
         updateFilterButtonVisibility();
+        
+        // Initialize chart if filters are present
+        updateChartFromTable();
     });
 </script>
 {% endblock %}
