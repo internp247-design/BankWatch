@@ -222,6 +222,41 @@
         display: flex;
         flex-direction: column;
         max-width: 100%;
+        position: relative;
+    }
+
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(255, 255, 255, 0.85);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+        border-radius: 8px;
+        backdrop-filter: blur(2px);
+    }
+
+    .loading-overlay.hidden {
+        display: none;
+    }
+
+    .spinner {
+        display: inline-block;
+        width: 40px;
+        height: 40px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #1e3c72;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
     }
 
     table {
@@ -616,9 +651,12 @@
                 </div>
             </div>
 
-            <div class="table-container">
+            <div class="table-container" id="tableContainer">
+                <div class="loading-overlay hidden" id="loadingOverlay">
+                    <div class="spinner"></div>
+                </div>
                 {% if results %}
-                <table>
+                <table id="resultsTable">
                     <thead>
                         <tr>
                             <th>Date</th>
@@ -767,11 +805,64 @@
     }
 
     function applyFilters() {
+        // Get selected account ID
+        const accountSelect = document.querySelector('select[name="account_id"]');
+        const accountId = accountSelect ? accountSelect.value : '';
+        
+        // Show loading overlay
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        loadingOverlay.classList.remove('hidden');
+        
+        // Build query parameters
         const params = new URLSearchParams();
         selectedRules.forEach(id => params.append('rule_ids', id));
         selectedCategories.forEach(id => params.append('category_ids', id));
+        if (accountId) {
+            params.append('account_id', accountId);
+        }
         
-        window.location.href = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        // Fetch filtered results via AJAX
+        const url = window.location.pathname + '?' + params.toString();
+        
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.text();
+        })
+        .then(html => {
+            // Parse the response HTML
+            const parser = new DOMParser();
+            const newDoc = parser.parseFromString(html, 'text/html');
+            
+            // Extract the table container from the new document
+            const newTableContainer = newDoc.getElementById('tableContainer');
+            
+            if (newTableContainer) {
+                // Replace the old table container with the new one
+                const oldTableContainer = document.getElementById('tableContainer');
+                oldTableContainer.innerHTML = newTableContainer.innerHTML;
+            } else {
+                // Fallback: just reload the page if we can't find the table
+                window.location.href = url;
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching filtered results:', error);
+            // Fallback to page reload on error
+            window.location.href = url;
+        })
+        .finally(() => {
+            // Hide loading overlay
+            loadingOverlay.classList.add('hidden');
+        });
     }
 
     function clearFilters() {
@@ -782,7 +873,9 @@
         selectedRules = [];
         selectedCategories = [];
         updateFilterButtonVisibility();
-        window.location.href = window.location.pathname;
+        
+        // Apply filters to reset the table
+        applyFilters();
     }
 
     function downloadRulesPDF() {
@@ -817,6 +910,35 @@
 
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
+        // Parse URL parameters to set initial filter state
+        const params = new URLSearchParams(window.location.search);
+        const ruleIds = params.getAll('rule_ids');
+        const categoryIds = params.getAll('category_ids');
+        
+        // Check the rule checkboxes if they're in the URL
+        ruleIds.forEach(ruleId => {
+            const checkbox = document.querySelector(`.rule-checkbox[data-id="${ruleId}"]`);
+            if (checkbox) {
+                checkbox.checked = true;
+                checkbox.closest('.rule-item').classList.add('active');
+                if (!selectedRules.includes(ruleId)) {
+                    selectedRules.push(ruleId);
+                }
+            }
+        });
+        
+        // Check the category checkboxes if they're in the URL
+        categoryIds.forEach(categoryId => {
+            const checkbox = document.querySelector(`.category-checkbox[data-id="${categoryId}"]`);
+            if (checkbox) {
+                checkbox.checked = true;
+                checkbox.closest('.category-item').classList.add('active');
+                if (!selectedCategories.includes(categoryId)) {
+                    selectedCategories.push(categoryId);
+                }
+            }
+        });
+        
         updateFilterButtonVisibility();
     });
 </script>
