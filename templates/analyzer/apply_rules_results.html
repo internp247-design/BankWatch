@@ -2,8 +2,878 @@
 {% load static %}
 
 {% block content %}
-<div class="container py-4">
-  <div class="row">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rule Application Results - BankWatch</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .main-content {
+            display: flex;
+            min-height: calc(100vh - 100px);
+            position: relative;
+        }
+
+        /* Sidebar Filter Section - Fixed */
+        .sidebar {
+            width: 320px;
+            background-color: white;
+            padding: 2rem 1.5rem;
+            box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
+            position: fixed;
+            left: 0;
+            top: 90px;
+            bottom: 0;
+            overflow-y: auto;
+            z-index: 10;
+            border-right: 1px solid #e9ecef;
+        }
+
+        .sidebar h3 {
+            color: #1e3c72;
+            margin-bottom: 1.2rem;
+            padding-bottom: 0.8rem;
+            border-bottom: 2px solid #f0f0f0;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .filter-section {
+            margin-bottom: 2.5rem;
+        }
+
+        .category-list, .rule-list {
+            list-style: none;
+            max-height: 250px;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 0.5rem;
+            background-color: #f8f9fa;
+        }
+
+        .category-item, .rule-item {
+            padding: 0.9rem;
+            margin-bottom: 0.5rem;
+            background-color: white;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-left: 4px solid transparent;
+            border: 1px solid #e9ecef;
+        }
+
+        .category-item:hover, .rule-item:hover {
+            background-color: #f0f2f5;
+            border-color: #1e3c72;
+        }
+
+        .category-item.active, .rule-item.active {
+            background-color: #e3f2fd;
+            border-left-color: #1e3c72;
+            border-color: #1e3c72;
+            font-weight: 600;
+        }
+
+        .category-count, .rule-count {
+            background-color: #d1d8e0;
+            padding: 0.25rem 0.7rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .add-btn {
+            background-color: #1e3c72;
+            color: white;
+            border: none;
+            padding: 0.8rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 0.8rem;
+            width: 100%;
+            justify-content: center;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .add-btn:hover {
+            background-color: #2a5298;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(30, 60, 114, 0.2);
+        }
+
+        /* Main Dashboard */
+        .dashboard {
+            flex: 1;
+            padding: 2rem;
+            margin-left: 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .dashboard-section {
+            background-color: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e9ecef;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+        }
+
+        .section-header h2 {
+            color: #1e3c72;
+            font-size: 1.6rem;
+            font-weight: 700;
+        }
+
+        .download-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .download-btn {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 0.7rem 1.4rem;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .download-btn.pdf {
+            background-color: #dc3545;
+        }
+
+        .download-btn.pdf:hover {
+            background-color: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+        }
+
+        .download-btn.excel:hover {
+            background-color: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        }
+
+        /* Chart Container */
+        .chart-container {
+            height: 300px;
+            margin-top: 1rem;
+            position: relative;
+        }
+
+        /* Account Info Grid */
+        .account-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .account-item {
+            padding: 1.2rem;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 8px;
+            transition: all 0.3s;
+            border: 1px solid #e0e0e0;
+        }
+
+        .account-item:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        }
+
+        .account-label {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-bottom: 0.4rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .account-value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #1e3c72;
+        }
+
+        /* Transaction Table */
+        .table-container {
+            overflow-x: auto;
+            margin-top: 1.5rem;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            max-height: 600px;
+            position: relative;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 1.2rem;
+            text-align: left;
+            font-weight: 700;
+            position: sticky;
+            top: 0;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 1rem 1.2rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .income {
+            color: #28a745;
+            font-weight: 700;
+        }
+
+        .expense {
+            color: #dc3545;
+            font-weight: 700;
+        }
+
+        .category-badge {
+            padding: 0.4rem 0.9rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .category-salary {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .category-shopping {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        .category-food {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .category-transport {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .category-entertainment {
+            background-color: #e2d9f3;
+            color: #3d2a6e;
+        }
+
+        .category-bills {
+            background-color: #f5d5d8;
+            color: #8b2635;
+        }
+
+        .category-other {
+            background-color: #e9ecef;
+            color: #495057;
+        }
+
+        /* Summary Stats */
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .stat-card {
+            padding: 1.5rem;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 8px;
+            border-left: 5px solid #1e3c72;
+            transition: all 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #1e3c72;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #6c757d;
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            color: #ddd;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        /* Scrollbar styling */
+        .sidebar::-webkit-scrollbar,
+        .table-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sidebar::-webkit-scrollbar-track,
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb,
+        .table-container::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 10px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb:hover,
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        /* Filter Buttons */
+        .filter-actions {
+            display: flex;
+            gap: 0.8rem;
+            margin-top: 1rem;
+        }
+
+        .filter-actions button {
+            flex: 1;
+            padding: 0.8rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            font-size: 0.9rem;
+        }
+
+        .filter-apply {
+            background-color: #1e3c72;
+            color: white;
+        }
+
+        .filter-apply:hover {
+            background-color: #2a5298;
+        }
+
+        .filter-clear {
+            background-color: #e9ecef;
+            color: #6c757d;
+        }
+
+        .filter-clear:hover {
+            background-color: #dee2e6;
+        }
+
+        /* Alert Messages */
+        .alert-box {
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+            display: none;
+            border-left: 4px solid;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border-left-color: #28a745;
+        }
+
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-left-color: #dc3545;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .sidebar {
+                width: 280px;
+            }
+
+            .dashboard {
+                margin-left: 280px;
+                padding: 1.5rem;
+            }
+        }
+
+        @media (max-width: 992px) {
+            .sidebar {
+                position: relative;
+                width: 100%;
+                top: auto;
+                height: auto;
+                max-height: 500px;
+                margin-bottom: 0;
+                border-right: none;
+                border-bottom: 1px solid #e9ecef;
+            }
+
+            .dashboard {
+                margin-left: 0;
+                padding: 1.5rem;
+            }
+
+            .download-buttons {
+                flex-direction: column;
+            }
+
+            .download-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                max-height: 350px;
+            }
+
+            .main-content {
+                flex-direction: column;
+            }
+
+            .section-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .section-header h2 {
+                font-size: 1.3rem;
+            }
+
+            .account-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .summary-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .download-buttons {
+                width: 100%;
+            }
+
+            table {
+                font-size: 0.9rem;
+            }
+
+            th, td {
+                padding: 0.8rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .sidebar {
+                max-height: 300px;
+            }
+
+            .dashboard {
+                padding: 1rem;
+            }
+
+            .account-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .section-header {
+                gap: 1rem;
+            }
+
+            .download-buttons {
+                flex-direction: column;
+            }
+
+            .download-btn {
+                padding: 0.6rem 1rem;
+                font-size: 0.85rem;
+            }
+
+            th, td {
+                padding: 0.6rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-content">
+        <!-- Sidebar Filters - Fixed Position -->
+        <div class="sidebar">
+            <div class="filter-section">
+                <h3><i class="fas fa-filter"></i> Filter Rules</h3>
+                {% if rules %}
+                    <ul class="rule-list" id="ruleList">
+                        {% for rule in rules %}
+                        <li class="rule-item" data-id="{{ rule.id }}">
+                            <span>{{ rule.name }}</span>
+                            <span class="rule-count">{{ rule.conditions.count }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <div style="padding: 1rem; color: #6c757d; text-align: center;">
+                        <p>No rules available</p>
+                    </div>
+                {% endif %}
+                <button class="add-btn" onclick="location.href='{% url 'create_rule' %}'">
+                    <i class="fas fa-plus"></i> Create New Rule
+                </button>
+            </div>
+
+            <div class="filter-section">
+                <h3><i class="fas fa-layer-group"></i> Custom Categories</h3>
+                {% if custom_categories %}
+                    <ul class="category-list" id="categoryList">
+                        {% for category in custom_categories %}
+                        <li class="category-item" data-id="{{ category.id }}">
+                            <span><i class="fas fa-circle" style="color: {{ category.color }}; margin-right: 0.5rem;"></i>{{ category.name }}</span>
+                            <span class="category-count">{{ category.description|length }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <div style="padding: 1rem; color: #6c757d; text-align: center;">
+                        <p>No custom categories</p>
+                    </div>
+                {% endif %}
+                <button class="add-btn" onclick="location.href='{% url 'create_custom_category' %}'">
+                    <i class="fas fa-plus"></i> Create New Category
+                </button>
+            </div>
+
+            <div class="filter-section">
+                <div class="filter-actions">
+                    <button class="filter-apply" onclick="applyFilters()">
+                        <i class="fas fa-check"></i> Apply
+                    </button>
+                    <button class="filter-clear" onclick="clearFilters()">
+                        <i class="fas fa-times"></i> Clear
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Dashboard -->
+        <div class="dashboard">
+            <div id="messageBox"></div>
+
+            <!-- Account Selection & Filters -->
+            <div class="dashboard-section">
+                <div class="section-header">
+                    <h2>Rule Application Results</h2>
+                    <form method="get" class="d-flex gap-2">
+                        <select name="account_id" class="form-select" style="max-width: 300px;">
+                            <option value="">All Accounts</option>
+                            {% for account in accounts %}
+                              <option value="{{ account.id }}" {% if selected_account_id and account.id == selected_account_id %}selected{% endif %}>{{ account.account_name }}</option>
+                            {% endfor %}
+                        </select>
+                        {% if show_changed %}<input type="hidden" name="show_changed" value="1">{% endif %}
+                        <button type="submit" class="btn btn-primary">Filter</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Summary Cards -->
+            {% if results %}
+            <div class="dashboard-section">
+                <h3 style="color: #1e3c72; margin-bottom: 1.5rem;">
+                    <i class="fas fa-chart-bar"></i> Summary Statistics
+                </h3>
+                <div class="summary-stats">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Transactions</div>
+                        <div class="stat-value">{{ results|length }}</div>
+                    </div>
+                    <div class="stat-card" style="border-left-color: #28a745;">
+                        <div class="stat-label">Total Income</div>
+                        <div class="stat-value">₹{{ total_income|floatformat:2 }}</div>
+                    </div>
+                    <div class="stat-card" style="border-left-color: #dc3545;">
+                        <div class="stat-label">Total Expenses</div>
+                        <div class="stat-value">₹{{ total_expenses|floatformat:2 }}</div>
+                    </div>
+                    <div class="stat-card" style="border-left-color: #667eea;">
+                        <div class="stat-label">Net Amount</div>
+                        <div class="stat-value">₹{{ net_amount|floatformat:2 }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Transaction Details -->
+            <div class="dashboard-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-list"></i> Transaction Details</h2>
+                    <div class="download-buttons">
+                        <button class="download-btn pdf" onclick="downloadRulesPDF()">
+                            <i class="fas fa-file-pdf"></i> PDF Report
+                        </button>
+                        <button class="download-btn excel" onclick="downloadRulesExcel()">
+                            <i class="fas fa-file-excel"></i> Excel Export
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    {% if results %}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Amount</th>
+                                <th>Category</th>
+                                <th>Type</th>
+                                <th>Matched Rule</th>
+                                {% if show_changed %}<th>Previous Category</th>{% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for result in results %}
+                            <tr>
+                                <td><strong>{{ result.date }}</strong></td>
+                                <td>{{ result.description|truncatewords:8 }}</td>
+                                <td class="{% if result.transaction_type == 'CREDIT' %}income{% else %}expense{% endif %}">
+                                    {% if result.transaction_type == 'CREDIT' %}+₹{% else %}-₹{% endif %}{{ result.amount|floatformat:2 }}
+                                </td>
+                                <td>
+                                    {% if result.current_category %}
+                                        <span class="category-badge category-{{ result.current_category|lower|cut:' ' }}">{{ result.current_category }}</span>
+                                    {% else %}
+                                        <span style="color: #6c757d;">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if result.transaction_type == 'CREDIT' %}
+                                        <span class="income"><i class="fas fa-arrow-down"></i> Credit</span>
+                                    {% else %}
+                                        <span class="expense"><i class="fas fa-arrow-up"></i> Debit</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if result.matched_rule_name %}
+                                        <span class="category-badge" style="background-color: #e3f2fd; color: #1e3c72;">{{ result.matched_rule_name }}</span>
+                                    {% else %}
+                                        <span style="color: #6c757d;">-</span>
+                                    {% endif %}
+                                </td>
+                                {% if show_changed %}
+                                <td>
+                                    {% if result.previous_category %}
+                                        <span class="category-badge" style="background-color: #fff3cd; color: #856404;">{{ result.previous_category }}</span>
+                                    {% else %}
+                                        <span style="color: #6c757d;">-</span>
+                                    {% endif %}
+                                </td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <h4>No Transactions Found</h4>
+                        <p>No transactions match your selected filters. Try adjusting your filters or uploading a statement.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Initialize filters
+        let selectedRules = [];
+        let selectedCategories = [];
+
+        // Filter interactions
+        document.querySelectorAll('.rule-item, .category-item').forEach(item => {
+            item.addEventListener('click', function() {
+                this.classList.toggle('active');
+                updateSelectedFilters();
+            });
+        });
+
+        function updateSelectedFilters() {
+            selectedRules = Array.from(document.querySelectorAll('.rule-item.active')).map(el => el.dataset.id);
+            selectedCategories = Array.from(document.querySelectorAll('.category-item.active')).map(el => el.dataset.id);
+        }
+
+        function applyFilters() {
+            if (selectedRules.length === 0 && selectedCategories.length === 0) {
+                showMessage('Please select at least one rule or category', 'error');
+                return;
+            }
+            
+            const params = new URLSearchParams();
+            selectedRules.forEach(id => params.append('rule_ids', id));
+            selectedCategories.forEach(id => params.append('category_ids', id));
+            
+            window.location.href = window.location.pathname + '?' + params.toString();
+        }
+
+        function clearFilters() {
+            document.querySelectorAll('.rule-item, .category-item').forEach(el => {
+                el.classList.remove('active');
+            });
+            selectedRules = [];
+            selectedCategories = [];
+            window.location.href = window.location.pathname;
+        }
+
+        function showMessage(message, type) {
+            const box = document.getElementById('messageBox');
+            box.className = `alert-box alert-${type}`;
+            box.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}`;
+            box.style.display = 'block';
+            
+            if (type === 'success') {
+                setTimeout(() => { box.style.display = 'none'; }, 5000);
+            }
+        }
+
+        function downloadRulesPDF() {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{% url "export_rules_results_pdf" %}';
+            
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+            if (csrfToken) {
+                form.appendChild(csrfToken.cloneNode());
+            }
+            
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+        }
+
+        function downloadRulesExcel() {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{% url "export_rules_results" %}';
+            
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+            if (csrfToken) {
+                form.appendChild(csrfToken.cloneNode());
+            }
+            
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+        }
+    </script>
+</body>
+</html>
+
+<style>
+.d-flex {
+    display: flex;
+}
+.gap-2 {
+    gap: 0.5rem;
+}
+.form-select {
+    padding: 0.5rem;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    font-size: 0.95rem;
+}
+.btn {
+    padding: 0.6rem 1.2rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+.btn-primary {
+    background-color: #1e3c72;
+    color: white;
+}
+.btn-primary:hover {
+    background-color: #2a5298;
+}
+</style>
+{% endblock %}
+
+<!-- OLD CONTENT REMOVED - REPLACED WITH NEW UI -->
+<div style="display: none;">
+    <div class="row">
     <div class="col-md-12">
       <div class="d-flex justify-content-between align-items-center mb-4">
         <h4>Rule Application Results</h4>
