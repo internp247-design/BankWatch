@@ -71,20 +71,34 @@
         align-items: center;
         cursor: pointer;
         transition: all 0.2s;
-        border-left: 4px solid transparent;
-        border: 1px solid #e9ecef;
+        border: 2px solid #e9ecef;
+        user-select: none;
     }
 
     .rule-item:hover, .category-item:hover {
         background-color: #f0f2f5;
-        border-color: #1e3c72;
+        border-color: #2a5298;
     }
 
     .rule-item.active, .category-item.active {
         background-color: #e3f2fd;
-        border-left-color: #1e3c72;
         border-color: #1e3c72;
         font-weight: 600;
+        box-shadow: 0 2px 6px rgba(30, 60, 114, 0.15);
+    }
+
+    .checkbox-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex: 1;
+    }
+
+    .filter-checkbox {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        accent-color: #1e3c72;
     }
 
     .rule-count, .category-count {
@@ -321,7 +335,13 @@
     .filter-actions {
         display: none;
         gap: 0.8rem;
-        margin-top: 1rem;
+        margin-top: 1.5rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e9ecef;
+    }
+
+    .filter-actions.show {
+        display: flex;
     }
 
     .filter-actions button {
@@ -512,7 +532,10 @@
                 <ul class="rule-list" id="ruleList">
                     {% for rule in rules %}
                     <li class="rule-item" data-id="{{ rule.id }}">
-                        <span>{{ rule.name }}</span>
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" class="filter-checkbox rule-checkbox" data-id="{{ rule.id }}">
+                            <span>{{ rule.name }}</span>
+                        </div>
                         <span class="rule-count">{{ rule.conditions.count }}</span>
                     </li>
                     {% endfor %}
@@ -533,7 +556,10 @@
                 <ul class="category-list" id="categoryList">
                     {% for category in custom_categories %}
                     <li class="category-item" data-id="{{ category.id }}">
-                        <span><i class="fas fa-circle" style="color: {{ category.color }}; margin-right: 0.5rem;"></i>{{ category.name }}</span>
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" class="filter-checkbox category-checkbox" data-id="{{ category.id }}">
+                            <span><i class="fas fa-circle" style="color: {{ category.color }}; margin-right: 0.5rem;"></i>{{ category.name }}</span>
+                        </div>
                         <span class="category-count">{{ category.description|length }}</span>
                     </li>
                     {% endfor %}
@@ -549,12 +575,9 @@
         </div>
 
         <div class="filter-section">
-            <div class="filter-actions">
-                <button class="filter-apply" onclick="applyFilters()">
-                    <i class="fas fa-check"></i> Apply
-                </button>
+            <div class="filter-actions" id="filterActions">
                 <button class="filter-clear" onclick="clearFilters()">
-                    <i class="fas fa-times"></i> Clear
+                    <i class="fas fa-times"></i> Clear Filters
                 </button>
             </div>
         </div>
@@ -675,18 +698,72 @@
     let selectedRules = [];
     let selectedCategories = [];
 
-    // Filter interactions
-    document.querySelectorAll('.rule-item, .category-item').forEach(item => {
-        item.addEventListener('click', function() {
-            this.classList.toggle('active');
-            updateSelectedFilters();
+    // Handle checkbox changes for rules
+    document.querySelectorAll('.rule-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const ruleItem = this.closest('.rule-item');
+            const ruleId = this.dataset.id;
+            
+            if (this.checked) {
+                ruleItem.classList.add('active');
+                if (!selectedRules.includes(ruleId)) {
+                    selectedRules.push(ruleId);
+                }
+            } else {
+                ruleItem.classList.remove('active');
+                selectedRules = selectedRules.filter(id => id !== ruleId);
+            }
+            
+            updateFilterButtonVisibility();
             applyFilters();
         });
     });
 
-    function updateSelectedFilters() {
-        selectedRules = Array.from(document.querySelectorAll('.rule-item.active')).map(el => el.dataset.id);
-        selectedCategories = Array.from(document.querySelectorAll('.category-item.active')).map(el => el.dataset.id);
+    // Handle checkbox changes for categories
+    document.querySelectorAll('.category-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const categoryItem = this.closest('.category-item');
+            const categoryId = this.dataset.id;
+            
+            if (this.checked) {
+                categoryItem.classList.add('active');
+                if (!selectedCategories.includes(categoryId)) {
+                    selectedCategories.push(categoryId);
+                }
+            } else {
+                categoryItem.classList.remove('active');
+                selectedCategories = selectedCategories.filter(id => id !== categoryId);
+            }
+            
+            updateFilterButtonVisibility();
+            applyFilters();
+        });
+    });
+
+    // Handle item clicks to toggle checkbox
+    document.querySelectorAll('.rule-item, .category-item').forEach(item => {
+        item.addEventListener('click', function(e) {
+            // Don't trigger if clicking the checkbox directly
+            if (e.target.classList.contains('filter-checkbox')) {
+                return;
+            }
+            const checkbox = this.querySelector('.filter-checkbox');
+            if (checkbox) {
+                checkbox.checked = !checkbox.checked;
+                checkbox.dispatchEvent(new Event('change'));
+            }
+        });
+    });
+
+    function updateFilterButtonVisibility() {
+        const filterActions = document.getElementById('filterActions');
+        const hasActiveFilters = selectedRules.length > 0 || selectedCategories.length > 0;
+        
+        if (hasActiveFilters) {
+            filterActions.classList.add('show');
+        } else {
+            filterActions.classList.remove('show');
+        }
     }
 
     function applyFilters() {
@@ -698,11 +775,13 @@
     }
 
     function clearFilters() {
-        document.querySelectorAll('.rule-item, .category-item').forEach(el => {
-            el.classList.remove('active');
+        document.querySelectorAll('.filter-checkbox').forEach(checkbox => {
+            checkbox.checked = false;
+            checkbox.dispatchEvent(new Event('change'));
         });
         selectedRules = [];
         selectedCategories = [];
+        updateFilterButtonVisibility();
         window.location.href = window.location.pathname;
     }
 
@@ -735,5 +814,10 @@
         form.submit();
         document.body.removeChild(form);
     }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        updateFilterButtonVisibility();
+    });
 </script>
 {% endblock %}
