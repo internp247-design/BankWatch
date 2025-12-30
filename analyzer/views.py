@@ -2556,6 +2556,12 @@ def export_rules_results_ajax_pdf(request):
         from datetime import datetime
         import io
         
+        # Helper function to format currency with safe font
+        def format_currency(amount):
+            """Format amount as currency using safe font handling for rupee symbol"""
+            # Use "Rs." prefix instead of ₹ symbol to avoid font encoding issues
+            return f"Rs.{amount:,.2f}"
+        
         print("DEBUG - Starting AJAX PDF export process")
         
         # Get filter data from POST request
@@ -2570,17 +2576,27 @@ def export_rules_results_ajax_pdf(request):
         
         print(f"DEBUG - AJAX PDF: rules={selected_rule_ids}, categories={selected_category_ids}, transactions={len(transaction_ids_list)}")
         
-        # Get the filtered transactions from the request
+        # Get the filtered transactions from the request, preserving the exact order from UI
         if transaction_ids_list:
-            transactions = Transaction.objects.filter(
+            # Fetch all transactions but preserve the order they were passed from frontend
+            all_transactions = Transaction.objects.filter(
                 id__in=transaction_ids_list,
                 statement__account__user=request.user
-            ).select_related('statement', 'statement__account').order_by('-date')
+            ).select_related('statement', 'statement__account')
+            
+            # Create a mapping of ID to transaction
+            tx_map = {tx.id: tx for tx in all_transactions}
+            
+            # Rebuild list in the order received from frontend (which matches UI table order)
+            transactions = []
+            for tid in transaction_ids_list:
+                if tid in tx_map:
+                    transactions.append(tx_map[tid])
         else:
-            # Fallback to session data if no transaction IDs provided
+            # Fallback to session data if no transaction IDs provided - order by date descending
             transactions = Transaction.objects.filter(
                 statement__account__user=request.user
-            ).order_by('-date')
+            ).select_related('statement', 'statement__account').order_by('-date')
         
         # Build results from transactions (matching the same logic as rules_application_results)
         engine = RulesEngine(request.user)
@@ -2746,7 +2762,7 @@ def export_rules_results_ajax_pdf(request):
                     date_str,
                     result.get('account_name', 'Unknown'),
                     description_para,
-                    f"₹{amount:,.2f}",
+                    format_currency(amount),
                     result.get('matched_rule_name', '-'),
                     result.get('matched_custom_category_name', '-')
                 ])
@@ -2757,7 +2773,7 @@ def export_rules_results_ajax_pdf(request):
         # Add total row
         table_data.append([
             '', '', Paragraph('<b>TOTAL</b>', desc_style),
-            Paragraph(f'<b>₹{total_amount:,.2f}</b>', desc_style),
+            Paragraph(f'<b>{format_currency(total_amount)}</b>', desc_style),
             '', ''
         ])
         
@@ -2806,7 +2822,7 @@ def export_rules_results_ajax_pdf(request):
         summary_data = [
             ['Metric', 'Value'],
             ['Total Filtered Transactions', str(len(pdf_results))],
-            ['Total Filtered Amount', f'₹{total_amount:,.2f}'],
+            ['Total Filtered Amount', format_currency(total_amount)],
             ['Rules Selected', str(len(selected_rule_ids))],
             ['Categories Selected', str(len(selected_category_ids))],
         ]
@@ -2828,54 +2844,74 @@ def export_rules_results_ajax_pdf(request):
         elements.append(summary_table)
         elements.append(Spacer(1, 0.2*inch))
         
-        # Try to generate and include pie chart
+        # Try to generate and include pie chart - USE SAME DATA AS UI
         try:
             import matplotlib.pyplot as plt
             import matplotlib
             matplotlib.use('Agg')  # Non-interactive backend
             
-            # Calculate category breakdown from results
+            # MATCH UI LOGIC: Combine categories and rules breakdown (same as UI chart)
+            # This ensures PDF chart matches UI chart exactly
+            combined_breakdown = {}
+            
+            # Add categories breakdown
             category_breakdown = {}
             for result in pdf_results:
                 cat_name = result.get('matched_custom_category_name', '-')
-                if cat_name != '-':
+                if cat_name and cat_name != '-':
                     category_breakdown[cat_name] = category_breakdown.get(cat_name, 0) + result['amount']
+                    combined_breakdown[cat_name] = combined_breakdown.get(cat_name, 0) + result['amount']
             
+            # Add rules breakdown (if no categories selected)
             rule_breakdown = {}
-            for result in pdf_results:
-                rule_name = result.get('matched_rule_name', '-')
-                if rule_name != '-':
-                    rule_breakdown[rule_name] = rule_breakdown.get(rule_name, 0) + result['amount']
+            if not selected_category_ids:  # Only show rules if no categories selected
+                for result in pdf_results:
+                    rule_name = result.get('matched_rule_name', '-')
+                    if rule_name and rule_name != '-':
+                        rule_breakdown[rule_name] = rule_breakdown.get(rule_name, 0) + result['amount']
+                        combined_breakdown[rule_name] = combined_breakdown.get(rule_name, 0) + result['amount']
             
-            # Use category breakdown if available, otherwise use rule breakdown
-            breakdown = category_breakdown if category_breakdown else rule_breakdown
+            # Use combined breakdown (categories take priority, rules as fallback)
+            breakdown = combined_breakdown if combined_breakdown else {}
             
             if breakdown:
-                elements.append(Paragraph("CATEGORY BREAKDOWN", heading_style))
+                elements.append(Paragraph("SPENDING BREAKDOWN", heading_style))
                 
-                # Create pie chart
+                # Create pie chart with SAME colors and style as UI
                 fig, ax = plt.subplots(figsize=(4, 3), dpi=100)
-                colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2']
+                
+                # Colors matching UI chart
+                colors = ['#1e3c72', '#2a5298', '#0D47A1', '#1565C0', '#1976D2', '#1E88E5', '#42A5F5', '#64B5F6']
+                category_colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2']
+                
+                # Use category colors if showing categories, rule colors if showing rules
+                used_colors = category_colors if category_breakdown else colors
                 
                 labels = list(breakdown.keys())
                 sizes = list(breakdown.values())
+                
+                # Sort by size (descending) to match UI behavior
+                sorted_data = sorted(zip(labels, sizes), key=lambda x: x[1], reverse=True)
+                labels = [x[0] for x in sorted_data]
+                sizes = [x[1] for x in sorted_data]
                 
                 wedges, texts, autotexts = ax.pie(
                     sizes,
                     labels=labels,
                     autopct='%1.1f%%',
-                    colors=colors[:len(labels)],
+                    colors=used_colors[:len(labels)],
                     startangle=90,
                     textprops={'fontsize': 9}
                 )
                 
-                # Make percentage text bold
+                # Make percentage text bold and white
                 for autotext in autotexts:
                     autotext.set_color('white')
                     autotext.set_fontweight('bold')
                     autotext.set_fontsize(8)
                 
-                ax.set_title('Spending by Category' if category_breakdown else 'Spending by Rule', fontweight='bold', fontsize=10)
+                chart_title = 'Spending by Category' if category_breakdown else 'Spending by Rule'
+                ax.set_title(chart_title, fontweight='bold', fontsize=10)
                 
                 # Save pie chart to bytes buffer
                 chart_buffer = BytesIO()
@@ -2892,6 +2928,8 @@ def export_rules_results_ajax_pdf(request):
             print("WARNING - matplotlib not available, skipping pie chart")
         except Exception as chart_error:
             print(f"WARNING - Failed to generate pie chart: {chart_error}")
+            import traceback
+            print(traceback.format_exc())
         
         # Build PDF
         doc.build(elements)
