@@ -2535,3 +2535,391 @@ def export_rules_results_to_pdf(request):
         print(f"ERROR - Traceback: {traceback.format_exc()}")
         messages.error(request, f'Error exporting to PDF: {error_msg}')
         return redirect('rules_application_results')
+
+
+@login_required
+def export_rules_results_ajax_pdf(request):
+    """AJAX endpoint for PDF export - returns PDF as base64 in JSON response without page refresh"""
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST method required'}, status=400)
+    
+    try:
+        import base64
+        from reportlab.lib.pagesizes import letter, landscape
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch, cm
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, Image
+        from reportlab.lib.colors import HexColor, black, white, lightgrey
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+        from io import BytesIO
+        from datetime import datetime
+        import io
+        
+        print("DEBUG - Starting AJAX PDF export process")
+        
+        # Get filter data from POST request
+        rule_ids = request.POST.getlist('rule_ids')
+        category_ids = request.POST.getlist('category_ids')
+        transaction_ids = request.POST.getlist('transaction_ids')
+        account_id = request.POST.get('account_id', '')
+        
+        selected_rule_ids = [int(rid) for rid in rule_ids if rid.isdigit()]
+        selected_category_ids = [int(cid) for cid in category_ids if cid.isdigit()]
+        transaction_ids_list = [int(tid) for tid in transaction_ids if tid.isdigit()]
+        
+        print(f"DEBUG - AJAX PDF: rules={selected_rule_ids}, categories={selected_category_ids}, transactions={len(transaction_ids_list)}")
+        
+        # Get the filtered transactions from the request
+        if transaction_ids_list:
+            transactions = Transaction.objects.filter(
+                id__in=transaction_ids_list,
+                statement__account__user=request.user
+            ).select_related('statement', 'statement__account').order_by('-date')
+        else:
+            # Fallback to session data if no transaction IDs provided
+            transactions = Transaction.objects.filter(
+                statement__account__user=request.user
+            ).order_by('-date')
+        
+        # Build results from transactions (matching the same logic as rules_application_results)
+        engine = RulesEngine(request.user)
+        from .rules_engine import CustomCategoryRulesEngine
+        custom_category_engine = CustomCategoryRulesEngine(request.user)
+        
+        pdf_results = []
+        total_amount = 0
+        
+        for tx in transactions:
+            tx_data = {
+                'date': tx.date,
+                'description': tx.description,
+                'amount': float(tx.amount),
+                'transaction_type': tx.transaction_type
+            }
+            
+            # Check for rule and category match
+            matched_rule = engine.find_matching_rule(tx_data)
+            matched_custom_category = custom_category_engine.apply_rules_to_transaction(tx_data)
+            
+            matched_rule_name = matched_rule.name if matched_rule else '-'
+            matched_category_name = matched_custom_category.name if matched_custom_category else '-'
+            
+            # Include in PDF if matches selected filters
+            include_in_pdf = False
+            if selected_rule_ids or selected_category_ids:
+                if selected_rule_ids and matched_rule and matched_rule.id in selected_rule_ids:
+                    include_in_pdf = True
+                elif selected_category_ids and matched_custom_category and matched_custom_category.id in selected_category_ids:
+                    include_in_pdf = True
+            else:
+                # If no filters selected, include all with matches
+                if matched_rule or matched_custom_category:
+                    include_in_pdf = True
+            
+            if include_in_pdf:
+                amount = float(tx.amount)
+                pdf_results.append({
+                    'date': tx.date,
+                    'description': tx.description,
+                    'amount': amount,
+                    'account_name': tx.statement.account.account_name if tx.statement and tx.statement.account else 'Unknown',
+                    'matched_rule_name': matched_rule_name,
+                    'matched_custom_category_name': matched_category_name,
+                })
+                total_amount += amount
+        
+        # Get rule and category names
+        rule_names = 'None'
+        category_names = 'None'
+        
+        try:
+            selected_rules = Rule.objects.filter(id__in=selected_rule_ids, user=request.user)
+            rule_names = ', '.join([rule.name for rule in selected_rules]) if selected_rules.exists() else "None"
+        except:
+            pass
+        
+        try:
+            selected_categories = CustomCategory.objects.filter(id__in=selected_category_ids, user=request.user)
+            category_names = ', '.join([cat.name for cat in selected_categories]) if selected_categories.exists() else "None"
+        except:
+            pass
+        
+        # Create PDF in memory
+        pdf_buffer = BytesIO()
+        doc = SimpleDocTemplate(
+            pdf_buffer,
+            pagesize=landscape(letter),
+            rightMargin=0.5*inch,
+            leftMargin=0.5*inch,
+            topMargin=0.5*inch,
+            bottomMargin=0.5*inch
+        )
+        
+        elements = []
+        styles = getSampleStyleSheet()
+        
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=16,
+            textColor=white,
+            backColor=HexColor('#0D47A1'),
+            spaceAfter=12,
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold'
+        )
+        
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=11,
+            textColor=HexColor('#0D47A1'),
+            spaceAfter=6,
+            fontName='Helvetica-Bold'
+        )
+        
+        normal_style = styles['Normal']
+        
+        # Add title
+        elements.append(Paragraph("BANKWATCH - Filtered Transactions Report", title_style))
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Add report metadata
+        current_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        elements.append(Paragraph(f"Report Generated: {current_date}", normal_style))
+        elements.append(Spacer(1, 0.15*inch))
+        
+        # Add selected filters section
+        elements.append(Paragraph("SELECTED FILTERS", heading_style))
+        filters_data = [
+            ['Applied Rules', rule_names],
+            ['Applied Categories', category_names],
+        ]
+        filters_table = Table(filters_data, colWidths=[2*inch, 6*inch])
+        filters_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), HexColor('#E8F0F7')),
+            ('TEXTCOLOR', (0, 0), (-1, -1), black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('GRID', (0, 0), (-1, -1), 1, lightgrey),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(filters_table)
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Add transaction table
+        elements.append(Paragraph("FILTERED TRANSACTIONS", heading_style))
+        
+        col_widths = [0.85*inch, 0.85*inch, 3.5*inch, 0.8*inch, 1.1*inch, 1.1*inch]
+        table_data = [
+            ['Date', 'Account', 'Description', 'Amount', 'Matched Rule', 'Category Applied']
+        ]
+        
+        desc_style = ParagraphStyle(
+            'DescriptionStyle',
+            parent=normal_style,
+            fontSize=8,
+            alignment=TA_LEFT,
+            leading=10,
+            wordWrap='CJK'
+        )
+        
+        # Add transaction rows
+        for result in pdf_results:
+            try:
+                if isinstance(result['date'], str):
+                    date_str = result['date']
+                else:
+                    date_str = result['date'].strftime('%Y-%m-%d') if hasattr(result['date'], 'strftime') else str(result['date'])
+                
+                amount = result['amount']
+                description = result['description'] if result['description'] else ''
+                description_para = Paragraph(description, desc_style)
+                
+                table_data.append([
+                    date_str,
+                    result.get('account_name', 'Unknown'),
+                    description_para,
+                    f"₹{amount:,.2f}",
+                    result.get('matched_rule_name', '-'),
+                    result.get('matched_custom_category_name', '-')
+                ])
+            except Exception as e:
+                print(f"ERROR - Failed to process result in AJAX PDF: {e}")
+                continue
+        
+        # Add total row
+        table_data.append([
+            '', '', Paragraph('<b>TOTAL</b>', desc_style),
+            Paragraph(f'<b>₹{total_amount:,.2f}</b>', desc_style),
+            '', ''
+        ])
+        
+        # Create table
+        table = Table(table_data, colWidths=col_widths, splitByRow=True)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), HexColor('#0D47A1')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), white),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('GRID', (0, 0), (-1, -2), 1, lightgrey),
+            ('ALIGN', (0, 1), (-1, -2), 'LEFT'),
+            ('VALIGN', (0, 1), (-1, -2), 'TOP'),
+            ('FONTNAME', (0, 1), (-1, -2), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -2), 8),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -2), [white, HexColor('#F5F5F5')]),
+            ('ALIGN', (2, 0), (2, -1), 'LEFT'),
+            ('VALIGN', (2, 0), (2, -1), 'TOP'),
+            ('LEFTPADDING', (2, 0), (2, -1), 4),
+            ('RIGHTPADDING', (2, 0), (2, -1), 4),
+            ('ALIGN', (3, 1), (3, -2), 'RIGHT'),
+            ('ALIGN', (3, -1), (3, -1), 'RIGHT'),
+            ('ALIGN', (4, 1), (-1, -2), 'LEFT'),
+            ('VALIGN', (4, 1), (-1, -2), 'TOP'),
+            ('BACKGROUND', (0, -1), (-1, -1), HexColor('#FFF2CC')),
+            ('ALIGN', (2, -1), (2, -1), 'LEFT'),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('TOPPADDING', (0, -1), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, -1), (-1, -1), 8),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, 0), 8),
+            ('TOPPADDING', (0, 1), (-1, -2), 6),
+            ('BOTTOMPADDING', (0, 1), (-1, -2), 6),
+        ]))
+        
+        elements.append(table)
+        elements.append(Spacer(1, 0.3*inch))
+        
+        # Add summary section
+        elements.append(Paragraph("SUMMARY", heading_style))
+        
+        summary_data = [
+            ['Metric', 'Value'],
+            ['Total Filtered Transactions', str(len(pdf_results))],
+            ['Total Filtered Amount', f'₹{total_amount:,.2f}'],
+            ['Rules Selected', str(len(selected_rule_ids))],
+            ['Categories Selected', str(len(selected_category_ids))],
+        ]
+        
+        summary_table = Table(summary_data, colWidths=[3*inch, 2*inch])
+        summary_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), HexColor('#0D47A1')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), white),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('GRID', (0, 0), (-1, -1), 1, lightgrey),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [white, HexColor('#F5F5F5')]),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        
+        elements.append(summary_table)
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Try to generate and include pie chart
+        try:
+            import matplotlib.pyplot as plt
+            import matplotlib
+            matplotlib.use('Agg')  # Non-interactive backend
+            
+            # Calculate category breakdown from results
+            category_breakdown = {}
+            for result in pdf_results:
+                cat_name = result.get('matched_custom_category_name', '-')
+                if cat_name != '-':
+                    category_breakdown[cat_name] = category_breakdown.get(cat_name, 0) + result['amount']
+            
+            rule_breakdown = {}
+            for result in pdf_results:
+                rule_name = result.get('matched_rule_name', '-')
+                if rule_name != '-':
+                    rule_breakdown[rule_name] = rule_breakdown.get(rule_name, 0) + result['amount']
+            
+            # Use category breakdown if available, otherwise use rule breakdown
+            breakdown = category_breakdown if category_breakdown else rule_breakdown
+            
+            if breakdown:
+                elements.append(Paragraph("CATEGORY BREAKDOWN", heading_style))
+                
+                # Create pie chart
+                fig, ax = plt.subplots(figsize=(4, 3), dpi=100)
+                colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2']
+                
+                labels = list(breakdown.keys())
+                sizes = list(breakdown.values())
+                
+                wedges, texts, autotexts = ax.pie(
+                    sizes,
+                    labels=labels,
+                    autopct='%1.1f%%',
+                    colors=colors[:len(labels)],
+                    startangle=90,
+                    textprops={'fontsize': 9}
+                )
+                
+                # Make percentage text bold
+                for autotext in autotexts:
+                    autotext.set_color('white')
+                    autotext.set_fontweight('bold')
+                    autotext.set_fontsize(8)
+                
+                ax.set_title('Spending by Category' if category_breakdown else 'Spending by Rule', fontweight='bold', fontsize=10)
+                
+                # Save pie chart to bytes buffer
+                chart_buffer = BytesIO()
+                plt.tight_layout()
+                plt.savefig(chart_buffer, format='png', dpi=100, bbox_inches='tight')
+                chart_buffer.seek(0)
+                plt.close(fig)
+                
+                # Add chart to PDF
+                chart_image = Image(chart_buffer, width=3.5*inch, height=2.5*inch)
+                elements.append(chart_image)
+                elements.append(Spacer(1, 0.2*inch))
+        except ImportError:
+            print("WARNING - matplotlib not available, skipping pie chart")
+        except Exception as chart_error:
+            print(f"WARNING - Failed to generate pie chart: {chart_error}")
+        
+        # Build PDF
+        doc.build(elements)
+        
+        # Get PDF data
+        pdf_data = pdf_buffer.getvalue()
+        
+        if not pdf_data:
+            return JsonResponse({
+                'success': False,
+                'error': 'Failed to generate PDF'
+            }, status=500)
+        
+        # Encode to base64
+        pdf_base64 = base64.b64encode(pdf_data).decode('utf-8')
+        
+        return JsonResponse({
+            'success': True,
+            'pdf_base64': pdf_base64,
+            'filename': 'filtered_rules_results.pdf'
+        })
+        
+    except Exception as e:
+        import traceback
+        error_msg = str(e)
+        print(f"ERROR - Exception in export_rules_results_ajax_pdf: {error_msg}")
+        print(f"ERROR - Traceback: {traceback.format_exc()}")
+        return JsonResponse({
+            'success': False,
+            'error': error_msg
+        }, status=500)

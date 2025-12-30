@@ -42,4 +42,5 @@ urlpatterns = [
     path('api/financial-overview/', views.get_financial_overview_data, name='get_financial_overview_data'),
     path('export/rules-results/', views.export_rules_results_to_excel, name='export_rules_results'),
     path('export/rules-results-pdf/', views.export_rules_results_to_pdf, name='export_rules_results_pdf'),
+    path('export/rules-results-pdf-ajax/', views.export_rules_results_ajax_pdf, name='export_rules_results_ajax_pdf'),
 ]
