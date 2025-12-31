@@ -1,0 +1,1343 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Create Your Own | Smart Rules & Categories{% endblock %}
+
+{% block content %}
+<style>
+    body {
+        background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%) !important;
+        color: var(--dark);
+        min-height: 100vh;
+    }
+
+    .container {
+        max-width: 1200px !important;
+    }
+
+    :root {
+        --primary: #5a67d8;
+        --primary-dark: #4c51bf;
+        --primary-light: #7f9cf5;
+        --secondary: #38b2ac;
+        --success: #48bb78;
+        --danger: #f56565;
+        --warning: #ed8936;
+        --light: #f7fafc;
+        --dark: #2d3748;
+        --gray: #a0aec0;
+        --gray-light: #e2e8f0;
+        --border-radius: 12px;
+        --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    .container-main {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+    }
+
+    /* Header */
+    .header {
+        background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+        color: white;
+        padding: 28px 32px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .header-content h2 {
+        font-size: 28px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .header-content p {
+        font-size: 15px;
+        opacity: 0.9;
+        margin-top: 6px;
+        font-weight: 400;
+    }
+
+    .stats {
+        display: flex;
+        gap: 24px;
+    }
+
+    .stat-item {
+        text-align: center;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 12px 20px;
+        border-radius: 10px;
+        backdrop-filter: blur(10px);
+    }
+
+    .stat-number {
+        font-size: 24px;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+
+    .stat-label {
+        font-size: 13px;
+        opacity: 0.85;
+    }
+
+    /* Tabs */
+    .tabs {
+        display: flex;
+        background: var(--light);
+        padding: 0;
+        border-bottom: 1px solid var(--gray-light);
+    }
+
+    .tab {
+        flex: 1;
+        padding: 20px;
+        text-align: center;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 16px;
+        color: var(--dark);
+        border-bottom: 3px solid transparent;
+        transition: var(--transition);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .tab::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 3px;
+        background: var(--primary);
+        transition: var(--transition);
+    }
+
+    .tab:hover {
+        background: rgba(255, 255, 255, 0.7);
+        color: var(--primary);
+    }
+
+    .tab:hover::after {
+        width: 40%;
+    }
+
+    .tab.active {
+        background: white;
+        color: var(--primary);
+    }
+
+    .tab.active::after {
+        width: 100%;
+    }
+
+    /* Sections */
+    .section {
+        display: none;
+        padding: 32px;
+    }
+
+    .section.active {
+        display: block;
+        animation: fadeIn 0.5s ease;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Cards */
+    .card {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--gray-light);
+        padding: 24px;
+        margin-bottom: 24px;
+        transition: var(--transition);
+    }
+
+    .card:hover {
+        box-shadow: var(--shadow);
+        transform: translateY(-2px);
+    }
+
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--gray-light);
+    }
+
+    .card-header h4 {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--dark);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .card-header i {
+        color: var(--primary);
+        background: rgba(90, 103, 216, 0.1);
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Form Elements */
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 8px;
+        color: var(--dark);
+        font-size: 14px;
+    }
+
+    .input-with-icon {
+        position: relative;
+    }
+
+    .input-with-icon i {
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--gray);
+    }
+
+    input, select {
+        width: 100%;
+        padding: 14px 16px 14px 48px;
+        border: 1.5px solid var(--gray-light);
+        border-radius: 10px;
+        font-size: 15px;
+        font-family: 'Inter', -apple-system, sans-serif;
+        transition: var(--transition);
+        background: white;
+        color: var(--dark);
+    }
+
+    input:focus, select:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(90, 103, 216, 0.15);
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+
+    /* Conditions Builder */
+    .conditions-container {
+        margin: 24px 0;
+        padding: 20px;
+        background: var(--light);
+        border-radius: 10px;
+        border: 1px solid var(--gray-light);
+    }
+
+    .condition-item {
+        background: white;
+        border: 1px solid var(--gray-light);
+        border-radius: 10px;
+        padding: 16px;
+        margin-bottom: 12px;
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+    }
+
+    .condition-item.header {
+        background: rgba(90, 103, 216, 0.05);
+        border-color: var(--primary-light);
+    }
+
+    .condition-select {
+        flex: 1;
+    }
+
+    .condition-fields {
+        flex: 2;
+    }
+
+    .condition-actions {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+    }
+
+    .condition-actions button {
+        padding: 8px 12px;
+        border: 1px solid var(--gray-light);
+        background: white;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: var(--transition);
+        font-size: 14px;
+    }
+
+    .condition-actions button:hover {
+        background: var(--light);
+        border-color: var(--primary);
+        color: var(--primary);
+    }
+
+    .condition-actions .btn-delete {
+        color: var(--danger);
+    }
+
+    .condition-actions .btn-delete:hover {
+        background: rgba(245, 101, 101, 0.1);
+    }
+
+    /* Icons Grid */
+    .icon-grid {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        gap: 12px;
+        margin-top: 10px;
+    }
+
+    @media (max-width: 1024px) {
+        .icon-grid {
+            grid-template-columns: repeat(6, 1fr);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .icon-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+
+    .category-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        cursor: pointer;
+        transition: var(--transition);
+        border: 2px solid transparent;
+        background: var(--light);
+    }
+
+    .category-icon:hover {
+        transform: scale(1.1);
+        background: rgba(90, 103, 216, 0.1);
+        border-color: var(--primary-light);
+    }
+
+    .category-icon.selected {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+        box-shadow: 0 5px 15px rgba(90, 103, 216, 0.3);
+        transform: scale(1.05);
+    }
+
+    /* Preview */
+    .preview {
+        background: linear-gradient(to right, #f8faff, #f0f4ff);
+        padding: 20px;
+        border-radius: 10px;
+        margin-top: 20px;
+        border-left: 4px solid var(--primary);
+    }
+
+    .preview-title {
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: var(--dark);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 15px;
+    }
+
+    .preview-content {
+        color: var(--dark);
+        line-height: 1.5;
+        font-size: 14px;
+    }
+
+    .highlight {
+        color: var(--primary);
+        font-weight: 600;
+    }
+
+    /* Buttons */
+    .btn {
+        padding: 14px 28px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 15px;
+        cursor: pointer;
+        transition: var(--transition);
+        border: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        font-family: 'Inter', -apple-system, sans-serif;
+    }
+
+    .btn-primary {
+        background: linear-gradient(to right, var(--primary), var(--primary-dark));
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(90, 103, 216, 0.3);
+    }
+
+    .btn-secondary {
+        background: white;
+        color: var(--dark);
+        border: 1.5px solid var(--gray-light);
+    }
+
+    .btn-secondary:hover {
+        background: var(--light);
+        border-color: var(--gray);
+    }
+
+    .btn-danger {
+        background: var(--danger);
+        color: white;
+        padding: 10px 16px;
+        font-size: 14px;
+    }
+
+    .btn-danger:hover {
+        background: #e53e3e;
+    }
+
+    .btn-sm {
+        padding: 8px 16px;
+        font-size: 14px;
+    }
+
+    .button-group {
+        display: flex;
+        gap: 12px;
+        margin-top: 24px;
+    }
+
+    /* Existing Categories */
+    .categories-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+        margin-top: 20px;
+    }
+
+    .category-card {
+        border: 1px solid var(--gray-light);
+        border-radius: 12px;
+        overflow: hidden;
+        transition: var(--transition);
+    }
+
+    .category-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow);
+    }
+
+    .category-header {
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        background: var(--light);
+        border-bottom: 1px solid var(--gray-light);
+    }
+
+    .category-icon-large {
+        width: 56px;
+        height: 56px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        background: white;
+        border: 1px solid var(--gray-light);
+    }
+
+    .category-info h5 {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+
+    .category-info p {
+        font-size: 13px;
+        color: var(--gray);
+    }
+
+    .rules-list {
+        padding: 16px;
+    }
+
+    .rule-item {
+        padding: 12px;
+        background: white;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border: 1px solid var(--gray-light);
+        transition: var(--transition);
+    }
+
+    .rule-item:hover {
+        background: var(--light);
+        border-color: var(--primary-light);
+    }
+
+    .rule-details {
+        flex: 1;
+    }
+
+    .rule-name {
+        font-weight: 500;
+        font-size: 14px;
+        margin-bottom: 4px;
+    }
+
+    .rule-condition {
+        font-size: 12px;
+        color: var(--gray);
+    }
+
+    .rule-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .rule-actions button {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 6px;
+        border-radius: 6px;
+        transition: var(--transition);
+        font-size: 14px;
+    }
+
+    .rule-actions .btn-edit {
+        color: var(--primary);
+    }
+
+    .rule-actions .btn-edit:hover {
+        background: rgba(90, 103, 216, 0.1);
+    }
+
+    .rule-actions .btn-delete {
+        color: var(--danger);
+    }
+
+    .rule-actions .btn-delete:hover {
+        background: rgba(245, 101, 101, 0.1);
+    }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--gray);
+    }
+
+    .empty-state i {
+        font-size: 48px;
+        margin-bottom: 16px;
+        color: var(--gray-light);
+    }
+
+    /* Notification */
+    .alert {
+        position: fixed;
+        top: 100px;
+        right: 24px;
+        padding: 16px 20px;
+        border-radius: 10px;
+        box-shadow: var(--shadow);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        z-index: 1000;
+        min-width: 300px;
+        animation: slideIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    }
+
+    @keyframes slideIn {
+        from { transform: translateX(400px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+
+    .alert.success {
+        background: var(--success);
+        color: white;
+    }
+
+    .alert.error {
+        background: var(--danger);
+        color: white;
+    }
+
+    .alert.info {
+        background: var(--primary);
+        color: white;
+    }
+
+    .alert i {
+        font-size: 20px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 20px;
+        }
+        
+        .stats {
+            width: 100%;
+            justify-content: space-between;
+        }
+        
+        .form-row {
+            grid-template-columns: 1fr;
+        }
+        
+        .categories-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .button-group {
+            flex-direction: column;
+        }
+        
+        .button-group .btn {
+            width: 100%;
+        }
+        
+        .condition-item {
+            flex-direction: column;
+        }
+
+        input, select {
+            padding: 12px 14px 12px 40px;
+            font-size: 14px;
+        }
+    }
+</style>
+
+<div class="container-main">
+    <!-- Header -->
+    <div class="header">
+        <div class="header-content">
+            <h2><i class="fas fa-magic"></i> Create Your Own</h2>
+            <p>Smart rules & categories to automatically organize your finances</p>
+        </div>
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-number" id="rulesCount">0</div>
+                <div class="stat-label">Active Rules</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="categoriesCount">0</div>
+                <div class="stat-label">Categories</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('rules')">
+            <i class="fas fa-filter"></i> Create Rules
+        </div>
+        <div class="tab" onclick="switchTab('categories')">
+            <i class="fas fa-folder"></i> Create Categories
+        </div>
+    </div>
+
+    <!-- Rules Section -->
+    <div id="rules" class="section active">
+        <div class="card">
+            <div class="card-header">
+                <h4><i class="fas fa-plus-circle"></i> Create New Rule</h4>
+            </div>
+            
+            <form id="ruleForm" onsubmit="handleCreateRule(event)">
+                {% csrf_token %}
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="ruleName"><i class="fas fa-tag"></i> Rule Name</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-heading"></i>
+                            <input type="text" id="ruleName" name="rule_name" placeholder="e.g., Amazon Purchases" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="ruleCategory"><i class="fas fa-folder"></i> Category</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-tag"></i>
+                            <select id="ruleCategory" name="category" required onchange="updateRulePreview()">
+                                <option value="">Select Category</option>
+                                {% for code, name in categories %}
+                                    <option value="{{ code }}">{{ name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="ruleType"><i class="fas fa-filter"></i> Rule Type</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-cogs"></i>
+                            <select id="ruleType" name="rule_type" onchange="updateRulePreview()">
+                                <option value="AND">All conditions must match (AND)</option>
+                                <option value="OR">Any condition matches (OR)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Conditions Builder -->
+                <div class="form-group">
+                    <label><i class="fas fa-list"></i> Conditions</label>
+                    <div class="conditions-container">
+                        <div style="margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--gray-light); display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 500; color: var(--dark);">Add conditions to match transactions</span>
+                            <button type="button" class="btn btn-sm btn-primary" onclick="addCondition()">
+                                <i class="fas fa-plus"></i> Add Condition
+                            </button>
+                        </div>
+                        <div id="conditionsList"></div>
+                    </div>
+                </div>
+                
+                <!-- Preview -->
+                <div class="preview">
+                    <div class="preview-title">
+                        <i class="fas fa-eye"></i> Rule Preview
+                    </div>
+                    <div class="preview-content" id="rulePreview">
+                        Select a category and add conditions to see preview
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-check-circle"></i> Create Rule
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="clearRuleForm()">
+                        <i class="fas fa-redo"></i> Clear Form
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h4><i class="fas fa-list-check"></i> Your Rules</h4>
+                <span style="background: var(--gray-light); color: var(--dark); padding: 6px 12px; border-radius: 20px; font-size: 13px;" id="activeRulesCount">0 rules</span>
+            </div>
+            
+            <div id="rulesContainer">
+                <!-- Rules will be dynamically added here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Categories Section -->
+    <div id="categories" class="section">
+        <div class="card">
+            <div class="card-header">
+                <h4><i class="fas fa-plus-circle"></i> Create New Category</h4>
+            </div>
+            
+            <form id="categoryForm" onsubmit="handleCreateCategory(event)">
+                {% csrf_token %}
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="categoryName"><i class="fas fa-tag"></i> Category Name</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-heading"></i>
+                            <input type="text" id="categoryName" name="category_name" placeholder="e.g., Premium Shopping" oninput="updateCategoryPreview()" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="subCategory"><i class="fas fa-tags"></i> Sub Category (Optional)</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-indent"></i>
+                            <input type="text" id="subCategory" name="sub_category" placeholder="e.g., Amazon" oninput="updateCategoryPreview()">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label><i class="fas fa-icons"></i> Select Icon (Required)</label>
+                    <div class="icon-grid" id="iconGrid">
+                        <!-- Icons will be generated by JavaScript -->
+                    </div>
+                    <input type="hidden" id="selectedIcon" name="icon" value="🛒" required>
+                </div>
+                
+                <!-- Preview -->
+                <div class="preview">
+                    <div class="preview-title">
+                        <i class="fas fa-eye"></i> Category Preview
+                    </div>
+                    <div class="preview-content" id="categoryPreview">
+                        <span id="previewIcon">🛒</span> <strong id="previewCategory">Shopping</strong>
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-check-circle"></i> Create Category
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="clearCategoryForm()">
+                        <i class="fas fa-broom"></i> Clear Form
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h4><i class="fas fa-folder-open"></i> My Categories</h4>
+                <span style="background: var(--gray-light); color: var(--dark); padding: 6px 12px; border-radius: 20px; font-size: 13px;" id="totalCategories">0 categories</span>
+            </div>
+            
+            <div class="categories-grid" id="categoriesContainer">
+                <!-- Categories will be dynamically added here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const icons = ["🛒", "🚕", "🍔", "🏠", "💡", "💰", "✈️", "🎬", "🛍️", "🏥", "🎓", "💼", "🍽️", "⚽", "🎁", "📱", "💻", "🎧", "👕", "🚗", "🌮", "🏋️", "🎨", "📚"];
+    const categoryChoices = {
+        {% for code, name in categories %}'{{ code }}': '{{ name }}',{% endfor %}
+    };
+    
+    let rules = [];
+    let customCategories = [];
+    let selectedIcon = "🛒";
+    let conditions = [];
+    let nextConditionId = 1;
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        generateIconGrid();
+        loadRulesAndCategories();
+        updateCategoryPreview();
+        addCondition();
+    });
+
+    // Generate icon grid
+    function generateIconGrid() {
+        const iconGrid = document.getElementById('iconGrid');
+        icons.forEach(icon => {
+            const iconElement = document.createElement('div');
+            iconElement.className = 'category-icon' + (icon === selectedIcon ? ' selected' : '');
+            iconElement.textContent = icon;
+            iconElement.onclick = () => selectIcon(icon, iconElement);
+            iconGrid.appendChild(iconElement);
+        });
+    }
+
+    function selectIcon(icon, element) {
+        document.querySelectorAll('.category-icon').forEach(el => el.classList.remove('selected'));
+        element.classList.add('selected');
+        selectedIcon = icon;
+        document.getElementById('selectedIcon').value = icon;
+        updateCategoryPreview();
+    }
+
+    function switchTab(tab) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        
+        if (tab === 'rules') {
+            document.querySelectorAll('.tab')[0].classList.add('active');
+            document.getElementById('rules').classList.add('active');
+        } else {
+            document.querySelectorAll('.tab')[1].classList.add('active');
+            document.getElementById('categories').classList.add('active');
+        }
+    }
+
+    function addCondition() {
+        const conditionsList = document.getElementById('conditionsList');
+        const conditionId = nextConditionId++;
+        
+        const conditionHTML = `
+            <div class="condition-item" id="condition-${conditionId}">
+                <div class="condition-select">
+                    <select class="condition-type" onchange="updateConditionFields(${conditionId}); updateRulePreview()">
+                        <option value="keyword">Keyword in Description</option>
+                        <option value="amount">Amount</option>
+                        <option value="date">Date Range</option>
+                        <option value="source">Transaction Source</option>
+                    </select>
+                </div>
+                <div class="condition-fields" id="fields-${conditionId}">
+                    <!-- Fields will be generated based on condition type -->
+                </div>
+                <div class="condition-actions">
+                    <button type="button" class="btn-delete" onclick="removeCondition(${conditionId})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        conditionsList.insertAdjacentHTML('beforeend', conditionHTML);
+        conditions.push({ id: conditionId, type: 'keyword' });
+        updateConditionFields(conditionId);
+    }
+
+    function updateConditionFields(conditionId) {
+        const conditionItem = document.getElementById(`condition-${conditionId}`);
+        const typeSelect = conditionItem.querySelector('.condition-type');
+        const fieldsDiv = document.getElementById(`fields-${conditionId}`);
+        const type = typeSelect.value;
+
+        let fieldsHTML = '';
+
+        if (type === 'keyword') {
+            fieldsHTML = `
+                <select class="condition-match" onchange="updateRulePreview()">
+                    <option value="contains">Contains</option>
+                    <option value="starts_with">Starts With</option>
+                    <option value="ends_with">Ends With</option>
+                    <option value="exact">Exact Match</option>
+                </select>
+                <input type="text" class="condition-value" placeholder="Enter keyword" onchange="updateRulePreview()">
+            `;
+        } else if (type === 'amount') {
+            fieldsHTML = `
+                <select class="condition-operator" onchange="updateRulePreview()">
+                    <option value="greater_than">Greater Than</option>
+                    <option value="less_than">Less Than</option>
+                    <option value="equals">Equals</option>
+                    <option value="between">Between</option>
+                </select>
+                <input type="number" class="condition-value-1" placeholder="Amount" step="0.01" onchange="updateRulePreview()">
+                <input type="number" class="condition-value-2" placeholder="To Amount" step="0.01" style="display:none;" onchange="updateRulePreview()">
+            `;
+        } else if (type === 'date') {
+            fieldsHTML = `
+                <input type="date" class="condition-date-from" onchange="updateRulePreview()">
+                <input type="date" class="condition-date-to" onchange="updateRulePreview()">
+            `;
+        } else if (type === 'source') {
+            fieldsHTML = `
+                <select class="condition-source" onchange="updateRulePreview()">
+                    <option value="upi">UPI</option>
+                    <option value="debit_card">Debit Card</option>
+                    <option value="credit_card">Credit Card</option>
+                    <option value="net_banking">Net Banking</option>
+                    <option value="neft">NEFT</option>
+                </select>
+            `;
+        }
+
+        fieldsDiv.innerHTML = fieldsHTML;
+        updateRulePreview();
+    }
+
+    function removeCondition(conditionId) {
+        document.getElementById(`condition-${conditionId}`).remove();
+        conditions = conditions.filter(c => c.id !== conditionId);
+        updateRulePreview();
+    }
+
+    function updateRulePreview() {
+        const ruleName = document.getElementById('ruleName').value || 'Your Rule';
+        const ruleCategory = document.getElementById('ruleCategory').value || '';
+        const ruleType = document.getElementById('ruleType').value || 'AND';
+        
+        const categoryName = categoryChoices[ruleCategory] || ruleCategory;
+        
+        if (!ruleCategory) {
+            document.getElementById('rulePreview').innerHTML = 'Select a category to see preview';
+            return;
+        }
+
+        let preview = `<span class="highlight">${ruleName}</span> rule will:\n`;
+        preview += `Apply to category: <span class="highlight">${categoryName}</span>\n`;
+        preview += `When ${ruleType === 'AND' ? 'ALL' : 'ANY'} of these conditions match:\n`;
+
+        const conditionItems = document.querySelectorAll('[id^="condition-"]');
+        if (conditionItems.length === 0) {
+            preview = `<span class="highlight">${ruleName}</span> → <span class="highlight">${categoryName}</span><br><small style="color: var(--gray);">Add at least one condition</small>`;
+        } else {
+            let conditionTexts = [];
+            conditionItems.forEach((item, index) => {
+                const typeSelect = item.querySelector('.condition-type');
+                const type = typeSelect.value;
+                let text = '';
+
+                if (type === 'keyword') {
+                    const match = item.querySelector('.condition-match')?.value || 'contains';
+                    const keyword = item.querySelector('.condition-value')?.value || 'text';
+                    text = `Description ${match.replace('_', ' ')} "${keyword}"`;
+                } else if (type === 'amount') {
+                    const operator = item.querySelector('.condition-operator')?.value || 'greater_than';
+                    const value = item.querySelector('.condition-value-1')?.value || '0';
+                    text = `Amount ${operator.replace('_', ' ')} ₹${value}`;
+                } else if (type === 'date') {
+                    const dateFrom = item.querySelector('.condition-date-from')?.value || 'start';
+                    const dateTo = item.querySelector('.condition-date-to')?.value || 'end';
+                    text = `Date from ${dateFrom} to ${dateTo}`;
+                } else if (type === 'source') {
+                    const source = item.querySelector('.condition-source')?.value || 'UPI';
+                    text = `Source is ${source}`;
+                }
+
+                if (text) conditionTexts.push(text);
+            });
+
+            preview = `<span class="highlight">${ruleName}</span> rule will apply to category: <span class="highlight">${categoryName}</span><br>`;
+            preview += `<small style="color: var(--gray);">When ${ruleType === 'AND' ? 'ALL' : 'ANY'} conditions match:</small><br>`;
+            conditionTexts.forEach((text, i) => {
+                preview += `<small>• ${text}</small><br>`;
+            });
+        }
+
+        document.getElementById('rulePreview').innerHTML = preview;
+    }
+
+    function updateCategoryPreview() {
+        const categoryName = document.getElementById('categoryName').value || 'Category';
+        const subCategory = document.getElementById('subCategory').value;
+        
+        document.getElementById('previewIcon').textContent = selectedIcon;
+        document.getElementById('previewCategory').textContent = categoryName;
+        
+        if (subCategory) {
+            document.getElementById('categoryPreview').innerHTML = 
+                `<span id="previewIcon">${selectedIcon}</span> <strong>${categoryName}</strong> → <small style="color: var(--gray);">${subCategory}</small>`;
+        } else {
+            document.getElementById('categoryPreview').innerHTML = 
+                `<span id="previewIcon">${selectedIcon}</span> <strong>${categoryName}</strong>`;
+        }
+    }
+
+    function handleCreateRule(event) {
+        event.preventDefault();
+        
+        const ruleName = document.getElementById('ruleName').value;
+        const category = document.getElementById('ruleCategory').value;
+        
+        if (!ruleName || !category) {
+            showNotification('Please fill in all required fields', 'error');
+            return;
+        }
+
+        // Create form data
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        formData.append('rule_name', ruleName);
+        formData.append('category', category);
+        formData.append('rule_type', document.getElementById('ruleType').value);
+
+        // Add conditions
+        const conditionItems = document.querySelectorAll('[id^="condition-"]');
+        let conditionCount = 0;
+        conditionItems.forEach((item, index) => {
+            const typeSelect = item.querySelector('.condition-type');
+            const type = typeSelect.value;
+
+            formData.append(`conditions[${conditionCount}][type]`, type);
+
+            if (type === 'keyword') {
+                formData.append(`conditions[${conditionCount}][keyword]`, item.querySelector('.condition-value')?.value || '');
+                formData.append(`conditions[${conditionCount}][keyword_match]`, item.querySelector('.condition-match')?.value || 'contains');
+            } else if (type === 'amount') {
+                formData.append(`conditions[${conditionCount}][operator]`, item.querySelector('.condition-operator')?.value || '');
+                formData.append(`conditions[${conditionCount}][value]`, item.querySelector('.condition-value-1')?.value || '');
+                formData.append(`conditions[${conditionCount}][value2]`, item.querySelector('.condition-value-2')?.value || '');
+            } else if (type === 'date') {
+                formData.append(`conditions[${conditionCount}][date_from]`, item.querySelector('.condition-date-from')?.value || '');
+                formData.append(`conditions[${conditionCount}][date_to]`, item.querySelector('.condition-date-to')?.value || '');
+            } else if (type === 'source') {
+                formData.append(`conditions[${conditionCount}][source]`, item.querySelector('.condition-source')?.value || '');
+            }
+
+            conditionCount++;
+        });
+
+        fetch('{% url "api_create_rule" %}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(`Rule "${ruleName}" created successfully!`, 'success');
+                clearRuleForm();
+                loadRulesAndCategories();
+            } else {
+                showNotification(data.error || 'Error creating rule', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Error creating rule', 'error');
+        });
+    }
+
+    function handleCreateCategory(event) {
+        event.preventDefault();
+        
+        const categoryName = document.getElementById('categoryName').value;
+        
+        if (!categoryName) {
+            showNotification('Please enter a category name', 'error');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        formData.append('category_name', categoryName);
+        formData.append('sub_category', document.getElementById('subCategory').value);
+        formData.append('icon', selectedIcon);
+
+        fetch('{% url "api_create_category" %}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(`Category "${categoryName}" created successfully!`, 'success');
+                clearCategoryForm();
+                loadRulesAndCategories();
+            } else {
+                showNotification(data.error || 'Error creating category', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Error creating category', 'error');
+        });
+    }
+
+    function loadRulesAndCategories() {
+        fetch('{% url "api_get_rules_categories" %}')
+        .then(response => response.json())
+        .then(data => {
+            rules = data.rules || [];
+            customCategories = data.categories || [];
+            renderRules();
+            renderCategories();
+            updateCounts();
+        })
+        .catch(error => console.error('Error loading data:', error));
+    }
+
+    function renderRules() {
+        const container = document.getElementById('rulesContainer');
+        container.innerHTML = '';
+
+        if (rules.length === 0) {
+            container.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>No rules yet. Create one to get started!</p></div>';
+            return;
+        }
+
+        rules.forEach(rule => {
+            const ruleElement = document.createElement('div');
+            ruleElement.className = 'rule-item';
+            ruleElement.innerHTML = `
+                <div class="rule-details">
+                    <div class="rule-name">${rule.name}</div>
+                    <div class="rule-condition">${rule.description}</div>
+                </div>
+                <div class="rule-actions">
+                    <button type="button" class="btn-edit" onclick="editRule(${rule.id})">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button type="button" class="btn-delete" onclick="deleteRule(${rule.id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+            container.appendChild(ruleElement);
+        });
+    }
+
+    function renderCategories() {
+        const container = document.getElementById('categoriesContainer');
+        container.innerHTML = '';
+
+        if (customCategories.length === 0) {
+            container.innerHTML = '<div style="grid-column: 1/-1;"><div class="empty-state"><i class="fas fa-inbox"></i><p>No categories yet. Create one to organize your transactions!</p></div></div>';
+            return;
+        }
+
+        customCategories.forEach(category => {
+            const categoryElement = document.createElement('div');
+            categoryElement.className = 'category-card';
+            const rulesHTML = category.rules && category.rules.length > 0 
+                ? category.rules.map(rule => `
+                    <div class="rule-item">
+                        <div class="rule-details">
+                            <div class="rule-name">${rule.name}</div>
+                            <div class="rule-condition">${rule.description}</div>
+                        </div>
+                        <div class="rule-actions">
+                            <button type="button" class="btn-delete" onclick="deleteRule(${rule.id})"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                `).join('')
+                : `<div style="padding: 16px; text-align: center; color: var(--gray); font-size: 13px;">No rules yet</div>`;
+
+            categoryElement.innerHTML = `
+                <div class="category-header">
+                    <div class="category-icon-large">${category.icon}</div>
+                    <div class="category-info">
+                        <h5>${category.name}</h5>
+                        <p>${category.rules?.length || 0} rules</p>
+                    </div>
+                </div>
+                <div class="rules-list">
+                    ${rulesHTML}
+                </div>
+            `;
+            container.appendChild(categoryElement);
+        });
+    }
+
+    function deleteRule(ruleId) {
+        if (!confirm('Are you sure you want to delete this rule?')) return;
+
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+        fetch(`/analyzer/api/rule/${ruleId}/delete/`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Rule deleted', 'success');
+                loadRulesAndCategories();
+            } else {
+                showNotification(data.error || 'Error deleting rule', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Error deleting rule', 'error');
+        });
+    }
+
+    function editRule(ruleId) {
+        showNotification('Edit feature coming soon!', 'info');
+    }
+
+    function clearRuleForm() {
+        document.getElementById('ruleForm').reset();
+        document.getElementById('conditionsList').innerHTML = '';
+        conditions = [];
+        nextConditionId = 1;
+        addCondition();
+        updateRulePreview();
+    }
+
+    function clearCategoryForm() {
+        document.getElementById('categoryForm').reset();
+        selectedIcon = "🛒";
+        document.querySelectorAll('.category-icon').forEach(el => el.classList.remove('selected'));
+        document.querySelector('.category-icon').classList.add('selected');
+        document.getElementById('selectedIcon').value = "🛒";
+        updateCategoryPreview();
+    }
+
+    function updateCounts() {
+        document.getElementById('rulesCount').textContent = rules.filter(r => r.is_active).length;
+        document.getElementById('categoriesCount').textContent = customCategories.length;
+        document.getElementById('activeRulesCount').textContent = `${rules.length} rules`;
+        document.getElementById('totalCategories').textContent = `${customCategories.length} categories`;
+    }
+
+    function showNotification(message, type) {
+        const notification = document.createElement('div');
+        notification.className = `alert ${type}`;
+        
+        let icon = 'info-circle';
+        if (type === 'success') icon = 'check-circle';
+        if (type === 'error') icon = 'exclamation-circle';
+        
+        notification.innerHTML = `
+            <i class="fas fa-${icon}"></i>
+            <span>${message}</span>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.animation = 'slideOut 0.4s ease forwards';
+            setTimeout(() => notification.remove(), 400);
+        }, 3000);
+    }
+</script>
+
+{% endblock %}

@@ -3325,3 +3325,248 @@ def export_rules_results_ajax_pdf(request):
             'success': False,
             'error': error_msg
         }, status=500)
+
+
+# ==================== CREATE YOUR OWN - UNIFIED INTERFACE ====================
+
+@login_required
+def create_your_own(request):
+    """Unified page for creating rules and custom categories"""
+    categories = Transaction.CATEGORY_CHOICES
+    context = {
+        'categories': categories,
+    }
+    return render(request, 'analyzer/create_your_own.html', context)
+
+
+@login_required
+def api_create_rule(request):
+    """API endpoint to create a rule via AJAX"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+    
+    try:
+        rule_name = request.POST.get('rule_name', '').strip()
+        category = request.POST.get('category', '').strip()
+        rule_type = request.POST.get('rule_type', 'AND')
+        
+        if not rule_name or not category:
+            return JsonResponse({'success': False, 'error': 'Missing required fields'})
+        
+        # Create the rule
+        rule = Rule.objects.create(
+            user=request.user,
+            name=rule_name,
+            category=category,
+            rule_type=rule_type,
+            is_active=True
+        )
+        
+        # Process conditions
+        import json
+        condition_data = request.POST.getlist('conditions[]')
+        condition_index = 0
+        
+        while True:
+            condition_type = request.POST.get(f'conditions[{condition_index}][type]')
+            if not condition_type:
+                break
+            
+            if condition_type == 'keyword':
+                keyword = request.POST.get(f'conditions[{condition_index}][keyword]', '')
+                keyword_match = request.POST.get(f'conditions[{condition_index}][keyword_match]', 'CONTAINS')
+                
+                RuleCondition.objects.create(
+                    rule=rule,
+                    condition_type='KEYWORD',
+                    keyword=keyword,
+                    keyword_match_type=keyword_match.upper()
+                )
+            
+            elif condition_type == 'amount':
+                operator = request.POST.get(f'conditions[{condition_index}][operator]', 'GREATER_THAN')
+                value = request.POST.get(f'conditions[{condition_index}][value]', '')
+                value2 = request.POST.get(f'conditions[{condition_index}][value2]', '')
+                
+                RuleCondition.objects.create(
+                    rule=rule,
+                    condition_type='AMOUNT',
+                    amount_operator=operator.upper(),
+                    amount_value=value if value else None,
+                    amount_value2=value2 if value2 else None
+                )
+            
+            elif condition_type == 'date':
+                date_from = request.POST.get(f'conditions[{condition_index}][date_from]', '')
+                date_to = request.POST.get(f'conditions[{condition_index}][date_to]', '')
+                
+                RuleCondition.objects.create(
+                    rule=rule,
+                    condition_type='DATE',
+                    date_start=date_from if date_from else None,
+                    date_end=date_to if date_to else None
+                )
+            
+            elif condition_type == 'source':
+                source = request.POST.get(f'conditions[{condition_index}][source]', '')
+                
+                RuleCondition.objects.create(
+                    rule=rule,
+                    condition_type='SOURCE',
+                    source_channel=source.upper()
+                )
+            
+            condition_index += 1
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Rule "{rule_name}" created successfully',
+            'rule_id': rule.id
+        })
+    
+    except Exception as e:
+        print(f"Error creating rule: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def api_create_category(request):
+    """API endpoint to create a custom category via AJAX"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+    
+    try:
+        category_name = request.POST.get('category_name', '').strip()
+        sub_category = request.POST.get('sub_category', '').strip()
+        icon = request.POST.get('icon', '🛒')
+        
+        if not category_name:
+            return JsonResponse({'success': False, 'error': 'Category name is required'})
+        
+        # Check if category already exists
+        if CustomCategory.objects.filter(user=request.user, name=category_name).exists():
+            return JsonResponse({'success': False, 'error': f'Category "{category_name}" already exists'})
+        
+        # Create the custom category
+        category = CustomCategory.objects.create(
+            user=request.user,
+            name=category_name,
+            description=sub_category,
+            icon=icon,
+            color='#5a67d8',  # Default color
+            is_active=True
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Category "{category_name}" created successfully',
+            'category_id': category.id
+        })
+    
+    except Exception as e:
+        print(f"Error creating category: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def api_get_rules_categories(request):
+    """API endpoint to get all rules and categories for the current user"""
+    try:
+        # Get user's rules
+        user_rules = Rule.objects.filter(user=request.user).prefetch_related('conditions')
+        rules_data = []
+        
+        for rule in user_rules:
+            conditions = rule.conditions.all()
+            condition_text = []
+            
+            for condition in conditions:
+                if condition.condition_type == 'KEYWORD':
+                    condition_text.append(f'Description {condition.get_keyword_match_type_display().lower()} "{condition.keyword}"')
+                elif condition.condition_type == 'AMOUNT':
+                    if condition.amount_operator == 'BETWEEN':
+                        condition_text.append(f'Amount between ₹{condition.amount_value} - ₹{condition.amount_value2}')
+                    else:
+                        condition_text.append(f'Amount {condition.get_amount_operator_display().lower()} ₹{condition.amount_value}')
+                elif condition.condition_type == 'DATE':
+                    condition_text.append(f'Date from {condition.date_start} to {condition.date_end}')
+                elif condition.condition_type == 'SOURCE':
+                    condition_text.append(f'Source: {condition.get_source_channel_display()}')
+            
+            rules_data.append({
+                'id': rule.id,
+                'name': rule.name,
+                'category': rule.get_category_display(),
+                'description': ' AND '.join(condition_text) if condition_text else 'No conditions',
+                'is_active': rule.is_active,
+                'rule_type': rule.rule_type
+            })
+        
+        # Get user's custom categories with their rules
+        categories = CustomCategory.objects.filter(user=request.user).prefetch_related('rules__conditions')
+        categories_data = []
+        
+        for category in categories:
+            category_rules = []
+            for rule in category.rules.all():
+                conditions = rule.conditions.all()
+                condition_text = []
+                
+                for condition in conditions:
+                    if condition.condition_type == 'KEYWORD':
+                        condition_text.append(f'Description {condition.get_keyword_match_type_display().lower()} "{condition.keyword}"')
+                    elif condition.condition_type == 'AMOUNT':
+                        if condition.amount_operator == 'BETWEEN':
+                            condition_text.append(f'Amount between ₹{condition.amount_value} - ₹{condition.amount_value2}')
+                        else:
+                            condition_text.append(f'Amount {condition.get_amount_operator_display().lower()} ₹{condition.amount_value}')
+                    elif condition.condition_type == 'DATE':
+                        condition_text.append(f'Date from {condition.date_start} to {condition.date_end}')
+                
+                category_rules.append({
+                    'id': rule.id,
+                    'name': rule.name,
+                    'description': ' AND '.join(condition_text) if condition_text else 'No conditions',
+                    'is_active': rule.is_active
+                })
+            
+            categories_data.append({
+                'id': category.id,
+                'name': category.name,
+                'icon': category.icon,
+                'color': category.color,
+                'rules': category_rules
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'rules': rules_data,
+            'categories': categories_data
+        })
+    
+    except Exception as e:
+        print(f"Error fetching rules and categories: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def api_delete_rule(request, rule_id):
+    """API endpoint to delete a rule via AJAX"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+    
+    try:
+        rule = Rule.objects.get(id=rule_id, user=request.user)
+        rule_name = rule.name
+        rule.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Rule "{rule_name}" deleted successfully'
+        })
+    
+    except Rule.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Rule not found'})
+    except Exception as e:
+        print(f"Error deleting rule: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)})
