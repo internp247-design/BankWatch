@@ -2538,6 +2538,340 @@ def export_rules_results_to_pdf(request):
 
 
 @login_required
+def export_rules_results_ajax_excel(request):
+    """AJAX endpoint for Excel export - returns Excel as base64 in JSON response without page refresh"""
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST method required'}, status=400)
+    
+    try:
+        import base64
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from io import BytesIO
+        from datetime import datetime
+        
+        print("DEBUG - Starting AJAX Excel export process")
+        
+        # Get filter data from POST request
+        rule_ids = request.POST.getlist('rule_ids')
+        category_ids = request.POST.getlist('category_ids')
+        transaction_ids = request.POST.getlist('transaction_ids')
+        
+        selected_rule_ids = [int(rid) for rid in rule_ids if rid.isdigit()]
+        selected_category_ids = [int(cid) for cid in category_ids if cid.isdigit()]
+        transaction_ids_list = [int(tid) for tid in transaction_ids if tid.isdigit()]
+        
+        print(f"DEBUG - AJAX Excel: rules={selected_rule_ids}, categories={selected_category_ids}, transactions={len(transaction_ids_list)}")
+        
+        # Get the filtered transactions from the request, preserving the exact order from UI
+        if transaction_ids_list:
+            # Fetch all transactions but preserve the order they were passed from frontend
+            all_transactions = Transaction.objects.filter(
+                id__in=transaction_ids_list,
+                statement__account__user=request.user
+            ).select_related('statement', 'statement__account')
+            
+            # Create a mapping of ID to transaction
+            tx_map = {tx.id: tx for tx in all_transactions}
+            
+            # Rebuild list in the order received from frontend (which matches UI table order)
+            transactions = []
+            for tid in transaction_ids_list:
+                if tid in tx_map:
+                    transactions.append(tx_map[tid])
+        else:
+            # Fallback to all transactions if no transaction IDs provided
+            transactions = Transaction.objects.filter(
+                statement__account__user=request.user
+            ).select_related('statement', 'statement__account').order_by('-date')
+        
+        # Build results from transactions (matching the same logic as PDF)
+        engine = RulesEngine(request.user)
+        from .rules_engine import CustomCategoryRulesEngine
+        custom_category_engine = CustomCategoryRulesEngine(request.user)
+        
+        excel_results = []
+        total_amount = 0
+        
+        for tx in transactions:
+            tx_data = {
+                'date': tx.date,
+                'description': tx.description,
+                'amount': float(tx.amount),
+                'transaction_type': tx.transaction_type
+            }
+            
+            # Check for rule and category match
+            matched_rule = engine.find_matching_rule(tx_data)
+            matched_custom_category = custom_category_engine.apply_rules_to_transaction(tx_data)
+            
+            matched_rule_name = matched_rule.name if matched_rule else '-'
+            matched_category_name = matched_custom_category.name if matched_custom_category else '-'
+            
+            # Include in Excel if matches selected filters
+            include_in_excel = False
+            if selected_rule_ids or selected_category_ids:
+                if selected_rule_ids and matched_rule and matched_rule.id in selected_rule_ids:
+                    include_in_excel = True
+                elif selected_category_ids and matched_custom_category and matched_custom_category.id in selected_category_ids:
+                    include_in_excel = True
+            else:
+                # If no filters selected, include all with matches
+                if matched_rule or matched_custom_category:
+                    include_in_excel = True
+            
+            if include_in_excel:
+                amount = float(tx.amount)
+                excel_results.append({
+                    'date': tx.date,
+                    'description': tx.description,
+                    'amount': amount,
+                    'account_name': tx.statement.account.account_name if tx.statement and tx.statement.account else 'Unknown',
+                    'matched_rule_name': matched_rule_name,
+                    'matched_custom_category_name': matched_category_name,
+                })
+                total_amount += amount
+        
+        # Get rule and category names for display
+        rule_names = 'None'
+        category_names = 'None'
+        
+        try:
+            selected_rules = Rule.objects.filter(id__in=selected_rule_ids, user=request.user)
+            rule_names = ', '.join([rule.name for rule in selected_rules]) if selected_rules.exists() else "None"
+        except:
+            pass
+        
+        try:
+            selected_categories = CustomCategory.objects.filter(id__in=selected_category_ids, user=request.user)
+            category_names = ', '.join([cat.name for cat in selected_categories]) if selected_categories.exists() else "None"
+        except:
+            pass
+        
+        # Create Excel workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = 'Filtered Results'
+        
+        # Define styles
+        header_fill = PatternFill(start_color='0D47A1', end_color='0D47A1', fill_type='solid')
+        header_font = Font(bold=True, color='FFFFFF', size=11)
+        border = Border(
+            left=Side(style='thin', color='D3D3D3'),
+            right=Side(style='thin', color='D3D3D3'),
+            top=Side(style='thin', color='D3D3D3'),
+            bottom=Side(style='thin', color='D3D3D3')
+        )
+        center_align = Alignment(horizontal='center', vertical='center')
+        left_align = Alignment(horizontal='left', vertical='center')
+        
+        # Professional Report Header Layout
+        current_date = datetime.now()
+        current_row = 1
+        
+        # Row 1: Date and Day on left side
+        cell = ws.cell(row=current_row, column=1)
+        cell.value = f"Date: {current_date.strftime('%Y-%m-%d')}   Day: {current_date.strftime('%A')}"
+        cell.font = Font(bold=True, size=10)
+        current_row += 1
+        
+        # Row 2: Empty line for spacing
+        current_row += 1
+        
+        # Row 3: Project Name "BANKWATCH" - Centered, merged across columns
+        ws.merge_cells(f'A{current_row}:F{current_row}')
+        cell = ws.cell(row=current_row, column=1)
+        cell.value = "BANKWATCH - Filtered Transactions Report"
+        cell.font = Font(bold=True, size=14, color='FFFFFF')
+        cell.fill = PatternFill(start_color='0D47A1', end_color='0D47A1', fill_type='solid')
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        current_row += 1
+        
+        # Row 4: Selected Rules
+        cell = ws.cell(row=current_row, column=1)
+        cell.value = "Selected Rules:"
+        cell.font = Font(bold=True, size=11)
+        
+        cell = ws.cell(row=current_row, column=2)
+        cell.value = rule_names
+        current_row += 1
+        
+        # Row 5: Selected Categories
+        cell = ws.cell(row=current_row, column=1)
+        cell.value = "Selected Categories:"
+        cell.font = Font(bold=True, size=11)
+        
+        cell = ws.cell(row=current_row, column=2)
+        cell.value = category_names
+        current_row += 2
+        
+        # Prepare headers
+        headers = ['Date', 'Account', 'Description', 'Amount', 'Matched Rule', 'Category Applied']
+        column_widths = [12, 18, 35, 12, 20, 20]
+        
+        # Add headers
+        table_start_row = current_row
+        for col_num, header in enumerate(headers, 1):
+            cell = ws.cell(row=table_start_row, column=col_num)
+            cell.value = header
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.border = border
+            cell.alignment = center_align
+        
+        # Set column widths
+        for col_num, width in enumerate(column_widths, 1):
+            ws.column_dimensions[chr(64 + col_num)].width = width
+        
+        print(f"DEBUG - Adding {len(excel_results)} filtered transactions to Excel")
+        
+        # Add filtered transaction data
+        row_num = table_start_row + 1
+        
+        for result in excel_results:
+            try:
+                col_num = 1
+                
+                # Date
+                cell = ws.cell(row=row_num, column=col_num)
+                if isinstance(result['date'], str):
+                    cell.value = result['date']
+                else:
+                    cell.value = result['date'].strftime('%Y-%m-%d') if hasattr(result['date'], 'strftime') else str(result['date'])
+                cell.border = border
+                cell.alignment = center_align
+                col_num += 1
+                
+                # Account
+                cell = ws.cell(row=row_num, column=col_num)
+                cell.value = result.get('account_name', 'Unknown')
+                cell.border = border
+                cell.alignment = left_align
+                col_num += 1
+                
+                # Description
+                cell = ws.cell(row=row_num, column=col_num)
+                cell.value = result['description'] if result['description'] else ''
+                cell.border = border
+                cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+                col_num += 1
+                
+                # Amount with Indian Rupees formatting
+                amount = float(result['amount'])
+                cell = ws.cell(row=row_num, column=col_num)
+                cell.value = amount
+                cell.border = border
+                cell.number_format = '₹ #,##0.00'
+                cell.alignment = center_align
+                col_num += 1
+                
+                # Matched Rule Name
+                cell = ws.cell(row=row_num, column=col_num)
+                cell.value = result.get('matched_rule_name', '-')
+                cell.border = border
+                cell.alignment = left_align
+                col_num += 1
+                
+                # Category Applied
+                cell = ws.cell(row=row_num, column=col_num)
+                cell.value = result.get('matched_custom_category_name', '-')
+                cell.border = border
+                cell.alignment = left_align
+                
+                row_num += 1
+            except Exception as e:
+                print(f"ERROR - Failed to add row: {e}")
+                continue
+        
+        # Add Summary Section
+        summary_row = row_num + 2
+        
+        # Summary Header
+        cell = ws.cell(row=summary_row, column=1)
+        cell.value = "FILTERED SUMMARY"
+        cell.font = Font(bold=True, size=12, color='FFFFFF')
+        cell.fill = PatternFill(start_color='0D47A1', end_color='0D47A1', fill_type='solid')
+        cell.border = border
+        summary_row += 1
+        
+        # Total Transactions
+        cell = ws.cell(row=summary_row, column=1)
+        cell.value = "Total Filtered Transactions:"
+        cell.font = Font(bold=True, size=11)
+        cell.border = border
+        
+        cell = ws.cell(row=summary_row, column=2)
+        cell.value = len(excel_results)
+        cell.font = Font(size=11)
+        cell.border = border
+        summary_row += 1
+        
+        # Total Amount
+        cell = ws.cell(row=summary_row, column=1)
+        cell.value = "Total Filtered Amount:"
+        cell.font = Font(bold=True, size=11)
+        cell.border = border
+        
+        cell = ws.cell(row=summary_row, column=2)
+        cell.value = total_amount
+        cell.font = Font(size=11)
+        cell.border = border
+        cell.number_format = '₹ #,##0.00'
+        summary_row += 1
+        
+        # Rules Selected Count
+        cell = ws.cell(row=summary_row, column=1)
+        cell.value = "Rules Selected:"
+        cell.font = Font(bold=True, size=11)
+        cell.border = border
+        
+        cell = ws.cell(row=summary_row, column=2)
+        cell.value = len(selected_rule_ids)
+        cell.font = Font(size=11)
+        cell.border = border
+        summary_row += 1
+        
+        # Categories Selected Count
+        cell = ws.cell(row=summary_row, column=1)
+        cell.value = "Categories Selected:"
+        cell.font = Font(bold=True, size=11)
+        cell.border = border
+        
+        cell = ws.cell(row=summary_row, column=2)
+        cell.value = len(selected_category_ids)
+        cell.font = Font(size=11)
+        cell.border = border
+        
+        # Save to BytesIO buffer
+        excel_buffer = BytesIO()
+        wb.save(excel_buffer)
+        excel_buffer.seek(0)
+        
+        # Get Excel data and encode to base64
+        excel_data = excel_buffer.getvalue()
+        excel_base64 = base64.b64encode(excel_data).decode('utf-8')
+        
+        print("DEBUG - Excel file generated successfully")
+        
+        return JsonResponse({
+            'success': True,
+            'excel_data': excel_base64,
+            'filename': 'filtered_rules_results.xlsx'
+        })
+        
+    except Exception as error:
+        error_msg = str(error)
+        print(f"ERROR - Exception in export_rules_results_ajax_excel: {error_msg}")
+        import traceback
+        print(f"ERROR - Traceback: {traceback.format_exc()}")
+        return JsonResponse({
+            'success': False,
+            'error': error_msg
+        }, status=500)
+
+
+@login_required
 def export_rules_results_ajax_pdf(request):
     """AJAX endpoint for PDF export - returns PDF as base64 in JSON response without page refresh"""
     

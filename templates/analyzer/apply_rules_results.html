@@ -1302,18 +1302,86 @@
     }
 
     function downloadRulesExcel() {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '{% url "export_rules_results" %}';
+        // Get selected rules, categories, and transaction IDs from the UI (matching PDF logic)
+        const selectedRuleIds = Array.from(document.querySelectorAll('.rule-item.active'))
+            .map(el => el.dataset.ruleId)
+            .filter(id => id);
         
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (csrfToken) {
-            form.appendChild(csrfToken.cloneNode());
+        const selectedCategoryIds = Array.from(document.querySelectorAll('.category-item.active'))
+            .map(el => el.dataset.categoryId)
+            .filter(id => id);
+        
+        // Get transaction IDs from visible rows in the table
+        const transactionIds = Array.from(document.querySelectorAll('#resultsTable tbody tr'))
+            .map(row => row.dataset.transactionId)
+            .filter(id => id);
+        
+        if (transactionIds.length === 0) {
+            alert('No transactions to export. Please apply filters first.');
+            return;
         }
         
-        document.body.appendChild(form);
-        form.submit();
-        document.body.removeChild(form);
+        // Show loading indicator
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        if (loadingOverlay) {
+            loadingOverlay.classList.remove('hidden');
+        }
+        
+        // Prepare form data
+        const formData = new FormData();
+        selectedRuleIds.forEach(id => formData.append('rule_ids', id));
+        selectedCategoryIds.forEach(id => formData.append('category_ids', id));
+        transactionIds.forEach(id => formData.append('transaction_ids', id));
+        
+        // Get CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        // Send AJAX POST request
+        fetch('{% url "export_rules_results_ajax_excel" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (loadingOverlay) {
+                loadingOverlay.classList.add('hidden');
+            }
+            
+            if (data.success) {
+                // Decode base64 Excel data and download
+                const binaryString = atob(data.excel_data);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                
+                // Create download link
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = data.filename || 'filtered_rules_results.xlsx';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                
+                // Show success message
+                alert('Excel file downloaded successfully!');
+            } else {
+                alert('Error: ' + (data.error || 'Failed to export Excel'));
+            }
+        })
+        .catch(error => {
+            if (loadingOverlay) {
+                loadingOverlay.classList.add('hidden');
+            }
+            console.error('Error downloading Excel:', error);
+            alert('Error downloading Excel file: ' + error.message);
+        });
     }
 
     // Initialize on page load
