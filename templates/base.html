@@ -58,17 +58,14 @@
                             </a>
                         </li>
                         
-                        <!-- Rules Dropdown (keeping for backward compatibility) -->
+                        <!-- Apply Rules & Categories Dropdown -->
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="rulesDropdown" role="button" data-bs-toggle="dropdown">
-                                <i class="fas fa-cogs"></i> More
+                            <a class="nav-link dropdown-toggle" href="#" id="applyDropdown" role="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-play-circle"></i> Apply
                             </a>
-                            <ul class="dropdown-menu" aria-labelledby="rulesDropdown">
-                                <li><a class="dropdown-item" href="{% url 'rules_list' %}"><i class="fas fa-list"></i> All Rules</a></li>
-                                <li><a class="dropdown-item" href="{% url 'test_rules' %}"><i class="fas fa-flask"></i> Test Rules</a></li>
-                                <li><a class="dropdown-item" href="{% url 'apply_rules' %}"><i class="fas fa-play"></i> Apply Rules</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{% url 'custom_categories_list' %}"><i class="fas fa-folder"></i> My Categories</a></li>
+                            <ul class="dropdown-menu" aria-labelledby="applyDropdown">
+                                <li><a class="dropdown-item" href="{% url 'apply_rules' %}"><i class="fas fa-filter"></i> Apply Rules</a></li>
+                                <li><a class="dropdown-item" href="{% url 'apply_custom_category_rules' %}"><i class="fas fa-folder-plus"></i> Apply Categories</a></li>
                             </ul>
                         </li>
                         
