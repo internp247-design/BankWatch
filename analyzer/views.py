@@ -2816,9 +2816,10 @@ def export_rules_results_ajax_pdf(request):
         elements.append(table)
         elements.append(Spacer(1, 0.3*inch))
         
-        # Add summary section
+        # Add summary section with pie chart layout
         elements.append(Paragraph("SUMMARY", heading_style))
         
+        # Prepare summary table data
         summary_data = [
             ['Metric', 'Value'],
             ['Total Filtered Transactions', str(len(pdf_results))],
@@ -2841,10 +2842,8 @@ def export_rules_results_ajax_pdf(request):
             ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
         ]))
         
-        elements.append(summary_table)
-        elements.append(Spacer(1, 0.2*inch))
-        
-        # Try to generate and include pie chart - MATCH UI LOGIC EXACTLY
+        # Try to generate pie chart for side-by-side layout
+        chart_image = None
         try:
             import matplotlib.pyplot as plt
             import matplotlib
@@ -2876,10 +2875,8 @@ def export_rules_results_ajax_pdf(request):
             breakdown = combined_breakdown if combined_breakdown else {}
             
             if breakdown:
-                elements.append(Paragraph("SPENDING BREAKDOWN", heading_style))
-                
                 # Create pie chart with SAME colors and style as UI
-                fig, ax = plt.subplots(figsize=(4, 3), dpi=100)
+                fig, ax = plt.subplots(figsize=(3.5, 3), dpi=100)
                 
                 # Colors matching UI chart's generateColorsForMixedChart function
                 rule_colors = ['#1e3c72', '#2a5298', '#0052cc', '#004085', '#1a3a52']
@@ -2918,24 +2915,16 @@ def export_rules_results_ajax_pdf(request):
                     autopct='%1.1f%%',
                     colors=colors,
                     startangle=90,
-                    textprops={'fontsize': 9}
+                    textprops={'fontsize': 8}
                 )
                 
                 # Make percentage text bold and white
                 for autotext in autotexts:
                     autotext.set_color('white')
                     autotext.set_fontweight('bold')
-                    autotext.set_fontsize(8)
+                    autotext.set_fontsize(7)
                 
-                # Set title based on what's selected
-                if selected_rule_ids and selected_category_ids:
-                    chart_title = 'Spending by Rules & Categories'
-                elif selected_rule_ids:
-                    chart_title = 'Spending by Rule'
-                else:
-                    chart_title = 'Spending by Category'
-                
-                ax.set_title(chart_title, fontweight='bold', fontsize=10)
+                ax.set_title('Spending Breakdown\n(Filtered Data)', fontweight='bold', fontsize=9)
                 
                 # Save pie chart to bytes buffer
                 chart_buffer = BytesIO()
@@ -2944,16 +2933,33 @@ def export_rules_results_ajax_pdf(request):
                 chart_buffer.seek(0)
                 plt.close(fig)
                 
-                # Add chart to PDF
-                chart_image = Image(chart_buffer, width=3.5*inch, height=2.5*inch)
-                elements.append(chart_image)
-                elements.append(Spacer(1, 0.2*inch))
+                # Create image object for side-by-side layout
+                chart_image = Image(chart_buffer, width=3*inch, height=2.8*inch)
         except ImportError:
             print("WARNING - matplotlib not available, skipping pie chart")
         except Exception as chart_error:
             print(f"WARNING - Failed to generate pie chart: {chart_error}")
             import traceback
             print(traceback.format_exc())
+        
+        # Create side-by-side layout if chart is available
+        if chart_image:
+            # Create 2-column layout with chart on left and summary table on right
+            layout_table = Table([[chart_image, summary_table]], colWidths=[3.5*inch, 4.5*inch])
+            layout_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (0, 0), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ]))
+            elements.append(layout_table)
+        else:
+            # If no chart, just add the summary table
+            elements.append(summary_table)
+        
+        elements.append(Spacer(1, 0.2*inch))
         
         # Build PDF
         doc.build(elements)
