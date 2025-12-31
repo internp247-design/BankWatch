@@ -2844,34 +2844,35 @@ def export_rules_results_ajax_pdf(request):
         elements.append(summary_table)
         elements.append(Spacer(1, 0.2*inch))
         
-        # Try to generate and include pie chart - USE SAME DATA AS UI
+        # Try to generate and include pie chart - MATCH UI LOGIC EXACTLY
         try:
             import matplotlib.pyplot as plt
             import matplotlib
             matplotlib.use('Agg')  # Non-interactive backend
             
-            # MATCH UI LOGIC: Combine categories and rules breakdown (same as UI chart)
-            # This ensures PDF chart matches UI chart exactly
+            # MATCH UI LOGIC: Extract BOTH rules and categories from pdf_results
+            # This mirrors the UI's combinedData logic which includes both rules and categories
             combined_breakdown = {}
             
-            # Add categories breakdown
-            category_breakdown = {}
-            for result in pdf_results:
-                cat_name = result.get('matched_custom_category_name', '-')
-                if cat_name and cat_name != '-':
-                    category_breakdown[cat_name] = category_breakdown.get(cat_name, 0) + result['amount']
-                    combined_breakdown[cat_name] = combined_breakdown.get(cat_name, 0) + result['amount']
-            
-            # Add rules breakdown (if no categories selected)
-            rule_breakdown = {}
-            if not selected_category_ids:  # Only show rules if no categories selected
+            # If user selected rules, extract matched rules from pdf_results
+            if selected_rule_ids:
                 for result in pdf_results:
                     rule_name = result.get('matched_rule_name', '-')
                     if rule_name and rule_name != '-':
-                        rule_breakdown[rule_name] = rule_breakdown.get(rule_name, 0) + result['amount']
-                        combined_breakdown[rule_name] = combined_breakdown.get(rule_name, 0) + result['amount']
+                        # Use same format as UI (with emoji prefix)
+                        label = f"🔵 {rule_name}"
+                        combined_breakdown[label] = combined_breakdown.get(label, 0) + result['amount']
             
-            # Use combined breakdown (categories take priority, rules as fallback)
+            # If user selected categories, extract matched categories from pdf_results
+            if selected_category_ids:
+                for result in pdf_results:
+                    cat_name = result.get('matched_custom_category_name', '-')
+                    if cat_name and cat_name != '-':
+                        # Use same format as UI (with emoji prefix)
+                        label = f"📁 {cat_name}"
+                        combined_breakdown[label] = combined_breakdown.get(label, 0) + result['amount']
+            
+            # Use combined breakdown from filtered results
             breakdown = combined_breakdown if combined_breakdown else {}
             
             if breakdown:
@@ -2880,26 +2881,42 @@ def export_rules_results_ajax_pdf(request):
                 # Create pie chart with SAME colors and style as UI
                 fig, ax = plt.subplots(figsize=(4, 3), dpi=100)
                 
-                # Colors matching UI chart
-                colors = ['#1e3c72', '#2a5298', '#0D47A1', '#1565C0', '#1976D2', '#1E88E5', '#42A5F5', '#64B5F6']
-                category_colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2']
+                # Colors matching UI chart's generateColorsForMixedChart function
+                rule_colors = ['#1e3c72', '#2a5298', '#0052cc', '#004085', '#1a3a52']
+                category_colors = ['#28a745', '#20c997', '#17a2b8', '#138496', '#0c5460']
                 
-                # Use category colors if showing categories, rule colors if showing rules
-                used_colors = category_colors if category_breakdown else colors
+                # Generate colors for each label (matching UI logic)
+                colors = []
+                rule_index = 0
+                category_index = 0
                 
                 labels = list(breakdown.keys())
-                sizes = list(breakdown.values())
+                for label in labels:
+                    if label.startswith('🔵'):
+                        # It's a rule - use rule colors
+                        colors.append(rule_colors[rule_index % len(rule_colors)])
+                        rule_index += 1
+                    elif label.startswith('📁'):
+                        # It's a category - use category colors
+                        colors.append(category_colors[category_index % len(category_colors)])
+                        category_index += 1
+                
+                sizes = [breakdown[label] for label in labels]
                 
                 # Sort by size (descending) to match UI behavior
-                sorted_data = sorted(zip(labels, sizes), key=lambda x: x[1], reverse=True)
+                sorted_data = sorted(zip(labels, sizes, colors), key=lambda x: x[1], reverse=True)
                 labels = [x[0] for x in sorted_data]
                 sizes = [x[1] for x in sorted_data]
+                colors = [x[2] for x in sorted_data]
+                
+                # Remove emoji prefixes for display in PDF
+                display_labels = [label.replace('🔵 ', '').replace('📁 ', '') for label in labels]
                 
                 wedges, texts, autotexts = ax.pie(
                     sizes,
-                    labels=labels,
+                    labels=display_labels,
                     autopct='%1.1f%%',
-                    colors=used_colors[:len(labels)],
+                    colors=colors,
                     startangle=90,
                     textprops={'fontsize': 9}
                 )
@@ -2910,7 +2927,14 @@ def export_rules_results_ajax_pdf(request):
                     autotext.set_fontweight('bold')
                     autotext.set_fontsize(8)
                 
-                chart_title = 'Spending by Category' if category_breakdown else 'Spending by Rule'
+                # Set title based on what's selected
+                if selected_rule_ids and selected_category_ids:
+                    chart_title = 'Spending by Rules & Categories'
+                elif selected_rule_ids:
+                    chart_title = 'Spending by Rule'
+                else:
+                    chart_title = 'Spending by Category'
+                
                 ax.set_title(chart_title, fontweight='bold', fontsize=10)
                 
                 # Save pie chart to bytes buffer
