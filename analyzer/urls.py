@@ -44,3 +44,4 @@ urlpatterns = [
     path('export/rules-results-pdf/', views.export_rules_results_to_pdf, name='export_rules_results_pdf'),
     path('export/rules-results-pdf-ajax/', views.export_rules_results_ajax_pdf, name='export_rules_results_ajax_pdf'),
     path('export/rules-results-excel-ajax/', views.export_rules_results_ajax_excel, name='export_rules_results_ajax_excel'),
+]
