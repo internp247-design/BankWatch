@@ -1164,6 +1164,69 @@
     </div>
 </div>
 
+<!-- Edit Rule Modal -->
+<div id="editRuleModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 2000; align-items: center; justify-content: center; flex-direction: column;">
+    <div style="background: white; border-radius: 12px; padding: 32px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+        <h5 style="margin-bottom: 24px; color: var(--dark); font-weight: 600;">
+            <i class="fas fa-edit"></i> Edit Rule
+        </h5>
+        
+        <form id="editRuleForm" method="POST">
+            {% csrf_token %}
+            <input type="hidden" id="editRuleId">
+            
+            <div class="form-group">
+                <label for="editRuleName">Rule Name</label>
+                <input type="text" id="editRuleName" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="editRuleCategory">Category</label>
+                <select id="editRuleCategory" required>
+                    <option value="">Select category...</option>
+                    {% for choice in rule_categories %}
+                        <option value="{{ choice }}">{{ choice }}</option>
+                    {% empty %}
+                        <option value="Income">Income</option>
+                        <option value="Expense">Expense</option>
+                        <option value="Transfer">Transfer</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="editRuleType">Rule Logic</label>
+                <select id="editRuleType" required>
+                    <option value="AND">ALL conditions must match</option>
+                    <option value="OR">ANY condition can match</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>Conditions</span>
+                    <span class="badge" id="editConditionCount" style="background: var(--primary); color: white; border-radius: 20px; padding: 4px 12px; font-size: 12px;">0</span>
+                </label>
+                <button type="button" class="btn btn-secondary" style="width: 100%; margin-top: 10px;" onclick="openConditionBuilder()">
+                    <i class="fas fa-plus"></i> Add Condition
+                </button>
+                <div id="editConditionsList" style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+                    <!-- Conditions will be rendered here -->
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 12px; margin-top: 24px;">
+                <button type="button" class="btn btn-primary" id="saveEditRuleBtn" onclick="saveEditRule()" style="flex: 1;">
+                    <i class="fas fa-save"></i> Save
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="closeEditRuleModal()" style="flex: 1;">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Edit Category Modal -->
 <div id="editCategoryModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 2000; align-items: center; justify-content: center; flex-direction: column;">
     <div style="background: white; border-radius: 12px; padding: 32px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
@@ -1299,6 +1362,7 @@
     let categoryConditions = [];
     let selectedIcon = "🛒";
     let editingCategoryId = null;
+    let editingRuleId = null;
     let ruleLogicType = "AND";
 
     // Tab switching
@@ -1411,6 +1475,8 @@
 
     function updateConditionCount() {
         const count = conditions.length;
+        
+        // Update creation form badge
         const badge = document.getElementById('conditionCount');
         if (badge) {
             badge.textContent = count + ' added';
@@ -1422,7 +1488,40 @@
                 badge.style.color = '#666';
             }
         }
+        
+        // Update edit form badge
+        const editBadge = document.getElementById('editConditionCount');
+        if (editBadge) {
+            editBadge.textContent = count;
+        }
+        
+        // Update edit form conditions display
+        const editDisplay = document.getElementById('editConditionsList');
+        if (editDisplay) {
+            if (conditions.length === 0) {
+                editDisplay.innerHTML = '<div class="empty-state" style="padding: 20px 0; font-size: 13px;"><i class="fas fa-inbox"></i><br><small>No conditions yet</small></div>';
+            } else {
+                let html = '';
+                conditions.forEach((condition, index) => {
+                    html += `
+                        <div class="condition-item">
+                            <div class="condition-type">${getConditionTypeLabel(condition.type)}</div>
+                            <div class="condition-details">
+                                ${getConditionDescription(condition)}
+                            </div>
+                            <div class="condition-actions">
+                                <button type="button" class="btn-remove-condition" onclick="removeCondition(${index})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                editDisplay.innerHTML = html;
+            }
+        }
     }
+
 
     function renderConditions() {
         const display = document.getElementById('conditionsDisplay');
@@ -1685,9 +1784,28 @@
     }
 
     function editRule(ruleId) {
-        // For now, show a notification that edit is being developed
-        showNotification('Rule editing is in development', 'info');
-        // TODO: Implement rule editing modal similar to category editing
+        // Fetch rule data
+        fetch(`/analyzer/api/rule/${ruleId}/get/`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    editingRuleId = ruleId;
+                    document.getElementById('editRuleId').value = ruleId;
+                    document.getElementById('editRuleName').value = data.rule_name;
+                    document.getElementById('editRuleCategory').value = data.category;
+                    document.getElementById('editRuleType').value = data.rule_type;
+                    
+                    // Set conditions
+                    conditions = data.conditions || [];
+                    renderConditions();
+                    updateConditionCount();
+                    
+                    document.getElementById('editRuleModal').style.display = 'flex';
+                } else {
+                    showNotification('Error loading rule: ' + data.message, 'error');
+                }
+            })
+            .catch(e => showNotification('Error: ' + e, 'error'));
     }
 
     function deleteCategoryRule(ruleId) {
@@ -1712,6 +1830,77 @@
         // For now, show a notification that edit is being developed
         showNotification('Rule editing is in development', 'info');
         // TODO: Implement category rule editing modal
+    }
+
+    function closeEditRuleModal() {
+        document.getElementById('editRuleModal').style.display = 'none';
+        editingRuleId = null;
+        conditions = [];
+        renderConditions();
+    }
+
+    function saveEditRule() {
+        if (!editingRuleId) return;
+        
+        const name = document.getElementById('editRuleName').value.trim();
+        const category = document.getElementById('editRuleCategory').value;
+        const ruleType = document.getElementById('editRuleType').value;
+        
+        if (!name) {
+            showNotification('Rule name is required', 'warning');
+            return;
+        }
+        
+        if (!category) {
+            showNotification('Category is required', 'warning');
+            return;
+        }
+        
+        if (conditions.length === 0) {
+            showNotification('At least one condition is required', 'warning');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('name', name);
+        formData.append('category', category);
+        formData.append('rule_type', ruleType);
+        formData.append('conditions', JSON.stringify(conditions));
+        
+        const btn = document.getElementById('saveEditRuleBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading"></span> Saving...';
+        
+        fetch(`/analyzer/api/rule/${editingRuleId}/update/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            body: formData
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(`Rule "${name}" updated!`, 'success');
+                
+                // Update the card in the UI
+                const card = document.querySelector(`[data-rule-id="${editingRuleId}"]`);
+                if (card) {
+                    const ruleName = card.querySelector('.rule-name');
+                    if (ruleName) ruleName.textContent = name;
+                }
+                
+                closeEditRuleModal();
+                
+                // Refresh rules list
+                fetch(`/analyzer/create-your-own/#rules`);
+            } else {
+                showNotification(data.message || 'Error updating rule', 'error');
+            }
+        })
+        .catch(e => showNotification('Error: ' + e, 'error'))
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save"></i> Save';
+        });
     }
 
     // Category Edit/Delete Functions
@@ -1998,6 +2187,10 @@
         // Modal close on outside click
         document.getElementById('conditionModal')?.addEventListener('click', (e) => {
             if (e.target.id === 'conditionModal') closeConditionBuilder();
+        });
+
+        document.getElementById('editRuleModal')?.addEventListener('click', (e) => {
+            if (e.target.id === 'editRuleModal') closeEditRuleModal();
         });
 
         document.getElementById('editCategoryModal')?.addEventListener('click', (e) => {

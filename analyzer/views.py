@@ -1,4 +1,5 @@
 import os
+import json
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -3369,6 +3370,134 @@ def create_rule_ajax(request):
         return JsonResponse({
             'success': False,
             'message': f'Error creating rule: {str(e)}'
+        })
+
+
+@login_required
+def get_rule_ajax(request, rule_id):
+    """AJAX endpoint to get rule data for editing"""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'GET required'}, status=400)
+    
+    try:
+        rule = get_object_or_404(Rule, id=rule_id, user=request.user)
+        
+        # Get conditions
+        conditions = []
+        for condition in rule.conditions.all():
+            cond_data = {'type': condition.condition_type.lower()}
+            
+            if condition.condition_type == 'KEYWORD':
+                cond_data['keyword'] = condition.keyword
+                cond_data['match_type'] = condition.keyword_match_type
+            elif condition.condition_type == 'AMOUNT':
+                cond_data['operator'] = condition.amount_operator
+                cond_data['value'] = float(condition.amount_value) if condition.amount_value else None
+                if condition.amount_value2:
+                    cond_data['value2'] = float(condition.amount_value2)
+            elif condition.condition_type == 'DATE':
+                cond_data['from'] = str(condition.date_start) if condition.date_start else None
+                cond_data['to'] = str(condition.date_end) if condition.date_end else None
+            elif condition.condition_type == 'SOURCE':
+                cond_data['source'] = condition.source_channel
+            
+            conditions.append(cond_data)
+        
+        return JsonResponse({
+            'success': True,
+            'rule_id': rule.id,
+            'rule_name': rule.name,
+            'category': rule.category,
+            'rule_type': rule.rule_type,
+            'conditions': conditions
+        })
+    
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error fetching rule: {str(e)}'
+        })
+
+
+@login_required
+def update_rule_ajax(request, rule_id):
+    """AJAX endpoint to update a rule with conditions"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'POST required'}, status=400)
+    
+    try:
+        rule = get_object_or_404(Rule, id=rule_id, user=request.user)
+        
+        name = request.POST.get('name', '').strip()
+        category = request.POST.get('category', '').strip()
+        rule_type = request.POST.get('rule_type', 'AND')
+        conditions_json = request.POST.get('conditions', '[]')
+        
+        # Validation
+        if not name:
+            return JsonResponse({'success': False, 'message': 'Rule name is required'})
+        if not category:
+            return JsonResponse({'success': False, 'message': 'Category is required'})
+        
+        # Parse conditions
+        try:
+            conditions = json.loads(conditions_json)
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'message': 'Invalid conditions format'})
+        
+        if not conditions:
+            return JsonResponse({'success': False, 'message': 'At least one condition is required'})
+        
+        # Update rule
+        rule.name = name
+        rule.category = category
+        rule.rule_type = rule_type
+        rule.save()
+        
+        # Delete old conditions and create new ones
+        rule.conditions.all().delete()
+        
+        for idx, cond in enumerate(conditions):
+            if cond['type'] == 'keyword':
+                RuleCondition.objects.create(
+                    rule=rule,
+                    condition_type='KEYWORD',
+                    keyword=cond.get('keyword', ''),
+                    keyword_match_type=cond.get('match_type', 'CONTAINS').upper()
+                )
+            elif cond['type'] == 'amount':
+                RuleCondition.objects.create(
+                    rule=rule,
+                    condition_type='AMOUNT',
+                    amount_operator=cond.get('operator', 'GREATER_THAN').upper(),
+                    amount_value=cond.get('value'),
+                    amount_value2=cond.get('value2')
+                )
+            elif cond['type'] == 'date':
+                RuleCondition.objects.create(
+                    rule=rule,
+                    condition_type='DATE',
+                    date_start=cond.get('from'),
+                    date_end=cond.get('to')
+                )
+            elif cond['type'] == 'source':
+                RuleCondition.objects.create(
+                    rule=rule,
+                    condition_type='SOURCE',
+                    source_channel=cond.get('source', 'UPI')
+                )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Rule "{name}" updated successfully!',
+            'rule_id': rule.id,
+            'rule_name': rule.name
+        })
+    
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error updating rule: {str(e)}'
         })
 
 

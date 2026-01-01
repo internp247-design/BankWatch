@@ -20,6 +20,8 @@ urlpatterns = [
     
     # AJAX Endpoints for Create Your Own
     path('api/rule/create/', views.create_rule_ajax, name='create_rule_ajax'),
+    path('api/rule/<int:rule_id>/get/', views.get_rule_ajax, name='get_rule_ajax'),
+    path('api/rule/<int:rule_id>/update/', views.update_rule_ajax, name='update_rule_ajax'),
     path('api/category/create/', views.create_category_ajax, name='create_category_ajax'),
     path('api/category/<int:category_id>/edit/', views.update_category_ajax, name='update_category_ajax'),
     path('api/category/<int:category_id>/delete/', views.delete_category_ajax, name='delete_category_ajax'),
