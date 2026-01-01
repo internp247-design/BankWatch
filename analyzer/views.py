@@ -404,25 +404,13 @@ def create_account(request):
 
 @login_required
 def rules_list(request):
-    """List all rules"""
-    rules = Rule.objects.filter(user=request.user).order_by('-created_at')
-    return render(request, 'analyzer/rules_list.html', {'rules': rules})
+    """Redirect to new unified create-your-own page"""
+    return redirect('create_your_own')
 
 @login_required
 def create_rule(request):
-    """Create a new rule"""
-    if request.method == 'POST':
-        form = RuleForm(request.POST)
-        if form.is_valid():
-            rule = form.save(commit=False)
-            rule.user = request.user
-            rule.save()
-            messages.success(request, f'Rule "{rule.name}" created successfully!')
-            return redirect('edit_rule', rule_id=rule.id)
-    else:
-        form = RuleForm()
-    
-    return render(request, 'analyzer/create_rule.html', {'form': form})
+    """Redirect to new unified create-your-own page"""
+    return redirect('create_your_own')
 
 @login_required
 def edit_rule(request, rule_id):
@@ -839,18 +827,8 @@ def rules_application_results(request):
 
 @login_required
 def rules_categorized(request):
-    """Show rules grouped by category for the current user."""
-    user_rules = Rule.objects.filter(user=request.user).order_by('category', '-created_at')
-    grouped = defaultdict(list)
-    for rule in user_rules:
-        grouped[rule.get_category_display()].append(rule)
-
-    # Convert to list of tuples for template ordering
-    grouped_list = [(category, grouped[category]) for category in sorted(grouped.keys())]
-
-    return render(request, 'analyzer/rules_categorized.html', {
-        'grouped_rules': grouped_list,
-    })
+    """Redirect to new unified create-your-own page"""
+    return redirect('create_your_own')
 
 @login_required
 def bulk_delete_transactions(request, statement_id=None):
@@ -1075,85 +1053,19 @@ def change_rule_status_on_results(request):
 
 @login_required
 def create_custom_category_and_rule(request):
-    """Create a custom category and its rule in one interface"""
-    if request.method == 'POST':
-        category_form = CustomCategoryForm(request.POST)
-        
-        if category_form.is_valid():
-            # Save custom category
-            custom_category = category_form.save(commit=False)
-            custom_category.user = request.user
-            custom_category.save()
-            
-            # Redirect to create rule for this category
-            messages.success(request, f'Custom category "{custom_category.name}" created successfully!')
-            return redirect('create_custom_category_rule', category_id=custom_category.id)
-    else:
-        category_form = CustomCategoryForm()
-    
-    context = {
-        'form': category_form,
-        'page_title': 'Create Custom Category',
-        'step': 1,
-        'step_title': 'Step 1: Create Custom Category'
-    }
-    return render(request, 'analyzer/create_custom_category.html', context)
+    """Redirect to new unified create-your-own page"""
+    return redirect('create_your_own')
 
 
 @login_required
 def create_custom_category_rule(request, category_id):
-    """Create a rule for a custom category"""
-    custom_category = get_object_or_404(CustomCategory, id=category_id, user=request.user)
-    
-    if request.method == 'POST':
-        rule_form = CustomCategoryRuleForm(request.POST)
-        
-        if rule_form.is_valid():
-            with db_transaction.atomic():
-                # Save rule first
-                rule = rule_form.save(commit=False)
-                rule.user = request.user
-                rule.custom_category = custom_category
-                rule.save()
-                
-                # Now bind the formset to the saved rule
-                condition_formset = CustomCategoryRuleConditionFormSet(request.POST, instance=rule)
-                
-                if condition_formset.is_valid():
-                    # Save conditions
-                    condition_formset.save()
-                    messages.success(request, f'Rule "{rule.name}" created successfully for "{custom_category.name}"!')
-                    return redirect('custom_categories_list')
-                else:
-                    # If formset is invalid, delete the rule and redisplay the form with errors
-                    rule.delete()
-        else:
-            condition_formset = CustomCategoryRuleConditionFormSet()
-    else:
-        rule_form = CustomCategoryRuleForm()
-        condition_formset = CustomCategoryRuleConditionFormSet()
-    
-    context = {
-        'custom_category': custom_category,
-        'rule_form': rule_form,
-        'condition_formset': condition_formset,
-        'page_title': f'Create Rule for {custom_category.name}',
-        'step': 2,
-        'step_title': 'Step 2: Create Category Rule'
-    }
-    return render(request, 'analyzer/create_custom_category_rule.html', context)
+    """Redirect to new unified create-your-own page"""
+    return redirect('create_your_own')
 
 
-@login_required
 def custom_categories_list(request):
-    """List all custom categories for the user"""
-    custom_categories = CustomCategory.objects.filter(user=request.user).prefetch_related('rules')
-    
-    context = {
-        'custom_categories': custom_categories,
-        'page_title': 'My Custom Categories'
-    }
-    return render(request, 'analyzer/custom_categories_list.html', context)
+    """Redirect to new unified create-your-own page"""
+    return redirect('create_your_own')
 
 
 @login_required
