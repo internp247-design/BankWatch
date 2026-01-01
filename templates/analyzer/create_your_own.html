@@ -1572,126 +1572,175 @@
         iconElement.classList.add('selected');
         document.getElementById('editSelectedIcon').value = iconElement.getAttribute('data-icon');
     }
-
-    // Form Submission
-    document.getElementById('ruleForm')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        if (conditions.length === 0) {
-            showNotification('Please add at least one condition', 'warning');
-            return;
-        }
-
-        const formData = new FormData(this);
-        formData.append('conditions', JSON.stringify(conditions));
-
-        const btn = document.getElementById('submitRuleBtn');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="loading"></span> Creating...';
-
-        try {
-            const response = await fetch(this.action, {
-                method: 'POST',
-                body: formData
-            });
+    document.addEventListener('DOMContentLoaded', () => {
+        // Form Submission - Rule Form
+        document.getElementById('ruleForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
             
-            // Check if response is OK
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Server error:', response.status, errorText);
-                showNotification(`Server error: ${response.status}`, 'error');
+            console.log('Rule form submitted. Conditions:', conditions);
+            
+            if (conditions.length === 0) {
+                showNotification('Please add at least one condition', 'warning');
+                console.warn('No conditions added');
                 return;
             }
-            
-            const data = await response.json();
-            console.log('Rule creation response:', data);
-            
-            if (data.success) {
-                showNotification(`Rule "${data.rule_name}" created!`, 'success');
-                const newRule = `
-                    <div class="rule-item" data-rule-id="${data.rule_id}">
-                        <div class="rule-details">
-                            <div class="rule-name">${data.rule_name}</div>
-                            <div class="rule-condition">${data.rule_description}</div>
-                        </div>
-                        <div class="rule-actions">
-                            <i class="fas fa-edit" onclick="editRule(${data.rule_id})"></i>
-                            <i class="fas fa-trash" onclick="deleteRule(${data.rule_id})"></i>
-                        </div>
-                    </div>
-                `;
-                document.getElementById('rulesContainer').insertAdjacentHTML('afterbegin', newRule);
-                resetRuleForm();
-                updateCounts();
-            } else {
-                showNotification(data.message || 'Error creating rule', 'error');
-            }
-        } catch (error) {
-            console.error('Fetch error:', error);
-            showNotification('Error: ' + error.message, 'error');
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-plus"></i> Create Rule';
-        }
-    });
 
-    document.getElementById('categoryForm')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
+            const ruleName = document.getElementById('ruleName').value;
+            const ruleCategory = document.getElementById('ruleCategory').value;
+            const ruleType = document.getElementById('ruleLogicType').value;
+            
+            console.log('Form data:', { ruleName, ruleCategory, ruleType, conditions });
+
+            const formData = new FormData(this);
+            formData.append('conditions', JSON.stringify(conditions));
+
+            const btn = document.getElementById('submitRuleBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Creating...';
+
+            try {
+                console.log('Submitting to:', this.action);
+                const response = await fetch(this.action, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                console.log('Response status:', response.status, response.ok);
+                
+                // Check if response is OK
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Server error:', response.status, errorText);
+                    showNotification(`Server error: ${response.status}`, 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-plus"></i> Create Rule';
+                    return;
+                }
+                
+                const data = await response.json();
+                console.log('Rule creation response:', data);
+                
+                if (data.success) {
+                    showNotification(`Rule "${data.rule_name}" created!`, 'success');
+                    const newRule = `
+                        <div class="rule-item" data-rule-id="${data.rule_id}">
+                            <div class="rule-details">
+                                <div class="rule-name">${data.rule_name}</div>
+                                <div class="rule-condition">${data.rule_description}</div>
+                            </div>
+                            <div class="rule-actions">
+                                <i class="fas fa-edit" onclick="editRule(${data.rule_id})"></i>
+                                <i class="fas fa-trash" onclick="deleteRule(${data.rule_id})"></i>
+                            </div>
+                        </div>
+                    `;
+                    document.getElementById('rulesContainer').insertAdjacentHTML('afterbegin', newRule);
+                    resetRuleForm();
+                    updateCounts();
+                } else {
+                    showNotification(data.message || 'Error creating rule', 'error');
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                showNotification('Error: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-plus"></i> Create Rule';
+            }
+        });
+
+        // Form Submission - Category Form
+        document.getElementById('categoryForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const btn = document.getElementById('submitCategoryBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Creating...';
+
+            try {
+                const response = await fetch(this.action, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                // Check if response is OK
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Server error:', response.status, errorText);
+                    showNotification(`Server error: ${response.status}`, 'error');
+                    return;
+                }
+                
+                const data = await response.json();
+                console.log('Category creation response:', data);
+                
+                if (data.success) {
+                    showNotification(`Category "${data.category_name}" created!`, 'success');
+                    const newCategory = `
+                        <div class="category-card" data-category-id="${data.category_id}">
+                            <div class="category-header">
+                                <div class="category-icon-large">${data.category_icon}</div>
+                                <div class="category-info">
+                                    <h5>${data.category_name}</h5>
+                                    <p>0 rules</p>
+                                </div>
+                            </div>
+                            <div class="rules-list">
+                                <div class="empty-state" style="padding: 20px; font-size: 13px;">
+                                    <i class="fas fa-plus-circle"></i><br>
+                                    <small>No rules yet.</small>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    document.getElementById('categoriesContainer').insertAdjacentHTML('afterbegin', newCategory);
+                    resetCategoryForm();
+                    updateCounts();
+                } else {
+                    showNotification(data.message || 'Error creating category', 'error');
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                showNotification('Error: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check-circle"></i> Create Category';
+            }
+        });
         
-        const formData = new FormData(this);
-        const btn = document.getElementById('submitCategoryBtn');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="loading"></span> Creating...';
+        // Generate icon grid for creation
+        const iconGrid = document.getElementById('iconGrid');
+        icons.forEach((icon, idx) => {
+            const elem = document.createElement('div');
+            elem.className = 'category-icon' + (idx === 0 ? ' selected' : '');
+            elem.setAttribute('data-icon', icon);
+            elem.textContent = icon;
+            elem.onclick = () => selectIcon(elem);
+            iconGrid.appendChild(elem);
+        });
+        
+        // Generate icon grid for editing
+        const editIconGrid = document.getElementById('editIconGrid');
+        icons.forEach((icon, idx) => {
+            const elem = document.createElement('div');
+            elem.className = 'category-icon' + (idx === 0 ? ' selected' : '');
+            elem.setAttribute('data-icon', icon);
+            elem.textContent = icon;
+            elem.onclick = () => selectEditIcon(elem);
+            editIconGrid.appendChild(elem);
+        });
+        
+        updateCategoryPreview();
+        
+        // Modal close on outside click
+        document.getElementById('conditionModal')?.addEventListener('click', (e) => {
+            if (e.target.id === 'conditionModal') closeConditionBuilder();
+        });
 
-        try {
-            const response = await fetch(this.action, {
-                method: 'POST',
-                body: formData
-            });
-            
-            // Check if response is OK
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Server error:', response.status, errorText);
-                showNotification(`Server error: ${response.status}`, 'error');
-                return;
-            }
-            
-            const data = await response.json();
-            console.log('Category creation response:', data);
-            
-            if (data.success) {
-                showNotification(`Category "${data.category_name}" created!`, 'success');
-                const newCategory = `
-                    <div class="category-card" data-category-id="${data.category_id}">
-                        <div class="category-header">
-                            <div class="category-icon-large">${data.category_icon}</div>
-                            <div class="category-info">
-                                <h5>${data.category_name}</h5>
-                                <p>0 rules</p>
-                            </div>
-                        </div>
-                        <div class="rules-list">
-                            <div class="empty-state" style="padding: 20px; font-size: 13px;">
-                                <i class="fas fa-plus-circle"></i><br>
-                                <small>No rules yet.</small>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                document.getElementById('categoriesContainer').insertAdjacentHTML('afterbegin', newCategory);
-                resetCategoryForm();
-                updateCounts();
-            } else {
-                showNotification(data.message || 'Error creating category', 'error');
-            }
-        } catch (error) {
-            console.error('Fetch error:', error);
-            showNotification('Error: ' + error.message, 'error');
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-check-circle"></i> Create Category';
-        }
+        document.getElementById('editCategoryModal')?.addEventListener('click', (e) => {
+            if (e.target.id === 'editCategoryModal') closeEditModal();
+        });
     });
 
     // Notifications
@@ -1744,42 +1793,6 @@
         document.getElementById('activeRulesCount').textContent = `${rulesCount} rules`;
         document.getElementById('totalCategories').textContent = `${categoriesCount} categories`;
     }
-
-    // Initialize
-    document.addEventListener('DOMContentLoaded', () => {
-        // Generate icon grid for creation
-        const iconGrid = document.getElementById('iconGrid');
-        icons.forEach((icon, idx) => {
-            const elem = document.createElement('div');
-            elem.className = 'category-icon' + (idx === 0 ? ' selected' : '');
-            elem.setAttribute('data-icon', icon);
-            elem.textContent = icon;
-            elem.onclick = () => selectIcon(elem);
-            iconGrid.appendChild(elem);
-        });
-        
-        // Generate icon grid for editing
-        const editIconGrid = document.getElementById('editIconGrid');
-        icons.forEach((icon, idx) => {
-            const elem = document.createElement('div');
-            elem.className = 'category-icon' + (idx === 0 ? ' selected' : '');
-            elem.setAttribute('data-icon', icon);
-            elem.textContent = icon;
-            elem.onclick = () => selectEditIcon(elem);
-            editIconGrid.appendChild(elem);
-        });
-        
-        updateCategoryPreview();
-    });
-
-    // Modal close on outside click
-    document.getElementById('conditionModal')?.addEventListener('click', (e) => {
-        if (e.target.id === 'conditionModal') closeConditionBuilder();
-    });
-
-    document.getElementById('editCategoryModal')?.addEventListener('click', (e) => {
-        if (e.target.id === 'editCategoryModal') closeEditModal();
-    });
 </script>
 
 {% endblock %}
