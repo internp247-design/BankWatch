@@ -394,6 +394,20 @@
         font-size: 13px;
     }
 
+    .loading {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
     .button-group {
         display: flex;
         gap: 12px;
@@ -826,12 +840,24 @@
                     <input type="hidden" id="ruleLogicType" name="rule_type" value="AND">
                 </div>
 
+                <!-- Required Conditions Warning -->
+                <div style="padding: 14px 16px; background: #fff8e1; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #ffc107; display: flex; align-items: flex-start; gap: 12px;">
+                    <i class="fas fa-lightbulb" style="color: #ff9800; font-size: 16px; margin-top: 2px; flex-shrink: 0;"></i>
+                    <div style="flex: 1;">
+                        <strong style="color: #ff6f00; display: block; margin-bottom: 6px;">Rules Need At Least One Condition</strong>
+                        <small style="color: #666; display: block;">Click "Add Condition" below to set up when this rule applies (e.g., keywords, amounts, dates)</small>
+                    </div>
+                </div>
+
                 <!-- Conditions Container -->
                 <div class="conditions-container">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                        <label style="margin: 0;"><i class="fas fa-cogs"></i> Conditions</label>
-                        <button type="button" class="btn btn-primary btn-sm" onclick="openConditionBuilder()">
-                            <i class="fas fa-plus"></i> Add Condition
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <label style="margin: 0;"><i class="fas fa-cogs"></i> Conditions</label>
+                            <span id="conditionCount" style="display: inline-block; background: #e0e0e0; color: #666; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">0 added</span>
+                        </div>
+                        <button type="button" class="btn btn-primary" style="min-width: 160px; padding: 12px 20px;" onclick="openConditionBuilder()">
+                            <i class="fas fa-plus-circle"></i> Add Condition
                         </button>
                     </div>
                     <div id="conditionsDisplay" style="min-height: 80px;">
@@ -853,7 +879,7 @@
                 </div>
                 
                 <div class="button-group">
-                    <button type="submit" class="btn btn-primary" id="submitRuleBtn">
+                    <button type="submit" class="btn btn-primary" id="submitRuleBtn" style="min-width: 140px;">
                         <i class="fas fa-plus"></i> Create Rule
                     </button>
                     <button type="button" class="btn btn-secondary" onclick="resetRuleForm()">
@@ -957,7 +983,7 @@
                 </div>
                 
                 <div class="button-group">
-                    <button type="submit" class="btn btn-primary" id="submitCategoryBtn">
+                    <button type="submit" class="btn btn-primary" id="submitCategoryBtn" style="min-width: 160px;">
                         <i class="fas fa-check-circle"></i> Create Category
                     </button>
                     <button type="button" class="btn btn-secondary" onclick="resetCategoryForm()">
@@ -1281,27 +1307,41 @@
         conditions.push(condition);
         closeConditionBuilder();
         renderConditions();
+        updateConditionCount();
         updateRulePreview();
+    }
+
+    function updateConditionCount() {
+        const count = conditions.length;
+        const badge = document.getElementById('conditionCount');
+        if (badge) {
+            badge.textContent = count + ' added';
+            if (count > 0) {
+                badge.style.background = '#4caf50';
+                badge.style.color = 'white';
+            } else {
+                badge.style.background = '#e0e0e0';
+                badge.style.color = '#666';
+            }
+        }
     }
 
     function renderConditions() {
         const display = document.getElementById('conditionsDisplay');
         if (conditions.length === 0) {
             display.innerHTML = '<div class="empty-state" style="padding: 20px 0;"><i class="fas fa-inbox"></i><br><small>No conditions yet. Add one to get started!</small></div>';
-            return;
-        }
-
-        let html = '';
-        conditions.forEach((condition, index) => {
-            html += `
-                <div class="condition-item">
-                    <div class="condition-type">${getConditionTypeLabel(condition.type)}</div>
-                    <div class="condition-details">
-                        ${getConditionDescription(condition)}
-                    </div>
-                    <div class="condition-actions">
-                        <button type="button" class="btn-remove-condition" onclick="removeCondition(${index})">
-                            <i class="fas fa-trash"></i>
+        } else {
+            let html = '';
+            conditions.forEach((condition, index) => {
+                html += `
+                    <div class="condition-item">
+                        <div class="condition-type">${getConditionTypeLabel(condition.type)}</div>
+                        <div class="condition-details">
+                            ${getConditionDescription(condition)}
+                        </div>
+                        <div class="condition-actions">
+                            <button type="button" class="btn-remove-condition" onclick="removeCondition(${index})">
+                                <i class="fas fa-trash"></i>
                         </button>
                     </div>
                 </div>
@@ -1339,6 +1379,7 @@
     function removeCondition(index) {
         conditions.splice(index, 1);
         renderConditions();
+        updateConditionCount();
         updateRulePreview();
     }
 
