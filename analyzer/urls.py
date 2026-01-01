@@ -15,14 +15,16 @@ urlpatterns = [
     path('accounts/<int:account_id>/view/', views.view_account_details, name='view_account_details'),
     path('accounts/<int:account_id>/delete/', views.delete_account, name='delete_account'),
     
-    # CREATE YOUR OWN - Unified Interface
+    # Unified Create Your Own Page
     path('create-your-own/', views.create_your_own, name='create_your_own'),
-    path('api/rules/create/', views.api_create_rule, name='api_create_rule'),
-    path('api/categories/create/', views.api_create_category, name='api_create_category'),
-    path('api/rules-categories/', views.api_get_rules_categories, name='api_get_rules_categories'),
-    path('api/rule/<int:rule_id>/delete/', views.api_delete_rule, name='api_delete_rule'),
     
-    # Rules Engine URLs
+    # AJAX Endpoints for Create Your Own
+    path('api/rule/create/', views.create_rule_ajax, name='create_rule_ajax'),
+    path('api/category/create/', views.create_category_ajax, name='create_category_ajax'),
+    path('api/rule/<int:rule_id>/delete/', views.delete_rule_ajax, name='delete_rule_ajax'),
+    path('api/category-rule/<int:rule_id>/delete/', views.delete_category_rule_ajax, name='delete_category_rule_ajax'),
+    
+    # Rules Engine URLs (keep for backward compatibility)
     path('rules/', views.rules_list, name='rules_list'),
     path('rules/create/', views.create_rule, name='create_rule'),
     path('rules/<int:rule_id>/edit/', views.edit_rule, name='edit_rule'),

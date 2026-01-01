@@ -3327,246 +3327,200 @@ def export_rules_results_ajax_pdf(request):
         }, status=500)
 
 
-# ==================== CREATE YOUR OWN - UNIFIED INTERFACE ====================
+# ============================================================================
+# UNIFIED "CREATE YOUR OWN" PAGE
+# ============================================================================
+import json
 
 @login_required
 def create_your_own(request):
-    """Unified page for creating rules and custom categories"""
-    categories = Transaction.CATEGORY_CHOICES
+    """Unified page for creating rules and categories"""
+    rules = Rule.objects.filter(user=request.user).order_by('-created_at')
+    custom_categories = CustomCategory.objects.filter(user=request.user).order_by('-created_at')
+    
     context = {
-        'categories': categories,
+        'total_rules': rules.count(),
+        'total_categories': custom_categories.count(),
+        'rules': rules,
+        'custom_categories': custom_categories,
+        'categories': Transaction.CATEGORY_CHOICES,
     }
+    
     return render(request, 'analyzer/create_your_own.html', context)
 
 
 @login_required
-def api_create_rule(request):
-    """API endpoint to create a rule via AJAX"""
+def create_rule_ajax(request):
+    """AJAX endpoint to create a rule with conditions"""
     if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+        return JsonResponse({'success': False, 'message': 'POST required'}, status=400)
     
     try:
-        rule_name = request.POST.get('rule_name', '').strip()
+        name = request.POST.get('name', '').strip()
         category = request.POST.get('category', '').strip()
         rule_type = request.POST.get('rule_type', 'AND')
+        conditions_json = request.POST.get('conditions', '[]')
         
-        if not rule_name or not category:
-            return JsonResponse({'success': False, 'error': 'Missing required fields'})
+        # Validation
+        if not name:
+            return JsonResponse({'success': False, 'message': 'Rule name is required'})
+        if not category:
+            return JsonResponse({'success': False, 'message': 'Category is required'})
         
-        # Create the rule
+        # Parse conditions
+        try:
+            conditions = json.loads(conditions_json)
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'message': 'Invalid conditions format'})
+        
+        if not conditions:
+            return JsonResponse({'success': False, 'message': 'At least one condition is required'})
+        
+        # Create rule
         rule = Rule.objects.create(
             user=request.user,
-            name=rule_name,
+            name=name,
             category=category,
             rule_type=rule_type,
             is_active=True
         )
         
-        # Process conditions
-        import json
-        condition_data = request.POST.getlist('conditions[]')
-        condition_index = 0
-        
-        while True:
-            condition_type = request.POST.get(f'conditions[{condition_index}][type]')
-            if not condition_type:
-                break
-            
-            if condition_type == 'keyword':
-                keyword = request.POST.get(f'conditions[{condition_index}][keyword]', '')
-                keyword_match = request.POST.get(f'conditions[{condition_index}][keyword_match]', 'CONTAINS')
-                
+        # Create conditions
+        for idx, cond in enumerate(conditions):
+            if cond['type'] == 'keyword':
                 RuleCondition.objects.create(
                     rule=rule,
                     condition_type='KEYWORD',
-                    keyword=keyword,
-                    keyword_match_type=keyword_match.upper()
+                    keyword=cond.get('value', ''),
+                    keyword_match_type=cond.get('match', 'CONTAINS').upper()
                 )
-            
-            elif condition_type == 'amount':
-                operator = request.POST.get(f'conditions[{condition_index}][operator]', 'GREATER_THAN')
-                value = request.POST.get(f'conditions[{condition_index}][value]', '')
-                value2 = request.POST.get(f'conditions[{condition_index}][value2]', '')
-                
+            elif cond['type'] == 'amount':
                 RuleCondition.objects.create(
                     rule=rule,
                     condition_type='AMOUNT',
-                    amount_operator=operator.upper(),
-                    amount_value=value if value else None,
-                    amount_value2=value2 if value2 else None
+                    amount_operator=cond.get('operator', 'GREATER_THAN').upper(),
+                    amount_value=cond.get('value'),
+                    amount_value2=cond.get('value2')
                 )
-            
-            elif condition_type == 'date':
-                date_from = request.POST.get(f'conditions[{condition_index}][date_from]', '')
-                date_to = request.POST.get(f'conditions[{condition_index}][date_to]', '')
-                
+            elif cond['type'] == 'date':
                 RuleCondition.objects.create(
                     rule=rule,
                     condition_type='DATE',
-                    date_start=date_from if date_from else None,
-                    date_end=date_to if date_to else None
+                    date_start=cond.get('from'),
+                    date_end=cond.get('to')
                 )
-            
-            elif condition_type == 'source':
-                source = request.POST.get(f'conditions[{condition_index}][source]', '')
-                
+            elif cond['type'] == 'source':
                 RuleCondition.objects.create(
                     rule=rule,
                     condition_type='SOURCE',
-                    source_channel=source.upper()
+                    source_channel=cond.get('source', 'UPI')
                 )
-            
-            condition_index += 1
+        
+        # Build description
+        rule_desc = f"{rule_type.upper()} conditions → {rule.get_category_display()}"
         
         return JsonResponse({
             'success': True,
-            'message': f'Rule "{rule_name}" created successfully',
-            'rule_id': rule.id
+            'message': f'Rule "{name}" created successfully!',
+            'rule_id': rule.id,
+            'rule_name': rule.name,
+            'rule_description': rule_desc
         })
     
     except Exception as e:
-        print(f"Error creating rule: {str(e)}")
-        return JsonResponse({'success': False, 'error': str(e)})
+        return JsonResponse({
+            'success': False,
+            'message': f'Error creating rule: {str(e)}'
+        })
 
 
 @login_required
-def api_create_category(request):
-    """API endpoint to create a custom category via AJAX"""
+def create_category_ajax(request):
+    """AJAX endpoint to create a custom category"""
     if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+        return JsonResponse({'success': False, 'message': 'POST required'}, status=400)
     
     try:
-        category_name = request.POST.get('category_name', '').strip()
-        sub_category = request.POST.get('sub_category', '').strip()
+        name = request.POST.get('name', '').strip()
+        description = request.POST.get('description', '').strip()
         icon = request.POST.get('icon', '🛒')
+        color = request.POST.get('color', '#5a67d8')
         
-        if not category_name:
-            return JsonResponse({'success': False, 'error': 'Category name is required'})
+        # Validation
+        if not name:
+            return JsonResponse({'success': False, 'message': 'Category name is required'})
         
-        # Check if category already exists
-        if CustomCategory.objects.filter(user=request.user, name=category_name).exists():
-            return JsonResponse({'success': False, 'error': f'Category "{category_name}" already exists'})
+        # Check uniqueness
+        if CustomCategory.objects.filter(user=request.user, name=name).exists():
+            return JsonResponse({'success': False, 'message': 'Category with this name already exists'})
         
-        # Create the custom category
+        # Create category
         category = CustomCategory.objects.create(
             user=request.user,
-            name=category_name,
-            description=sub_category,
+            name=name,
+            description=description,
             icon=icon,
-            color='#5a67d8',  # Default color
+            color=color,
             is_active=True
         )
         
         return JsonResponse({
             'success': True,
-            'message': f'Category "{category_name}" created successfully',
-            'category_id': category.id
+            'message': f'Category "{name}" created successfully!',
+            'category_id': category.id,
+            'category_name': category.name,
+            'category_icon': category.icon,
+            'category_description': category.description
         })
     
     except Exception as e:
-        print(f"Error creating category: {str(e)}")
-        return JsonResponse({'success': False, 'error': str(e)})
-
-
-@login_required
-def api_get_rules_categories(request):
-    """API endpoint to get all rules and categories for the current user"""
-    try:
-        # Get user's rules
-        user_rules = Rule.objects.filter(user=request.user).prefetch_related('conditions')
-        rules_data = []
-        
-        for rule in user_rules:
-            conditions = rule.conditions.all()
-            condition_text = []
-            
-            for condition in conditions:
-                if condition.condition_type == 'KEYWORD':
-                    condition_text.append(f'Description {condition.get_keyword_match_type_display().lower()} "{condition.keyword}"')
-                elif condition.condition_type == 'AMOUNT':
-                    if condition.amount_operator == 'BETWEEN':
-                        condition_text.append(f'Amount between ₹{condition.amount_value} - ₹{condition.amount_value2}')
-                    else:
-                        condition_text.append(f'Amount {condition.get_amount_operator_display().lower()} ₹{condition.amount_value}')
-                elif condition.condition_type == 'DATE':
-                    condition_text.append(f'Date from {condition.date_start} to {condition.date_end}')
-                elif condition.condition_type == 'SOURCE':
-                    condition_text.append(f'Source: {condition.get_source_channel_display()}')
-            
-            rules_data.append({
-                'id': rule.id,
-                'name': rule.name,
-                'category': rule.get_category_display(),
-                'description': ' AND '.join(condition_text) if condition_text else 'No conditions',
-                'is_active': rule.is_active,
-                'rule_type': rule.rule_type
-            })
-        
-        # Get user's custom categories with their rules
-        categories = CustomCategory.objects.filter(user=request.user).prefetch_related('rules__conditions')
-        categories_data = []
-        
-        for category in categories:
-            category_rules = []
-            for rule in category.rules.all():
-                conditions = rule.conditions.all()
-                condition_text = []
-                
-                for condition in conditions:
-                    if condition.condition_type == 'KEYWORD':
-                        condition_text.append(f'Description {condition.get_keyword_match_type_display().lower()} "{condition.keyword}"')
-                    elif condition.condition_type == 'AMOUNT':
-                        if condition.amount_operator == 'BETWEEN':
-                            condition_text.append(f'Amount between ₹{condition.amount_value} - ₹{condition.amount_value2}')
-                        else:
-                            condition_text.append(f'Amount {condition.get_amount_operator_display().lower()} ₹{condition.amount_value}')
-                    elif condition.condition_type == 'DATE':
-                        condition_text.append(f'Date from {condition.date_start} to {condition.date_end}')
-                
-                category_rules.append({
-                    'id': rule.id,
-                    'name': rule.name,
-                    'description': ' AND '.join(condition_text) if condition_text else 'No conditions',
-                    'is_active': rule.is_active
-                })
-            
-            categories_data.append({
-                'id': category.id,
-                'name': category.name,
-                'icon': category.icon,
-                'color': category.color,
-                'rules': category_rules
-            })
-        
         return JsonResponse({
-            'success': True,
-            'rules': rules_data,
-            'categories': categories_data
+            'success': False,
+            'message': f'Error creating category: {str(e)}'
         })
-    
-    except Exception as e:
-        print(f"Error fetching rules and categories: {str(e)}")
-        return JsonResponse({'success': False, 'error': str(e)})
 
 
 @login_required
-def api_delete_rule(request, rule_id):
-    """API endpoint to delete a rule via AJAX"""
+def delete_rule_ajax(request, rule_id):
+    """AJAX endpoint to delete a rule"""
     if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+        return JsonResponse({'success': False, 'message': 'POST required'}, status=400)
     
     try:
-        rule = Rule.objects.get(id=rule_id, user=request.user)
+        rule = get_object_or_404(Rule, id=rule_id, user=request.user)
         rule_name = rule.name
         rule.delete()
         
         return JsonResponse({
             'success': True,
-            'message': f'Rule "{rule_name}" deleted successfully'
+            'message': f'Rule "{rule_name}" deleted successfully!'
         })
     
-    except Rule.DoesNotExist:
-        return JsonResponse({'success': False, 'error': 'Rule not found'})
     except Exception as e:
-        print(f"Error deleting rule: {str(e)}")
-        return JsonResponse({'success': False, 'error': str(e)})
+        return JsonResponse({
+            'success': False,
+            'message': f'Error deleting rule: {str(e)}'
+        })
+
+
+@login_required
+def delete_category_rule_ajax(request, rule_id):
+    """AJAX endpoint to delete a custom category rule"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'POST required'}, status=400)
+    
+    try:
+        rule = get_object_or_404(CustomCategoryRule, id=rule_id, user=request.user)
+        rule_name = rule.name
+        rule.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Rule "{rule_name}" deleted successfully!'
+        })
+    
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error deleting rule: {str(e)}'
+        })

@@ -1,20 +1,10 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Create Your Own | Smart Rules & Categories{% endblock %}
+{% block title %}Create Your Own Rules & Categories | BankWatch{% endblock %}
 
 {% block content %}
 <style>
-    body {
-        background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%) !important;
-        color: var(--dark);
-        min-height: 100vh;
-    }
-
-    .container {
-        max-width: 1200px !important;
-    }
-
     :root {
         --primary: #5a67d8;
         --primary-dark: #4c51bf;
@@ -33,10 +23,11 @@
         --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
+    body {
+        background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
+        min-height: 100vh;
+        padding-top: 80px;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
 
     .container-main {
@@ -64,12 +55,14 @@
         display: flex;
         align-items: center;
         gap: 12px;
+        margin: 0;
     }
 
     .header-content p {
         font-size: 15px;
         opacity: 0.9;
         margin-top: 6px;
+        margin-bottom: 0;
         font-weight: 400;
     }
 
@@ -201,6 +194,7 @@
         display: flex;
         align-items: center;
         gap: 10px;
+        margin: 0;
     }
 
     .card-header i {
@@ -237,21 +231,22 @@
         top: 50%;
         transform: translateY(-50%);
         color: var(--gray);
+        pointer-events: none;
     }
 
-    input, select {
+    input, select, textarea {
         width: 100%;
         padding: 14px 16px 14px 48px;
         border: 1.5px solid var(--gray-light);
         border-radius: 10px;
         font-size: 15px;
-        font-family: 'Inter', -apple-system, sans-serif;
+        font-family: 'Inter', sans-serif;
         transition: var(--transition);
         background: white;
         color: var(--dark);
     }
 
-    input:focus, select:focus {
+    input:focus, select:focus, textarea:focus {
         outline: none;
         border-color: var(--primary);
         box-shadow: 0 0 0 3px rgba(90, 103, 216, 0.15);
@@ -264,70 +259,7 @@
         margin-bottom: 20px;
     }
 
-    /* Conditions Builder */
-    .conditions-container {
-        margin: 24px 0;
-        padding: 20px;
-        background: var(--light);
-        border-radius: 10px;
-        border: 1px solid var(--gray-light);
-    }
-
-    .condition-item {
-        background: white;
-        border: 1px solid var(--gray-light);
-        border-radius: 10px;
-        padding: 16px;
-        margin-bottom: 12px;
-        display: flex;
-        gap: 12px;
-        align-items: flex-start;
-    }
-
-    .condition-item.header {
-        background: rgba(90, 103, 216, 0.05);
-        border-color: var(--primary-light);
-    }
-
-    .condition-select {
-        flex: 1;
-    }
-
-    .condition-fields {
-        flex: 2;
-    }
-
-    .condition-actions {
-        display: flex;
-        gap: 6px;
-        align-items: center;
-    }
-
-    .condition-actions button {
-        padding: 8px 12px;
-        border: 1px solid var(--gray-light);
-        background: white;
-        border-radius: 6px;
-        cursor: pointer;
-        transition: var(--transition);
-        font-size: 14px;
-    }
-
-    .condition-actions button:hover {
-        background: var(--light);
-        border-color: var(--primary);
-        color: var(--primary);
-    }
-
-    .condition-actions .btn-delete {
-        color: var(--danger);
-    }
-
-    .condition-actions .btn-delete:hover {
-        background: rgba(245, 101, 101, 0.1);
-    }
-
-    /* Icons Grid */
+    /* Icons */
     .icon-grid {
         display: grid;
         grid-template-columns: repeat(8, 1fr);
@@ -401,8 +333,8 @@
     }
 
     .highlight {
-        color: var(--primary);
         font-weight: 600;
+        color: var(--primary);
     }
 
     /* Buttons */
@@ -418,7 +350,7 @@
         align-items: center;
         justify-content: center;
         gap: 10px;
-        font-family: 'Inter', -apple-system, sans-serif;
+        font-family: 'Inter', sans-serif;
     }
 
     .btn-primary {
@@ -429,6 +361,8 @@
     .btn-primary:hover {
         transform: translateY(-2px);
         box-shadow: 0 8px 20px rgba(90, 103, 216, 0.3);
+        color: white;
+        text-decoration: none;
     }
 
     .btn-secondary {
@@ -445,26 +379,98 @@
     .btn-danger {
         background: var(--danger);
         color: white;
-        padding: 10px 16px;
+        padding: 6px 12px;
         font-size: 14px;
     }
 
     .btn-danger:hover {
         background: #e53e3e;
+        color: white;
+        text-decoration: none;
     }
 
     .btn-sm {
-        padding: 8px 16px;
-        font-size: 14px;
+        padding: 6px 12px;
+        font-size: 13px;
     }
 
     .button-group {
         display: flex;
         gap: 12px;
         margin-top: 24px;
+        flex-wrap: wrap;
     }
 
-    /* Existing Categories */
+    /* Conditions Builder */
+    .conditions-container {
+        margin-top: 24px;
+        padding: 20px;
+        background: var(--light);
+        border-radius: 10px;
+    }
+
+    .condition-item {
+        background: white;
+        padding: 16px;
+        border-radius: 8px;
+        margin-bottom: 16px;
+        border: 1px solid var(--gray-light);
+        display: grid;
+        gap: 16px;
+        grid-template-columns: auto 1fr auto;
+        align-items: start;
+    }
+
+    .condition-type {
+        font-weight: 600;
+        color: var(--primary);
+        padding: 8px 12px;
+        background: rgba(90, 103, 216, 0.1);
+        border-radius: 6px;
+        font-size: 13px;
+    }
+
+    .condition-details {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .condition-actions {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+    }
+
+    .condition-actions button {
+        padding: 8px 16px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        font-weight: 500;
+        transition: var(--transition);
+        font-size: 13px;
+    }
+
+    .btn-edit-condition {
+        background: rgba(90, 103, 216, 0.1);
+        color: var(--primary);
+    }
+
+    .btn-edit-condition:hover {
+        background: rgba(90, 103, 216, 0.2);
+    }
+
+    .btn-remove-condition {
+        background: rgba(245, 101, 101, 0.1);
+        color: var(--danger);
+    }
+
+    .btn-remove-condition:hover {
+        background: rgba(245, 101, 101, 0.2);
+    }
+
+    /* Existing Items Grid */
     .categories-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -509,11 +515,13 @@
         font-size: 16px;
         font-weight: 600;
         margin-bottom: 4px;
+        margin: 0;
     }
 
     .category-info p {
         font-size: 13px;
         color: var(--gray);
+        margin: 0;
     }
 
     .rules-list {
@@ -557,30 +565,30 @@
         gap: 8px;
     }
 
-    .rule-actions button {
-        background: none;
-        border: none;
+    .rule-actions .fa-edit {
         cursor: pointer;
         padding: 6px;
         border-radius: 6px;
-        transition: var(--transition);
-        font-size: 14px;
-    }
-
-    .rule-actions .btn-edit {
         color: var(--primary);
-    }
-
-    .rule-actions .btn-edit:hover {
         background: rgba(90, 103, 216, 0.1);
+        transition: var(--transition);
     }
 
-    .rule-actions .btn-delete {
+    .rule-actions .fa-edit:hover {
+        background: rgba(90, 103, 216, 0.2);
+    }
+
+    .rule-actions .fa-trash {
+        cursor: pointer;
+        padding: 6px;
+        border-radius: 6px;
         color: var(--danger);
+        background: rgba(245, 101, 101, 0.1);
+        transition: var(--transition);
     }
 
-    .rule-actions .btn-delete:hover {
-        background: rgba(245, 101, 101, 0.1);
+    .rule-actions .fa-trash:hover {
+        background: rgba(245, 101, 101, 0.2);
     }
 
     /* Empty State */
@@ -597,7 +605,7 @@
     }
 
     /* Notification */
-    .alert {
+    .notification {
         position: fixed;
         top: 100px;
         right: 24px;
@@ -608,32 +616,47 @@
         align-items: center;
         gap: 12px;
         z-index: 1000;
-        min-width: 300px;
-        animation: slideIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        transform: translateX(120%);
+        transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        max-width: 400px;
     }
 
-    @keyframes slideIn {
-        from { transform: translateX(400px); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
+    .notification.show {
+        transform: translateX(0);
     }
 
-    .alert.success {
+    .notification.success {
         background: var(--success);
         color: white;
     }
 
-    .alert.error {
-        background: var(--danger);
-        color: white;
-    }
-
-    .alert.info {
+    .notification.info {
         background: var(--primary);
         color: white;
     }
 
-    .alert i {
+    .notification.warning {
+        background: var(--warning);
+        color: white;
+    }
+
+    .notification.error {
+        background: var(--danger);
+        color: white;
+    }
+
+    .notification i {
         font-size: 20px;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        background: var(--primary);
+        color: white;
     }
 
     /* Responsive */
@@ -647,6 +670,10 @@
         .stats {
             width: 100%;
             justify-content: space-between;
+        }
+
+        .header-content h2 {
+            font-size: 24px;
         }
         
         .form-row {
@@ -664,15 +691,62 @@
         .button-group .btn {
             width: 100%;
         }
-        
+
         .condition-item {
-            flex-direction: column;
+            grid-template-columns: 1fr;
         }
 
-        input, select {
-            padding: 12px 14px 12px 40px;
-            font-size: 14px;
+        .condition-actions {
+            justify-content: flex-start;
         }
+
+        .section {
+            padding: 20px;
+        }
+    }
+
+    /* Logic Type Toggle */
+    .logic-type-toggle {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+
+    .logic-btn {
+        flex: 1;
+        padding: 12px;
+        border-radius: 8px;
+        border: 2px solid var(--gray-light);
+        background: white;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 14px;
+        transition: var(--transition);
+        color: var(--dark);
+    }
+
+    .logic-btn:hover {
+        border-color: var(--primary);
+    }
+
+    .logic-btn.active {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: white;
+    }
+
+    .loading {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
     }
 </style>
 
@@ -685,11 +759,11 @@
         </div>
         <div class="stats">
             <div class="stat-item">
-                <div class="stat-number" id="rulesCount">0</div>
+                <div class="stat-number" id="rulesCount">{{ total_rules }}</div>
                 <div class="stat-label">Active Rules</div>
             </div>
             <div class="stat-item">
-                <div class="stat-number" id="categoriesCount">0</div>
+                <div class="stat-number" id="categoriesCount">{{ total_categories }}</div>
                 <div class="stat-label">Categories</div>
             </div>
         </div>
@@ -710,9 +784,10 @@
         <div class="card">
             <div class="card-header">
                 <h4><i class="fas fa-plus-circle"></i> Create New Rule</h4>
+                <span class="badge">Smart</span>
             </div>
             
-            <form id="ruleForm" onsubmit="handleCreateRule(event)">
+            <form id="ruleForm" method="POST" action="{% url 'create_rule_ajax' %}">
                 {% csrf_token %}
                 
                 <div class="form-row">
@@ -720,7 +795,7 @@
                         <label for="ruleName"><i class="fas fa-tag"></i> Rule Name</label>
                         <div class="input-with-icon">
                             <i class="fas fa-heading"></i>
-                            <input type="text" id="ruleName" name="rule_name" placeholder="e.g., Amazon Purchases" required>
+                            <input type="text" id="ruleName" name="name" placeholder="e.g., Amazon Purchases" required>
                         </div>
                     </div>
                     
@@ -728,7 +803,7 @@
                         <label for="ruleCategory"><i class="fas fa-folder"></i> Category</label>
                         <div class="input-with-icon">
                             <i class="fas fa-tag"></i>
-                            <select id="ruleCategory" name="category" required onchange="updateRulePreview()">
+                            <select id="ruleCategory" name="category" required>
                                 <option value="">Select Category</option>
                                 {% for code, name in categories %}
                                     <option value="{{ code }}">{{ name }}</option>
@@ -737,49 +812,51 @@
                         </div>
                     </div>
                 </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="ruleType"><i class="fas fa-filter"></i> Rule Type</label>
-                        <div class="input-with-icon">
-                            <i class="fas fa-cogs"></i>
-                            <select id="ruleType" name="rule_type" onchange="updateRulePreview()">
-                                <option value="AND">All conditions must match (AND)</option>
-                                <option value="OR">Any condition matches (OR)</option>
-                            </select>
+
+                <div class="form-group">
+                    <label><i class="fas fa-filter"></i> Rule Logic Type</label>
+                    <div class="logic-type-toggle">
+                        <button type="button" class="logic-btn active" data-logic="AND" onclick="setLogicType('AND', this)">
+                            <i class="fas fa-check-circle"></i> Match ALL conditions
+                        </button>
+                        <button type="button" class="logic-btn" data-logic="OR" onclick="setLogicType('OR', this)">
+                            <i class="fas fa-circle"></i> Match ANY condition
+                        </button>
+                    </div>
+                    <input type="hidden" id="ruleLogicType" name="rule_type" value="AND">
+                </div>
+
+                <!-- Conditions Container -->
+                <div class="conditions-container">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <label style="margin: 0;"><i class="fas fa-cogs"></i> Conditions</label>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="openConditionBuilder()">
+                            <i class="fas fa-plus"></i> Add Condition
+                        </button>
+                    </div>
+                    <div id="conditionsDisplay" style="min-height: 80px;">
+                        <div class="empty-state" style="padding: 20px 0;">
+                            <i class="fas fa-inbox"></i><br>
+                            <small>No conditions yet. Add one to get started!</small>
                         </div>
                     </div>
                 </div>
 
-                <!-- Conditions Builder -->
-                <div class="form-group">
-                    <label><i class="fas fa-list"></i> Conditions</label>
-                    <div class="conditions-container">
-                        <div style="margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--gray-light); display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-weight: 500; color: var(--dark);">Add conditions to match transactions</span>
-                            <button type="button" class="btn btn-sm btn-primary" onclick="addCondition()">
-                                <i class="fas fa-plus"></i> Add Condition
-                            </button>
-                        </div>
-                        <div id="conditionsList"></div>
-                    </div>
-                </div>
-                
                 <!-- Preview -->
                 <div class="preview">
                     <div class="preview-title">
                         <i class="fas fa-eye"></i> Rule Preview
                     </div>
                     <div class="preview-content" id="rulePreview">
-                        Select a category and add conditions to see preview
+                        When a transaction matches your conditions → Apply to <span class="highlight">category</span>
                     </div>
                 </div>
                 
                 <div class="button-group">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-check-circle"></i> Create Rule
+                    <button type="submit" class="btn btn-primary" id="submitRuleBtn">
+                        <i class="fas fa-plus"></i> Create Rule
                     </button>
-                    <button type="button" class="btn btn-secondary" onclick="clearRuleForm()">
+                    <button type="button" class="btn btn-secondary" onclick="resetRuleForm()">
                         <i class="fas fa-redo"></i> Clear Form
                     </button>
                 </div>
@@ -788,12 +865,40 @@
         
         <div class="card">
             <div class="card-header">
-                <h4><i class="fas fa-list-check"></i> Your Rules</h4>
-                <span style="background: var(--gray-light); color: var(--dark); padding: 6px 12px; border-radius: 20px; font-size: 13px;" id="activeRulesCount">0 rules</span>
+                <h4><i class="fas fa-list-check"></i> Active Rules</h4>
+                <span class="badge" id="activeRulesCount">{{ total_rules }} rules</span>
             </div>
             
             <div id="rulesContainer">
-                <!-- Rules will be dynamically added here -->
+                {% if rules %}
+                    {% for rule in rules %}
+                        <div class="rule-item" data-rule-id="{{ rule.id }}">
+                            <div class="rule-details">
+                                <div class="rule-name">{{ rule.name }}</div>
+                                <div class="rule-condition">
+                                    {% if rule.rulecondition_set.all %}
+                                        {% for condition in rule.rulecondition_set.all %}
+                                            <span>{{ condition.get_condition_display }}</span>
+                                            {% if not forloop.last %}<span> {{ rule.get_rule_type_display }} </span>{% endif %}
+                                        {% endfor %}
+                                        → {{ rule.get_category_display }}
+                                    {% else %}
+                                        No conditions
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="rule-actions">
+                                <i class="fas fa-edit" onclick="editRule({{ rule.id }})"></i>
+                                <i class="fas fa-trash" onclick="deleteRule({{ rule.id }})"></i>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-inbox"></i><br>
+                        <small>No rules yet. Create your first rule above!</small>
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -805,7 +910,7 @@
                 <h4><i class="fas fa-plus-circle"></i> Create New Category</h4>
             </div>
             
-            <form id="categoryForm" onsubmit="handleCreateCategory(event)">
+            <form id="categoryForm" method="POST" action="{% url 'create_category_ajax' %}">
                 {% csrf_token %}
                 
                 <div class="form-row">
@@ -813,7 +918,7 @@
                         <label for="categoryName"><i class="fas fa-tag"></i> Category Name</label>
                         <div class="input-with-icon">
                             <i class="fas fa-heading"></i>
-                            <input type="text" id="categoryName" name="category_name" placeholder="e.g., Premium Shopping" oninput="updateCategoryPreview()" required>
+                            <input type="text" id="categoryName" name="name" placeholder="e.g., Shopping" required oninput="updateCategoryPreview()">
                         </div>
                     </div>
                     
@@ -821,34 +926,41 @@
                         <label for="subCategory"><i class="fas fa-tags"></i> Sub Category (Optional)</label>
                         <div class="input-with-icon">
                             <i class="fas fa-indent"></i>
-                            <input type="text" id="subCategory" name="sub_category" placeholder="e.g., Amazon" oninput="updateCategoryPreview()">
+                            <input type="text" id="subCategory" name="description" placeholder="e.g., Online Shopping" oninput="updateCategoryPreview()">
                         </div>
                     </div>
                 </div>
                 
                 <div class="form-group">
-                    <label><i class="fas fa-icons"></i> Select Icon (Required)</label>
+                    <label><i class="fas fa-icons"></i> Select Icon</label>
                     <div class="icon-grid" id="iconGrid">
                         <!-- Icons will be generated by JavaScript -->
                     </div>
-                    <input type="hidden" id="selectedIcon" name="icon" value="🛒" required>
+                    <input type="hidden" id="selectedIcon" name="icon" value="🛒">
                 </div>
                 
-                <!-- Preview -->
+                <div class="form-group">
+                    <label for="categoryColor"><i class="fas fa-palette"></i> Category Color</label>
+                    <div class="input-with-icon">
+                        <i class="fas fa-fill-drip"></i>
+                        <input type="color" id="categoryColor" name="color" value="#5a67d8" style="padding: 10px;">
+                    </div>
+                </div>
+                
                 <div class="preview">
                     <div class="preview-title">
                         <i class="fas fa-eye"></i> Category Preview
                     </div>
                     <div class="preview-content" id="categoryPreview">
-                        <span id="previewIcon">🛒</span> <strong id="previewCategory">Shopping</strong>
+                        <span id="previewIcon">🛒</span> <strong id="previewCategory">Shopping</strong> <span id="previewSubCategory"></span>
                     </div>
                 </div>
                 
                 <div class="button-group">
-                    <button type="submit" class="btn btn-primary">
+                    <button type="submit" class="btn btn-primary" id="submitCategoryBtn">
                         <i class="fas fa-check-circle"></i> Create Category
                     </button>
-                    <button type="button" class="btn btn-secondary" onclick="clearCategoryForm()">
+                    <button type="button" class="btn btn-secondary" onclick="resetCategoryForm()">
                         <i class="fas fa-broom"></i> Clear Form
                     </button>
                 </div>
@@ -858,56 +970,163 @@
         <div class="card">
             <div class="card-header">
                 <h4><i class="fas fa-folder-open"></i> My Categories</h4>
-                <span style="background: var(--gray-light); color: var(--dark); padding: 6px 12px; border-radius: 20px; font-size: 13px;" id="totalCategories">0 categories</span>
+                <span class="badge" id="totalCategories">{{ total_categories }} categories</span>
             </div>
             
             <div class="categories-grid" id="categoriesContainer">
-                <!-- Categories will be dynamically added here -->
+                {% if custom_categories %}
+                    {% for cat in custom_categories %}
+                        <div class="category-card" data-category-id="{{ cat.id }}">
+                            <div class="category-header">
+                                <div class="category-icon-large">{{ cat.icon }}</div>
+                                <div class="category-info">
+                                    <h5>{{ cat.name }}</h5>
+                                    <p>{{ cat.customcategoryrule_set.count }} rules</p>
+                                </div>
+                            </div>
+                            <div class="rules-list">
+                                {% if cat.customcategoryrule_set.all %}
+                                    {% for rule in cat.customcategoryrule_set.all %}
+                                        <div class="rule-item" data-category-rule-id="{{ rule.id }}">
+                                            <div class="rule-details">
+                                                <div class="rule-name">{{ rule.name }}</div>
+                                                <div class="rule-condition">
+                                                    {% if rule.customcategoryrulecondition_set.all %}
+                                                        Rule with {{ rule.customcategoryrulecondition_set.count }} condition(s)
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <div class="rule-actions">
+                                                <i class="fas fa-edit" onclick="editCategoryRule({{ rule.id }})"></i>
+                                                <i class="fas fa-trash" onclick="deleteCategoryRule({{ rule.id }})"></i>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="empty-state" style="padding: 20px; font-size: 13px;">
+                                        <i class="fas fa-plus-circle"></i><br>
+                                        <small>No rules yet.</small>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-inbox"></i><br>
+                        <small>No categories yet. Create your first category above!</small>
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>
 </div>
 
+<!-- Condition Builder Modal -->
+<div id="conditionModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 2000; align-items: center; justify-content: center;">
+    <div style="background: white; border-radius: 12px; padding: 32px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+        <h5 style="margin-bottom: 24px; color: var(--dark); font-weight: 600;">
+            <i class="fas fa-plus-circle"></i> Add Condition
+        </h5>
+        
+        <div class="form-group">
+            <label for="conditionType">Condition Type</label>
+            <select id="conditionType" onchange="updateConditionFields()">
+                <option value="">Select Type</option>
+                <option value="keyword">Keyword in Description</option>
+                <option value="amount">Transaction Amount</option>
+                <option value="date">Date Range</option>
+                <option value="source">Payment Source</option>
+            </select>
+        </div>
+
+        <!-- Keyword Fields -->
+        <div id="keywordFields" style="display: none;">
+            <div class="form-group">
+                <label for="keywordMatch">Match Type</label>
+                <select id="keywordMatch">
+                    <option value="contains">Contains</option>
+                    <option value="starts_with">Starts With</option>
+                    <option value="ends_with">Ends With</option>
+                    <option value="exact">Exact Match</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="keywordValue">Keyword</label>
+                <input type="text" id="keywordValue" placeholder="e.g., Amazon">
+            </div>
+        </div>
+
+        <!-- Amount Fields -->
+        <div id="amountFields" style="display: none;">
+            <div class="form-group">
+                <label for="amountOperator">Operator</label>
+                <select id="amountOperator" onchange="updateAmountFields()">
+                    <option value="greater_than">Greater Than</option>
+                    <option value="less_than">Less Than</option>
+                    <option value="equals">Equals</option>
+                    <option value="between">Between</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="amountValue">Amount</label>
+                <input type="number" id="amountValue" placeholder="0.00" step="0.01">
+            </div>
+            <div class="form-group" id="amountValue2Group" style="display: none;">
+                <label for="amountValue2">To Amount</label>
+                <input type="number" id="amountValue2" placeholder="0.00" step="0.01">
+            </div>
+        </div>
+
+        <!-- Date Fields -->
+        <div id="dateFields" style="display: none;">
+            <div class="form-group">
+                <label for="dateFrom">From Date</label>
+                <input type="date" id="dateFrom">
+            </div>
+            <div class="form-group">
+                <label for="dateTo">To Date</label>
+                <input type="date" id="dateTo">
+            </div>
+        </div>
+
+        <!-- Source Fields -->
+        <div id="sourceFields" style="display: none;">
+            <div class="form-group">
+                <label for="sourceType">Payment Source</label>
+                <select id="sourceType">
+                    <option value="UPI">UPI</option>
+                    <option value="CARD">Card</option>
+                    <option value="BANK">Bank Transfer</option>
+                    <option value="CHEQUE">Cheque</option>
+                    <option value="CASH">Cash</option>
+                </select>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-top: 24px;">
+            <button type="button" class="btn btn-primary" onclick="addCondition()" style="flex: 1;">
+                <i class="fas fa-check"></i> Add
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="closeConditionBuilder()" style="flex: 1;">
+                <i class="fas fa-times"></i> Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Notification Container -->
+<div id="notificationContainer"></div>
+
 <script>
+    // Icon options
     const icons = ["🛒", "🚕", "🍔", "🏠", "💡", "💰", "✈️", "🎬", "🛍️", "🏥", "🎓", "💼", "🍽️", "⚽", "🎁", "📱", "💻", "🎧", "👕", "🚗", "🌮", "🏋️", "🎨", "📚"];
-    const categoryChoices = {
-        {% for code, name in categories %}'{{ code }}': '{{ name }}',{% endfor %}
-    };
     
-    let rules = [];
-    let customCategories = [];
-    let selectedIcon = "🛒";
     let conditions = [];
-    let nextConditionId = 1;
+    let selectedIcon = "🛒";
+    let ruleLogicType = "AND";
 
-    // Initialize on page load
-    document.addEventListener('DOMContentLoaded', function() {
-        generateIconGrid();
-        loadRulesAndCategories();
-        updateCategoryPreview();
-        addCondition();
-    });
-
-    // Generate icon grid
-    function generateIconGrid() {
-        const iconGrid = document.getElementById('iconGrid');
-        icons.forEach(icon => {
-            const iconElement = document.createElement('div');
-            iconElement.className = 'category-icon' + (icon === selectedIcon ? ' selected' : '');
-            iconElement.textContent = icon;
-            iconElement.onclick = () => selectIcon(icon, iconElement);
-            iconGrid.appendChild(iconElement);
-        });
-    }
-
-    function selectIcon(icon, element) {
-        document.querySelectorAll('.category-icon').forEach(el => el.classList.remove('selected'));
-        element.classList.add('selected');
-        selectedIcon = icon;
-        document.getElementById('selectedIcon').value = icon;
-        updateCategoryPreview();
-    }
-
+    // Tab switching
     function switchTab(tab) {
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -921,146 +1140,184 @@
         }
     }
 
-    function addCondition() {
-        const conditionsList = document.getElementById('conditionsList');
-        const conditionId = nextConditionId++;
-        
-        const conditionHTML = `
-            <div class="condition-item" id="condition-${conditionId}">
-                <div class="condition-select">
-                    <select class="condition-type" onchange="updateConditionFields(${conditionId}); updateRulePreview()">
-                        <option value="keyword">Keyword in Description</option>
-                        <option value="amount">Amount</option>
-                        <option value="date">Date Range</option>
-                        <option value="source">Transaction Source</option>
-                    </select>
-                </div>
-                <div class="condition-fields" id="fields-${conditionId}">
-                    <!-- Fields will be generated based on condition type -->
-                </div>
-                <div class="condition-actions">
-                    <button type="button" class="btn-delete" onclick="removeCondition(${conditionId})">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        conditionsList.insertAdjacentHTML('beforeend', conditionHTML);
-        conditions.push({ id: conditionId, type: 'keyword' });
-        updateConditionFields(conditionId);
-    }
-
-    function updateConditionFields(conditionId) {
-        const conditionItem = document.getElementById(`condition-${conditionId}`);
-        const typeSelect = conditionItem.querySelector('.condition-type');
-        const fieldsDiv = document.getElementById(`fields-${conditionId}`);
-        const type = typeSelect.value;
-
-        let fieldsHTML = '';
-
-        if (type === 'keyword') {
-            fieldsHTML = `
-                <select class="condition-match" onchange="updateRulePreview()">
-                    <option value="contains">Contains</option>
-                    <option value="starts_with">Starts With</option>
-                    <option value="ends_with">Ends With</option>
-                    <option value="exact">Exact Match</option>
-                </select>
-                <input type="text" class="condition-value" placeholder="Enter keyword" onchange="updateRulePreview()">
-            `;
-        } else if (type === 'amount') {
-            fieldsHTML = `
-                <select class="condition-operator" onchange="updateRulePreview()">
-                    <option value="greater_than">Greater Than</option>
-                    <option value="less_than">Less Than</option>
-                    <option value="equals">Equals</option>
-                    <option value="between">Between</option>
-                </select>
-                <input type="number" class="condition-value-1" placeholder="Amount" step="0.01" onchange="updateRulePreview()">
-                <input type="number" class="condition-value-2" placeholder="To Amount" step="0.01" style="display:none;" onchange="updateRulePreview()">
-            `;
-        } else if (type === 'date') {
-            fieldsHTML = `
-                <input type="date" class="condition-date-from" onchange="updateRulePreview()">
-                <input type="date" class="condition-date-to" onchange="updateRulePreview()">
-            `;
-        } else if (type === 'source') {
-            fieldsHTML = `
-                <select class="condition-source" onchange="updateRulePreview()">
-                    <option value="upi">UPI</option>
-                    <option value="debit_card">Debit Card</option>
-                    <option value="credit_card">Credit Card</option>
-                    <option value="net_banking">Net Banking</option>
-                    <option value="neft">NEFT</option>
-                </select>
-            `;
-        }
-
-        fieldsDiv.innerHTML = fieldsHTML;
+    // Logic Type
+    function setLogicType(type, element) {
+        ruleLogicType = type;
+        document.getElementById('ruleLogicType').value = type;
+        document.querySelectorAll('.logic-btn').forEach(btn => btn.classList.remove('active'));
+        element.classList.add('active');
         updateRulePreview();
     }
 
-    function removeCondition(conditionId) {
-        document.getElementById(`condition-${conditionId}`).remove();
-        conditions = conditions.filter(c => c.id !== conditionId);
+    // Condition Builder
+    function openConditionBuilder() {
+        document.getElementById('conditionModal').style.display = 'flex';
+        resetConditionForm();
+    }
+
+    function closeConditionBuilder() {
+        document.getElementById('conditionModal').style.display = 'none';
+        resetConditionForm();
+    }
+
+    function resetConditionForm() {
+        document.getElementById('conditionType').value = '';
+        document.getElementById('keywordMatch').value = 'contains';
+        document.getElementById('keywordValue').value = '';
+        document.getElementById('amountOperator').value = 'greater_than';
+        document.getElementById('amountValue').value = '';
+        document.getElementById('amountValue2').value = '';
+        document.getElementById('dateFrom').value = '';
+        document.getElementById('dateTo').value = '';
+        document.getElementById('sourceType').value = 'UPI';
+        updateConditionFields();
+    }
+
+    function updateConditionFields() {
+        const type = document.getElementById('conditionType').value;
+        document.getElementById('keywordFields').style.display = type === 'keyword' ? 'block' : 'none';
+        document.getElementById('amountFields').style.display = type === 'amount' ? 'block' : 'none';
+        document.getElementById('dateFields').style.display = type === 'date' ? 'block' : 'none';
+        document.getElementById('sourceFields').style.display = type === 'source' ? 'block' : 'none';
+    }
+
+    function updateAmountFields() {
+        const operator = document.getElementById('amountOperator').value;
+        document.getElementById('amountValue2Group').style.display = operator === 'between' ? 'block' : 'none';
+    }
+
+    function addCondition() {
+        const type = document.getElementById('conditionType').value;
+        if (!type) {
+            showNotification('Please select a condition type', 'warning');
+            return;
+        }
+
+        let condition = { type };
+
+        if (type === 'keyword') {
+            condition.match = document.getElementById('keywordMatch').value;
+            condition.value = document.getElementById('keywordValue').value;
+            if (!condition.value) {
+                showNotification('Please enter a keyword', 'warning');
+                return;
+            }
+        } else if (type === 'amount') {
+            condition.operator = document.getElementById('amountOperator').value;
+            condition.value = parseFloat(document.getElementById('amountValue').value);
+            if (isNaN(condition.value)) {
+                showNotification('Please enter a valid amount', 'warning');
+                return;
+            }
+            if (condition.operator === 'between') {
+                condition.value2 = parseFloat(document.getElementById('amountValue2').value);
+                if (isNaN(condition.value2)) {
+                    showNotification('Please enter both amounts for between', 'warning');
+                    return;
+                }
+            }
+        } else if (type === 'date') {
+            condition.from = document.getElementById('dateFrom').value;
+            condition.to = document.getElementById('dateTo').value;
+            if (!condition.from || !condition.to) {
+                showNotification('Please enter both dates', 'warning');
+                return;
+            }
+        } else if (type === 'source') {
+            condition.source = document.getElementById('sourceType').value;
+        }
+
+        conditions.push(condition);
+        closeConditionBuilder();
+        renderConditions();
+        updateRulePreview();
+    }
+
+    function renderConditions() {
+        const display = document.getElementById('conditionsDisplay');
+        if (conditions.length === 0) {
+            display.innerHTML = '<div class="empty-state" style="padding: 20px 0;"><i class="fas fa-inbox"></i><br><small>No conditions yet. Add one to get started!</small></div>';
+            return;
+        }
+
+        let html = '';
+        conditions.forEach((condition, index) => {
+            html += `
+                <div class="condition-item">
+                    <div class="condition-type">${getConditionTypeLabel(condition.type)}</div>
+                    <div class="condition-details">
+                        ${getConditionDescription(condition)}
+                    </div>
+                    <div class="condition-actions">
+                        <button type="button" class="btn-remove-condition" onclick="removeCondition(${index})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        display.innerHTML = html;
+    }
+
+    function getConditionTypeLabel(type) {
+        const labels = {
+            keyword: 'Description',
+            amount: 'Amount',
+            date: 'Date',
+            source: 'Source'
+        };
+        return labels[type] || type;
+    }
+
+    function getConditionDescription(condition) {
+        if (condition.type === 'keyword') {
+            return `Contains <strong>"${condition.value}"</strong> (${condition.match})`;
+        } else if (condition.type === 'amount') {
+            if (condition.operator === 'between') {
+                return `Between <strong>₹${condition.value}</strong> and <strong>₹${condition.value2}</strong>`;
+            }
+            return `<strong>₹${condition.value}</strong> (${condition.operator.replace('_', ' ')})`;
+        } else if (condition.type === 'date') {
+            return `From <strong>${condition.from}</strong> to <strong>${condition.to}</strong>`;
+        } else if (condition.type === 'source') {
+            return `Source: <strong>${condition.source}</strong>`;
+        }
+        return '';
+    }
+
+    function removeCondition(index) {
+        conditions.splice(index, 1);
+        renderConditions();
         updateRulePreview();
     }
 
     function updateRulePreview() {
-        const ruleName = document.getElementById('ruleName').value || 'Your Rule';
-        const ruleCategory = document.getElementById('ruleCategory').value || '';
-        const ruleType = document.getElementById('ruleType').value || 'AND';
+        const ruleName = document.getElementById('ruleName').value || 'Transaction';
+        const category = document.getElementById('ruleCategory').value || 'Category';
         
-        const categoryName = categoryChoices[ruleCategory] || ruleCategory;
-        
-        if (!ruleCategory) {
-            document.getElementById('rulePreview').innerHTML = 'Select a category to see preview';
+        if (conditions.length === 0) {
+            document.getElementById('rulePreview').innerHTML = `When a transaction matches your conditions → Apply to <span class="highlight">${category}</span>`;
             return;
         }
 
-        let preview = `<span class="highlight">${ruleName}</span> rule will:\n`;
-        preview += `Apply to category: <span class="highlight">${categoryName}</span>\n`;
-        preview += `When ${ruleType === 'AND' ? 'ALL' : 'ANY'} of these conditions match:\n`;
+        let conditionText = conditions.map(c => getConditionDescription(c)).join(` <strong style="color: var(--primary);">${ruleLogicType}</strong> `);
+        document.getElementById('rulePreview').innerHTML = `When a transaction ${conditionText} → Apply to <span class="highlight">${category}</span>`;
+    }
 
-        const conditionItems = document.querySelectorAll('[id^="condition-"]');
-        if (conditionItems.length === 0) {
-            preview = `<span class="highlight">${ruleName}</span> → <span class="highlight">${categoryName}</span><br><small style="color: var(--gray);">Add at least one condition</small>`;
-        } else {
-            let conditionTexts = [];
-            conditionItems.forEach((item, index) => {
-                const typeSelect = item.querySelector('.condition-type');
-                const type = typeSelect.value;
-                let text = '';
+    function resetRuleForm() {
+        document.getElementById('ruleForm').reset();
+        conditions = [];
+        renderConditions();
+        updateRulePreview();
+    }
 
-                if (type === 'keyword') {
-                    const match = item.querySelector('.condition-match')?.value || 'contains';
-                    const keyword = item.querySelector('.condition-value')?.value || 'text';
-                    text = `Description ${match.replace('_', ' ')} "${keyword}"`;
-                } else if (type === 'amount') {
-                    const operator = item.querySelector('.condition-operator')?.value || 'greater_than';
-                    const value = item.querySelector('.condition-value-1')?.value || '0';
-                    text = `Amount ${operator.replace('_', ' ')} ₹${value}`;
-                } else if (type === 'date') {
-                    const dateFrom = item.querySelector('.condition-date-from')?.value || 'start';
-                    const dateTo = item.querySelector('.condition-date-to')?.value || 'end';
-                    text = `Date from ${dateFrom} to ${dateTo}`;
-                } else if (type === 'source') {
-                    const source = item.querySelector('.condition-source')?.value || 'UPI';
-                    text = `Source is ${source}`;
-                }
-
-                if (text) conditionTexts.push(text);
-            });
-
-            preview = `<span class="highlight">${ruleName}</span> rule will apply to category: <span class="highlight">${categoryName}</span><br>`;
-            preview += `<small style="color: var(--gray);">When ${ruleType === 'AND' ? 'ALL' : 'ANY'} conditions match:</small><br>`;
-            conditionTexts.forEach((text, i) => {
-                preview += `<small>• ${text}</small><br>`;
-            });
-        }
-
-        document.getElementById('rulePreview').innerHTML = preview;
+    // Category Functions
+    function selectIcon(iconElement) {
+        document.querySelectorAll('.category-icon').forEach(icon => icon.classList.remove('selected'));
+        iconElement.classList.add('selected');
+        selectedIcon = iconElement.getAttribute('data-icon');
+        document.getElementById('selectedIcon').value = selectedIcon;
+        updateCategoryPreview();
     }
 
     function updateCategoryPreview() {
@@ -1071,273 +1328,236 @@
         document.getElementById('previewCategory').textContent = categoryName;
         
         if (subCategory) {
-            document.getElementById('categoryPreview').innerHTML = 
-                `<span id="previewIcon">${selectedIcon}</span> <strong>${categoryName}</strong> → <small style="color: var(--gray);">${subCategory}</small>`;
+            document.getElementById('previewSubCategory').innerHTML = ` <span style="color: var(--gray);">→ ${subCategory}</span>`;
         } else {
-            document.getElementById('categoryPreview').innerHTML = 
-                `<span id="previewIcon">${selectedIcon}</span> <strong>${categoryName}</strong>`;
+            document.getElementById('previewSubCategory').innerHTML = '';
         }
     }
 
-    function handleCreateRule(event) {
-        event.preventDefault();
-        
-        const ruleName = document.getElementById('ruleName').value;
-        const category = document.getElementById('ruleCategory').value;
-        
-        if (!ruleName || !category) {
-            showNotification('Please fill in all required fields', 'error');
-            return;
-        }
-
-        // Create form data
-        const formData = new FormData();
-        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
-        formData.append('rule_name', ruleName);
-        formData.append('category', category);
-        formData.append('rule_type', document.getElementById('ruleType').value);
-
-        // Add conditions
-        const conditionItems = document.querySelectorAll('[id^="condition-"]');
-        let conditionCount = 0;
-        conditionItems.forEach((item, index) => {
-            const typeSelect = item.querySelector('.condition-type');
-            const type = typeSelect.value;
-
-            formData.append(`conditions[${conditionCount}][type]`, type);
-
-            if (type === 'keyword') {
-                formData.append(`conditions[${conditionCount}][keyword]`, item.querySelector('.condition-value')?.value || '');
-                formData.append(`conditions[${conditionCount}][keyword_match]`, item.querySelector('.condition-match')?.value || 'contains');
-            } else if (type === 'amount') {
-                formData.append(`conditions[${conditionCount}][operator]`, item.querySelector('.condition-operator')?.value || '');
-                formData.append(`conditions[${conditionCount}][value]`, item.querySelector('.condition-value-1')?.value || '');
-                formData.append(`conditions[${conditionCount}][value2]`, item.querySelector('.condition-value-2')?.value || '');
-            } else if (type === 'date') {
-                formData.append(`conditions[${conditionCount}][date_from]`, item.querySelector('.condition-date-from')?.value || '');
-                formData.append(`conditions[${conditionCount}][date_to]`, item.querySelector('.condition-date-to')?.value || '');
-            } else if (type === 'source') {
-                formData.append(`conditions[${conditionCount}][source]`, item.querySelector('.condition-source')?.value || '');
-            }
-
-            conditionCount++;
-        });
-
-        fetch('{% url "api_create_rule" %}', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showNotification(`Rule "${ruleName}" created successfully!`, 'success');
-                clearRuleForm();
-                loadRulesAndCategories();
-            } else {
-                showNotification(data.error || 'Error creating rule', 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification('Error creating rule', 'error');
-        });
-    }
-
-    function handleCreateCategory(event) {
-        event.preventDefault();
-        
-        const categoryName = document.getElementById('categoryName').value;
-        
-        if (!categoryName) {
-            showNotification('Please enter a category name', 'error');
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
-        formData.append('category_name', categoryName);
-        formData.append('sub_category', document.getElementById('subCategory').value);
-        formData.append('icon', selectedIcon);
-
-        fetch('{% url "api_create_category" %}', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showNotification(`Category "${categoryName}" created successfully!`, 'success');
-                clearCategoryForm();
-                loadRulesAndCategories();
-            } else {
-                showNotification(data.error || 'Error creating category', 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification('Error creating category', 'error');
-        });
-    }
-
-    function loadRulesAndCategories() {
-        fetch('{% url "api_get_rules_categories" %}')
-        .then(response => response.json())
-        .then(data => {
-            rules = data.rules || [];
-            customCategories = data.categories || [];
-            renderRules();
-            renderCategories();
-            updateCounts();
-        })
-        .catch(error => console.error('Error loading data:', error));
-    }
-
-    function renderRules() {
-        const container = document.getElementById('rulesContainer');
-        container.innerHTML = '';
-
-        if (rules.length === 0) {
-            container.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>No rules yet. Create one to get started!</p></div>';
-            return;
-        }
-
-        rules.forEach(rule => {
-            const ruleElement = document.createElement('div');
-            ruleElement.className = 'rule-item';
-            ruleElement.innerHTML = `
-                <div class="rule-details">
-                    <div class="rule-name">${rule.name}</div>
-                    <div class="rule-condition">${rule.description}</div>
-                </div>
-                <div class="rule-actions">
-                    <button type="button" class="btn-edit" onclick="editRule(${rule.id})">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button type="button" class="btn-delete" onclick="deleteRule(${rule.id})">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            `;
-            container.appendChild(ruleElement);
-        });
-    }
-
-    function renderCategories() {
-        const container = document.getElementById('categoriesContainer');
-        container.innerHTML = '';
-
-        if (customCategories.length === 0) {
-            container.innerHTML = '<div style="grid-column: 1/-1;"><div class="empty-state"><i class="fas fa-inbox"></i><p>No categories yet. Create one to organize your transactions!</p></div></div>';
-            return;
-        }
-
-        customCategories.forEach(category => {
-            const categoryElement = document.createElement('div');
-            categoryElement.className = 'category-card';
-            const rulesHTML = category.rules && category.rules.length > 0 
-                ? category.rules.map(rule => `
-                    <div class="rule-item">
-                        <div class="rule-details">
-                            <div class="rule-name">${rule.name}</div>
-                            <div class="rule-condition">${rule.description}</div>
-                        </div>
-                        <div class="rule-actions">
-                            <button type="button" class="btn-delete" onclick="deleteRule(${rule.id})"><i class="fas fa-trash"></i></button>
-                        </div>
-                    </div>
-                `).join('')
-                : `<div style="padding: 16px; text-align: center; color: var(--gray); font-size: 13px;">No rules yet</div>`;
-
-            categoryElement.innerHTML = `
-                <div class="category-header">
-                    <div class="category-icon-large">${category.icon}</div>
-                    <div class="category-info">
-                        <h5>${category.name}</h5>
-                        <p>${category.rules?.length || 0} rules</p>
-                    </div>
-                </div>
-                <div class="rules-list">
-                    ${rulesHTML}
-                </div>
-            `;
-            container.appendChild(categoryElement);
-        });
-    }
-
-    function deleteRule(ruleId) {
-        if (!confirm('Are you sure you want to delete this rule?')) return;
-
-        const formData = new FormData();
-        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
-
-        fetch(`/analyzer/api/rule/${ruleId}/delete/`, {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showNotification('Rule deleted', 'success');
-                loadRulesAndCategories();
-            } else {
-                showNotification(data.error || 'Error deleting rule', 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification('Error deleting rule', 'error');
-        });
-    }
-
-    function editRule(ruleId) {
-        showNotification('Edit feature coming soon!', 'info');
-    }
-
-    function clearRuleForm() {
-        document.getElementById('ruleForm').reset();
-        document.getElementById('conditionsList').innerHTML = '';
-        conditions = [];
-        nextConditionId = 1;
-        addCondition();
-        updateRulePreview();
-    }
-
-    function clearCategoryForm() {
+    function resetCategoryForm() {
         document.getElementById('categoryForm').reset();
         selectedIcon = "🛒";
-        document.querySelectorAll('.category-icon').forEach(el => el.classList.remove('selected'));
-        document.querySelector('.category-icon').classList.add('selected');
-        document.getElementById('selectedIcon').value = "🛒";
+        document.getElementById('selectedIcon').value = selectedIcon;
         updateCategoryPreview();
+        document.querySelectorAll('.category-icon').forEach((icon, idx) => {
+            if (idx === 0) icon.classList.add('selected');
+            else icon.classList.remove('selected');
+        });
     }
 
-    function updateCounts() {
-        document.getElementById('rulesCount').textContent = rules.filter(r => r.is_active).length;
-        document.getElementById('categoriesCount').textContent = customCategories.length;
-        document.getElementById('activeRulesCount').textContent = `${rules.length} rules`;
-        document.getElementById('totalCategories').textContent = `${customCategories.length} categories`;
-    }
-
-    function showNotification(message, type) {
-        const notification = document.createElement('div');
-        notification.className = `alert ${type}`;
+    // Delete Functions
+    function deleteRule(ruleId) {
+        if (!confirm('Are you sure you want to delete this rule?')) return;
         
-        let icon = 'info-circle';
-        if (type === 'success') icon = 'check-circle';
-        if (type === 'error') icon = 'exclamation-circle';
+        fetch(`/analyzer/api/rule/${ruleId}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                document.querySelector(`[data-rule-id="${ruleId}"]`)?.remove();
+                updateCounts();
+                showNotification('Rule deleted successfully', 'success');
+            } else {
+                showNotification('Error deleting rule', 'error');
+            }
+        })
+        .catch(e => showNotification('Error: ' + e, 'error'));
+    }
+
+    function deleteCategoryRule(ruleId) {
+        if (!confirm('Are you sure you want to delete this rule?')) return;
+        
+        fetch(`/analyzer/api/category-rule/${ruleId}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                document.querySelector(`[data-category-rule-id="${ruleId}"]`)?.remove();
+                updateCounts();
+                showNotification('Rule deleted', 'success');
+            }
+        })
+        .catch(e => showNotification('Error: ' + e, 'error'));
+    }
+
+    // Form Submission
+    document.getElementById('ruleForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        if (conditions.length === 0) {
+            showNotification('Please add at least one condition', 'warning');
+            return;
+        }
+
+        const formData = new FormData(this);
+        formData.append('conditions', JSON.stringify(conditions));
+
+        const btn = document.getElementById('submitRuleBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading"></span> Creating...';
+
+        try {
+            const response = await fetch(this.action, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showNotification(`Rule "${data.rule_name}" created!`, 'success');
+                const newRule = `
+                    <div class="rule-item" data-rule-id="${data.rule_id}">
+                        <div class="rule-details">
+                            <div class="rule-name">${data.rule_name}</div>
+                            <div class="rule-condition">${data.rule_description}</div>
+                        </div>
+                        <div class="rule-actions">
+                            <i class="fas fa-edit" onclick="editRule(${data.rule_id})"></i>
+                            <i class="fas fa-trash" onclick="deleteRule(${data.rule_id})"></i>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('rulesContainer').insertAdjacentHTML('afterbegin', newRule);
+                resetRuleForm();
+                updateCounts();
+            } else {
+                showNotification(data.message || 'Error creating rule', 'error');
+            }
+        } catch (error) {
+            showNotification('Error: ' + error.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-plus"></i> Create Rule';
+        }
+    });
+
+    document.getElementById('categoryForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const btn = document.getElementById('submitCategoryBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading"></span> Creating...';
+
+        try {
+            const response = await fetch(this.action, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showNotification(`Category "${data.category_name}" created!`, 'success');
+                const newCategory = `
+                    <div class="category-card" data-category-id="${data.category_id}">
+                        <div class="category-header">
+                            <div class="category-icon-large">${data.category_icon}</div>
+                            <div class="category-info">
+                                <h5>${data.category_name}</h5>
+                                <p>0 rules</p>
+                            </div>
+                        </div>
+                        <div class="rules-list">
+                            <div class="empty-state" style="padding: 20px; font-size: 13px;">
+                                <i class="fas fa-plus-circle"></i><br>
+                                <small>No rules yet.</small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('categoriesContainer').insertAdjacentHTML('afterbegin', newCategory);
+                resetCategoryForm();
+                updateCounts();
+            } else {
+                showNotification(data.message || 'Error creating category', 'error');
+            }
+        } catch (error) {
+            showNotification('Error: ' + error.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-check-circle"></i> Create Category';
+        }
+    });
+
+    // Notifications
+    function showNotification(message, type) {
+        const container = document.getElementById('notificationContainer');
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        
+        const icons = {
+            success: 'check-circle',
+            error: 'exclamation-circle',
+            warning: 'exclamation-triangle',
+            info: 'info-circle'
+        };
         
         notification.innerHTML = `
-            <i class="fas fa-${icon}"></i>
+            <i class="fas fa-${icons[type] || 'info-circle'}"></i>
             <span>${message}</span>
         `;
         
-        document.body.appendChild(notification);
-        
+        container.appendChild(notification);
+        setTimeout(() => notification.classList.add('show'), 10);
         setTimeout(() => {
-            notification.style.animation = 'slideOut 0.4s ease forwards';
+            notification.classList.remove('show');
             setTimeout(() => notification.remove(), 400);
         }, 3000);
     }
+
+    // Utils
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function updateCounts() {
+        const rulesCount = document.querySelectorAll('#rulesContainer .rule-item').length;
+        const categoriesCount = document.querySelectorAll('#categoriesContainer .category-card').length;
+        document.getElementById('rulesCount').textContent = rulesCount;
+        document.getElementById('categoriesCount').textContent = categoriesCount;
+        document.getElementById('activeRulesCount').textContent = `${rulesCount} rules`;
+        document.getElementById('totalCategories').textContent = `${categoriesCount} categories`;
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+        // Generate icon grid
+        const iconGrid = document.getElementById('iconGrid');
+        icons.forEach((icon, idx) => {
+            const elem = document.createElement('div');
+            elem.className = 'category-icon' + (idx === 0 ? ' selected' : '');
+            elem.setAttribute('data-icon', icon);
+            elem.textContent = icon;
+            elem.onclick = () => selectIcon(elem);
+            iconGrid.appendChild(elem);
+        });
+        
+        updateCategoryPreview();
+    });
+
+    // Modal close on outside click
+    document.getElementById('conditionModal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'conditionModal') closeConditionBuilder();
+    });
 </script>
 
 {% endblock %}
