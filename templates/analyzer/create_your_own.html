@@ -1053,7 +1053,7 @@
 </div>
 
 <!-- Condition Builder Modal -->
-<div id="conditionModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 2000; align-items: center; justify-content: center;">
+<div id="conditionModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 2000; align-items: center; justify-content: center; flex-direction: column;">
     <div style="background: white; border-radius: 12px; padding: 32px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
         <h5 style="margin-bottom: 24px; color: var(--dark); font-weight: 600;">
             <i class="fas fa-plus-circle"></i> Add Condition
@@ -1146,7 +1146,7 @@
 </div>
 
 <!-- Edit Category Modal -->
-<div id="editCategoryModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 2000; align-items: center; justify-content: center;">
+<div id="editCategoryModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 2000; align-items: center; justify-content: center; flex-direction: column;">
     <div style="background: white; border-radius: 12px; padding: 32px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
         <h5 style="margin-bottom: 24px; color: var(--dark); font-weight: 600;">
             <i class="fas fa-edit"></i> Edit Category
@@ -1680,7 +1680,7 @@
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
         
-        const icons = {
+        const iconMap = {
             success: 'check-circle',
             error: 'exclamation-circle',
             warning: 'exclamation-triangle',
@@ -1688,7 +1688,7 @@
         };
         
         notification.innerHTML = `
-            <i class="fas fa-${icons[type] || 'info-circle'}"></i>
+            <i class="fas fa-${iconMap[type] || 'info-circle'}"></i>
             <span>${message}</span>
         `;
         
