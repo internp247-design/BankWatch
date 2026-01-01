@@ -972,6 +972,25 @@
                         <input type="color" id="categoryColor" name="color" value="#5a67d8" style="padding: 10px;">
                     </div>
                 </div>
+
+                <!-- Category Conditions Section -->
+                <div class="conditions-container">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <label style="margin: 0;"><i class="fas fa-cogs"></i> Conditions (Optional)</label>
+                            <span id="categoryConditionCount" style="display: inline-block; background: #e0e0e0; color: #666; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">0 added</span>
+                        </div>
+                        <button type="button" class="btn btn-primary" style="min-width: 160px; padding: 12px 20px;" onclick="openCategoryConditionBuilder()">
+                            <i class="fas fa-plus-circle"></i> Add Condition
+                        </button>
+                    </div>
+                    <div id="categoryConditionsDisplay" style="min-height: 40px;">
+                        <div class="empty-state" style="padding: 20px 0;">
+                            <i class="fas fa-inbox"></i><br>
+                            <small>No conditions. Category applies to all matching transactions.</small>
+                        </div>
+                    </div>
+                </div>
                 
                 <div class="preview">
                     <div class="preview-title">
@@ -1191,6 +1210,84 @@
     </div>
 </div>
 
+<!-- Category Condition Builder Modal -->
+<div id="categoryConditionModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 2000; align-items: center; justify-content: center; flex-direction: column;">
+    <div style="background: white; border-radius: 12px; padding: 32px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+        <h5 style="margin-bottom: 24px; color: var(--dark); font-weight: 600;">
+            <i class="fas fa-plus-circle"></i> Add Category Condition
+        </h5>
+        
+        <div class="form-group">
+            <label for="categoryConditionType">Condition Type</label>
+            <select id="categoryConditionType" onchange="updateCategoryConditionFields()">
+                <option value="">Select Type</option>
+                <option value="amount">Transaction Amount</option>
+                <option value="date">Date Range</option>
+                <option value="keyword">Keyword in Description</option>
+            </select>
+        </div>
+
+        <!-- Amount Fields -->
+        <div id="categoryAmountFields" style="display: none;">
+            <div class="form-group">
+                <label for="categoryAmountOperator">Operator</label>
+                <select id="categoryAmountOperator" onchange="updateCategoryAmountFields()">
+                    <option value="greater_than">Greater Than</option>
+                    <option value="less_than">Less Than</option>
+                    <option value="equals">Equals</option>
+                    <option value="between">Between</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="categoryAmountValue">Amount</label>
+                <input type="number" id="categoryAmountValue" placeholder="0.00" step="0.01">
+            </div>
+            <div class="form-group" id="categoryAmountValue2Group" style="display: none;">
+                <label for="categoryAmountValue2">To Amount</label>
+                <input type="number" id="categoryAmountValue2" placeholder="0.00" step="0.01">
+            </div>
+        </div>
+
+        <!-- Date Fields -->
+        <div id="categoryDateFields" style="display: none;">
+            <div class="form-group">
+                <label for="categoryDateFrom">From Date</label>
+                <input type="date" id="categoryDateFrom">
+            </div>
+            <div class="form-group">
+                <label for="categoryDateTo">To Date</label>
+                <input type="date" id="categoryDateTo">
+            </div>
+        </div>
+
+        <!-- Keyword Fields -->
+        <div id="categoryKeywordFields" style="display: none;">
+            <div class="form-group">
+                <label for="categoryKeywordMatch">Match Type</label>
+                <select id="categoryKeywordMatch">
+                    <option value="contains">Contains</option>
+                    <option value="starts_with">Starts With</option>
+                    <option value="ends_with">Ends With</option>
+                    <option value="exact">Exact Match</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="categoryKeywordValue">Keyword</label>
+                <input type="text" id="categoryKeywordValue" placeholder="e.g., Amazon">
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-top: 24px;">
+            <button type="button" class="btn btn-primary" onclick="addCategoryCondition()" style="flex: 1;">
+                <i class="fas fa-check"></i> Add
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="closeCategoryConditionBuilder()" style="flex: 1;">
+                <i class="fas fa-times"></i> Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Notification Container -->
 <div id="notificationContainer"></div>
 
@@ -1199,6 +1296,7 @@
     const icons = ["🛒", "🚕", "🍔", "🏠", "💡", "💰", "✈️", "🎬", "🛍️", "🏥", "🎓", "💼", "🍽️", "⚽", "🎁", "📱", "💻", "🎧", "👕", "🚗", "🌮", "🏋️", "🎨", "📚"];
     
     let conditions = [];
+    let categoryConditions = [];
     let selectedIcon = "🛒";
     let editingCategoryId = null;
     let ruleLogicType = "AND";
@@ -1384,6 +1482,129 @@
         updateRulePreview();
     }
 
+    // Category Condition Functions
+    function openCategoryConditionBuilder() {
+        document.getElementById('categoryConditionModal').style.display = 'flex';
+        resetCategoryConditionForm();
+    }
+
+    function closeCategoryConditionBuilder() {
+        document.getElementById('categoryConditionModal').style.display = 'none';
+        resetCategoryConditionForm();
+    }
+
+    function resetCategoryConditionForm() {
+        document.getElementById('categoryConditionType').value = '';
+        document.getElementById('categoryAmountOperator').value = 'greater_than';
+        document.getElementById('categoryAmountValue').value = '';
+        document.getElementById('categoryAmountValue2').value = '';
+        document.getElementById('categoryDateFrom').value = '';
+        document.getElementById('categoryDateTo').value = '';
+        document.getElementById('categoryKeywordMatch').value = 'contains';
+        document.getElementById('categoryKeywordValue').value = '';
+        updateCategoryConditionFields();
+    }
+
+    function updateCategoryConditionFields() {
+        const type = document.getElementById('categoryConditionType').value;
+        document.getElementById('categoryKeywordFields').style.display = type === 'keyword' ? 'block' : 'none';
+        document.getElementById('categoryAmountFields').style.display = type === 'amount' ? 'block' : 'none';
+        document.getElementById('categoryDateFields').style.display = type === 'date' ? 'block' : 'none';
+    }
+
+    function updateCategoryAmountFields() {
+        const operator = document.getElementById('categoryAmountOperator').value;
+        document.getElementById('categoryAmountValue2Group').style.display = operator === 'between' ? 'block' : 'none';
+    }
+
+    function addCategoryCondition() {
+        const type = document.getElementById('categoryConditionType').value;
+        if (!type) {
+            showNotification('Please select a condition type', 'warning');
+            return;
+        }
+
+        let condition = { type };
+
+        if (type === 'keyword') {
+            condition.match = document.getElementById('categoryKeywordMatch').value;
+            condition.value = document.getElementById('categoryKeywordValue').value;
+            if (!condition.value) {
+                showNotification('Please enter a keyword', 'warning');
+                return;
+            }
+        } else if (type === 'amount') {
+            condition.operator = document.getElementById('categoryAmountOperator').value;
+            condition.value = parseFloat(document.getElementById('categoryAmountValue').value);
+            if (isNaN(condition.value)) {
+                showNotification('Please enter a valid amount', 'warning');
+                return;
+            }
+            if (condition.operator === 'between') {
+                condition.value2 = parseFloat(document.getElementById('categoryAmountValue2').value);
+                if (isNaN(condition.value2)) {
+                    showNotification('Please enter both amounts for between', 'warning');
+                    return;
+                }
+            }
+        } else if (type === 'date') {
+            condition.from = document.getElementById('categoryDateFrom').value;
+            condition.to = document.getElementById('categoryDateTo').value;
+            if (!condition.from || !condition.to) {
+                showNotification('Please enter both dates', 'warning');
+                return;
+            }
+        }
+
+        categoryConditions.push(condition);
+        closeCategoryConditionBuilder();
+        renderCategoryConditions();
+        updateCategoryConditionCount();
+    }
+
+    function removeCategoryCondition(index) {
+        categoryConditions.splice(index, 1);
+        renderCategoryConditions();
+        updateCategoryConditionCount();
+    }
+
+    function renderCategoryConditions() {
+        const display = document.getElementById('categoryConditionsDisplay');
+        if (categoryConditions.length === 0) {
+            display.innerHTML = `
+                <div class="empty-state" style="padding: 20px 0;">
+                    <i class="fas fa-inbox"></i><br>
+                    <small>No conditions. Category applies to all matching transactions.</small>
+                </div>
+            `;
+            return;
+        }
+
+        display.innerHTML = categoryConditions.map((cond, idx) => `
+            <div style="display: flex; align-items: center; justify-content: space-between; background: #f5f5f5; padding: 12px 16px; border-radius: 8px; margin-bottom: 8px; font-size: 14px;">
+                <span><i class="fas fa-filter" style="margin-right: 8px;"></i> ${getConditionDescription(cond)}</span>
+                <button type="button" class="btn-remove-condition" onclick="removeCategoryCondition(${idx})" style="background: none; border: none; color: var(--danger); cursor: pointer; padding: 4px 8px;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `).join('');
+    }
+
+    function updateCategoryConditionCount() {
+        const count = categoryConditions.length;
+        const badge = document.getElementById('categoryConditionCount');
+        if (badge) {
+            badge.textContent = count + ' added';
+            if (count > 0) {
+                badge.style.background = '#4caf50';
+                badge.style.color = 'white';
+            } else {
+                badge.style.background = '#e0e0e0';
+                badge.style.color = '#666';
+            }
+        }
+    }
+
     function updateRulePreview() {
         const ruleName = document.getElementById('ruleName').value || 'Transaction';
         const category = document.getElementById('ruleCategory').value || 'Category';
@@ -1430,6 +1651,9 @@
 
     function resetCategoryForm() {
         document.getElementById('categoryForm').reset();
+        categoryConditions = [];
+        renderCategoryConditions();
+        updateCategoryConditionCount();
         selectedIcon = "🛒";
         document.getElementById('selectedIcon').value = selectedIcon;
         updateCategoryPreview();
@@ -1680,12 +1904,16 @@
                 console.log('Category form submitted');
                 
                 const formData = new FormData(categoryForm);
+                if (categoryConditions.length > 0) {
+                    formData.append('conditions', JSON.stringify(categoryConditions));
+                }
                 const btn = document.getElementById('submitCategoryBtn');
                 btn.disabled = true;
                 btn.innerHTML = '<span class="loading"></span> Creating...';
 
                 try {
                     console.log('Submitting category to:', categoryForm.action);
+                    console.log('With conditions:', categoryConditions);
                     const response = await fetch(categoryForm.action, {
                         method: 'POST',
                         body: formData
