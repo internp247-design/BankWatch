@@ -1317,8 +1317,34 @@ def apply_custom_category(request, statement_id):
 
 
 @login_required
+@login_required
 def apply_custom_category_rules(request):
-    """Apply multiple custom categories to transactions from rule application results"""
+    """
+    Apply custom category rules to user transactions
+    
+    Purpose: 
+    This endpoint evaluates all rules for selected custom categories against the user's 
+    transactions and returns which transactions match the rules. The matching process uses 
+    the CustomCategoryRulesEngine to check conditions (keyword, amount, date).
+    
+    Method: POST
+    
+    Request Parameters:
+    - category_ids (list): IDs of custom categories whose rules to apply
+    
+    Response:
+    - success (bool): True if operation completed
+    - message (str): Human-readable result message
+    - matched_transaction_ids (list): IDs of transactions matching any rule
+    - category_names (list): Names of the selected categories
+    - category_colors (list): Colors of the selected categories
+    - applied_count (int): Number of transactions that matched
+    
+    Example:
+    POST /analyzer/apply-custom-category-rules/
+    Data: category_ids=1&category_ids=2
+    Response: {"success": true, "matched_transaction_ids": [15, 22, 45], ...}
+    """
     if request.method == 'POST':
         category_ids = request.POST.getlist('category_ids')
         
@@ -3523,4 +3549,73 @@ def delete_category_rule_ajax(request, rule_id):
         return JsonResponse({
             'success': False,
             'message': f'Error deleting rule: {str(e)}'
+        })
+
+
+@login_required
+def update_category_ajax(request, category_id):
+    """AJAX endpoint to update a custom category"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'POST required'}, status=400)
+    
+    try:
+        category = get_object_or_404(CustomCategory, id=category_id, user=request.user)
+        
+        name = request.POST.get('name', '').strip()
+        description = request.POST.get('description', '').strip()
+        icon = request.POST.get('icon', category.icon)
+        color = request.POST.get('color', category.color)
+        
+        # Validation
+        if not name:
+            return JsonResponse({'success': False, 'message': 'Category name is required'})
+        
+        # Check if name already exists (excluding current category)
+        if CustomCategory.objects.filter(user=request.user, name=name).exclude(id=category_id).exists():
+            return JsonResponse({'success': False, 'message': 'Category with this name already exists'})
+        
+        # Update category
+        category.name = name
+        category.description = description
+        category.icon = icon
+        category.color = color
+        category.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Category "{name}" updated successfully!',
+            'category_id': category.id,
+            'category_name': category.name,
+            'category_icon': category.icon,
+            'category_description': category.description,
+            'category_color': category.color
+        })
+    
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error updating category: {str(e)}'
+        })
+
+
+@login_required
+def delete_category_ajax(request, category_id):
+    """AJAX endpoint to delete a custom category"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'POST required'}, status=400)
+    
+    try:
+        category = get_object_or_404(CustomCategory, id=category_id, user=request.user)
+        category_name = category.name
+        category.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Category "{category_name}" deleted successfully!'
+        })
+    
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error deleting category: {str(e)}'
         })
