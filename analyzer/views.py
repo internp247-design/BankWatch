@@ -11,7 +11,7 @@ from django.urls import reverse
 from datetime import timedelta
 from django.utils import timezone
 
-from .models import BankAccount, BankStatement, Transaction, AnalysisSummary, Rule, CustomCategory, CustomCategoryRule, CustomCategoryRuleCondition
+from .models import BankAccount, BankStatement, Transaction, AnalysisSummary, Rule, CustomCategory, CustomCategoryRule, CustomCategoryRuleCondition, RuleCondition
 from .forms import BankStatementForm
 from .rules_forms import RuleForm, RuleConditionFormSet, CustomCategoryForm, CustomCategoryRuleForm, CustomCategoryRuleConditionFormSet
 from .rules_engine import RulesEngine, categorize_with_rules
