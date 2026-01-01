@@ -1595,7 +1595,16 @@
                 body: formData
             });
             
+            // Check if response is OK
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Server error:', response.status, errorText);
+                showNotification(`Server error: ${response.status}`, 'error');
+                return;
+            }
+            
             const data = await response.json();
+            console.log('Rule creation response:', data);
             
             if (data.success) {
                 showNotification(`Rule "${data.rule_name}" created!`, 'success');
@@ -1618,6 +1627,7 @@
                 showNotification(data.message || 'Error creating rule', 'error');
             }
         } catch (error) {
+            console.error('Fetch error:', error);
             showNotification('Error: ' + error.message, 'error');
         } finally {
             btn.disabled = false;
@@ -1639,7 +1649,16 @@
                 body: formData
             });
             
+            // Check if response is OK
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Server error:', response.status, errorText);
+                showNotification(`Server error: ${response.status}`, 'error');
+                return;
+            }
+            
             const data = await response.json();
+            console.log('Category creation response:', data);
             
             if (data.success) {
                 showNotification(`Category "${data.category_name}" created!`, 'success');
@@ -1667,6 +1686,7 @@
                 showNotification(data.message || 'Error creating category', 'error');
             }
         } catch (error) {
+            console.error('Fetch error:', error);
             showNotification('Error: ' + error.message, 'error');
         } finally {
             btn.disabled = false;
