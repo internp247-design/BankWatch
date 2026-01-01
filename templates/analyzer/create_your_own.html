@@ -1460,6 +1460,12 @@
         .catch(e => showNotification('Error: ' + e, 'error'));
     }
 
+    function editRule(ruleId) {
+        // For now, show a notification that edit is being developed
+        showNotification('Rule editing is in development', 'info');
+        // TODO: Implement rule editing modal similar to category editing
+    }
+
     function deleteCategoryRule(ruleId) {
         if (!confirm('Are you sure you want to delete this rule?')) return;
         
@@ -1476,6 +1482,12 @@
             }
         })
         .catch(e => showNotification('Error: ' + e, 'error'));
+    }
+
+    function editCategoryRule(ruleId) {
+        // For now, show a notification that edit is being developed
+        showNotification('Rule editing is in development', 'info');
+        // TODO: Implement category rule editing modal
     }
 
     // Category Edit/Delete Functions
