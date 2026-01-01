@@ -1342,12 +1342,13 @@
                         <div class="condition-actions">
                             <button type="button" class="btn-remove-condition" onclick="removeCondition(${index})">
                                 <i class="fas fa-trash"></i>
-                        </button>
+                            </button>
+                        </div>
                     </div>
-                </div>
-            `;
-        });
-        display.innerHTML = html;
+                `;
+            });
+            display.innerHTML = html;
+        }
     }
 
     function getConditionTypeLabel(type) {
@@ -1400,6 +1401,7 @@
         document.getElementById('ruleForm').reset();
         conditions = [];
         renderConditions();
+        updateConditionCount();
         updateRulePreview();
     }
 
@@ -1590,7 +1592,6 @@
         try {
             const response = await fetch(this.action, {
                 method: 'POST',
-                headers: { 'X-CSRFToken': getCookie('csrftoken') },
                 body: formData
             });
             
@@ -1635,7 +1636,6 @@
         try {
             const response = await fetch(this.action, {
                 method: 'POST',
-                headers: { 'X-CSRFToken': getCookie('csrftoken') },
                 body: formData
             });
             
