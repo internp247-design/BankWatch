@@ -1585,39 +1585,45 @@
         document.getElementById('editSelectedIcon').value = iconElement.getAttribute('data-icon');
     }
     document.addEventListener('DOMContentLoaded', () => {
+        console.log('DOMContentLoaded fired - attaching form listeners');
+        
         // Form Submission - Rule Form
-        document.getElementById('ruleForm')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            console.log('Rule form submitted. Conditions:', conditions);
-            
-            if (conditions.length === 0) {
-                showNotification('Please add at least one condition', 'warning');
-                console.warn('No conditions added');
-                return;
-            }
-
-            const ruleName = document.getElementById('ruleName').value;
-            const ruleCategory = document.getElementById('ruleCategory').value;
-            const ruleType = document.getElementById('ruleLogicType').value;
-            
-            console.log('Form data:', { ruleName, ruleCategory, ruleType, conditions });
-
-            const formData = new FormData(this);
-            formData.append('conditions', JSON.stringify(conditions));
-
-            const btn = document.getElementById('submitRuleBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="loading"></span> Creating...';
-
-            try {
-                console.log('Submitting to:', this.action);
-                const response = await fetch(this.action, {
-                    method: 'POST',
-                    body: formData
-                });
+        const ruleForm = document.getElementById('ruleForm');
+        console.log('Rule form element:', ruleForm);
+        
+        if (ruleForm) {
+            ruleForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                console.log('Rule form submitted. Conditions:', conditions);
                 
-                console.log('Response status:', response.status, response.ok);
+                if (conditions.length === 0) {
+                    showNotification('Please add at least one condition', 'warning');
+                    console.warn('No conditions added');
+                    return;
+                }
+
+                const ruleName = document.getElementById('ruleName').value;
+                const ruleCategory = document.getElementById('ruleCategory').value;
+                const ruleType = document.getElementById('ruleLogicType').value;
+                
+                console.log('Form data:', { ruleName, ruleCategory, ruleType, conditions });
+
+                const formData = new FormData(ruleForm);
+                formData.append('conditions', JSON.stringify(conditions));
+                console.log('FormData keys:', Array.from(formData.keys()));
+
+                const btn = document.getElementById('submitRuleBtn');
+                btn.disabled = true;
+                btn.innerHTML = '<span class="loading"></span> Creating...';
+
+                try {
+                    console.log('Submitting to:', ruleForm.action);
+                    const response = await fetch(ruleForm.action, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    console.log('Response status:', response.status, response.ok);
                 
                 // Check if response is OK
                 if (!response.ok) {
@@ -1660,38 +1666,51 @@
                 btn.innerHTML = '<i class="fas fa-plus"></i> Create Rule';
             }
         });
+        } else {
+            console.error('Rule form not found');
+        }
 
         // Form Submission - Category Form
-        document.getElementById('categoryForm')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const formData = new FormData(this);
-            const btn = document.getElementById('submitCategoryBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="loading"></span> Creating...';
+        const categoryForm = document.getElementById('categoryForm');
+        console.log('Category form element:', categoryForm);
+        
+        if (categoryForm) {
+            categoryForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                console.log('Category form submitted');
+                
+                const formData = new FormData(categoryForm);
+                const btn = document.getElementById('submitCategoryBtn');
+                btn.disabled = true;
+                btn.innerHTML = '<span class="loading"></span> Creating...';
 
-            try {
-                const response = await fetch(this.action, {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                // Check if response is OK
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('Server error:', response.status, errorText);
-                    showNotification(`Server error: ${response.status}`, 'error');
-                    return;
-                }
-                
-                const data = await response.json();
-                console.log('Category creation response:', data);
-                
-                if (data.success) {
-                    showNotification(`Category "${data.category_name}" created!`, 'success');
-                    const newCategory = `
-                        <div class="category-card" data-category-id="${data.category_id}">
-                            <div class="category-header">
+                try {
+                    console.log('Submitting category to:', categoryForm.action);
+                    const response = await fetch(categoryForm.action, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    console.log('Response status:', response.status);
+                    
+                    // Check if response is OK
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('Server error:', response.status, errorText);
+                        showNotification(`Server error: ${response.status}`, 'error');
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-check-circle"></i> Create Category';
+                        return;
+                    }
+                    
+                    const data = await response.json();
+                    console.log('Category creation response:', data);
+                    
+                    if (data.success) {
+                        showNotification(`Category "${data.category_name}" created!`, 'success');
+                        const newCategory = `
+                            <div class="category-card" data-category-id="${data.category_id}">
+                                <div class="category-header">
                                 <div class="category-icon-large">${data.category_icon}</div>
                                 <div class="category-info">
                                     <h5>${data.category_name}</h5>
@@ -1705,21 +1724,24 @@
                                 </div>
                             </div>
                         </div>
-                    `;
-                    document.getElementById('categoriesContainer').insertAdjacentHTML('afterbegin', newCategory);
-                    resetCategoryForm();
-                    updateCounts();
-                } else {
-                    showNotification(data.message || 'Error creating category', 'error');
+                        `;
+                        document.getElementById('categoriesContainer').insertAdjacentHTML('afterbegin', newCategory);
+                        resetCategoryForm();
+                        updateCounts();
+                    } else {
+                        showNotification(data.message || 'Error creating category', 'error');
+                    }
+                } catch (error) {
+                    console.error('Fetch error:', error);
+                    showNotification('Error: ' + error.message, 'error');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-check-circle"></i> Create Category';
                 }
-            } catch (error) {
-                console.error('Fetch error:', error);
-                showNotification('Error: ' + error.message, 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-check-circle"></i> Create Category';
-            }
-        });
+            });
+        } else {
+            console.error('Category form not found');
+        }
         
         // Generate icon grid for creation
         const iconGrid = document.getElementById('iconGrid');
