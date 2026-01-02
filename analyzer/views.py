@@ -1,5 +1,4 @@
 import os
-import json
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -491,7 +490,6 @@ def apply_rules(request):
 
             updated_count = 0
             updated_ids = []
-            matched_ids = []  # NEW: Track ALL matched transactions, not just updated ones
             prev_map = {}
             matched_map = {}
             with db_transaction.atomic():
@@ -507,30 +505,24 @@ def apply_rules(request):
                     matched_rule = engine.find_matching_rule(transaction_data)
                     category = matched_rule.category if matched_rule else None
 
-                    if matched_rule:
-                        # Track ALL matched transactions
-                        matched_ids.append(transaction.id)
-                        matched_map[str(transaction.id)] = matched_rule.name
-
                     if category and category != transaction.category:
                         # record previous category so we can show changes
                         prev_map[str(transaction.id)] = transaction.category
+                        # record which rule matched
+                        matched_map[str(transaction.id)] = matched_rule.name if matched_rule else None
                         transaction.category = category
                         transaction.save()
                         updated_count += 1
                         updated_ids.append(transaction.id)
 
             # If AJAX request, return JSON so JS can stop spinner and update UI
-            # Store list of matched ids in session (use matched_ids if available, else updated_ids for backward compatibility)
-            # This allows showing all matched transactions, not just the ones that changed
-            result_ids = matched_ids if matched_ids else updated_ids
-            
-            if result_ids:
-                request.session['last_rules_applied_ids'] = result_ids
+            # Store list of updated ids and previous categories in session so results view can show only changed
+            if updated_ids:
+                request.session['last_rules_applied_ids'] = updated_ids
                 request.session['last_rules_applied_prev'] = prev_map
                 request.session['last_rules_applied_rule'] = matched_map
             else:
-                # clear previous session keys if nothing matched or changed
+                # clear previous session keys if nothing changed
                 request.session.pop('last_rules_applied_ids', None)
                 request.session.pop('last_rules_applied_prev', None)
                 request.session.pop('last_rules_applied_rule', None)
@@ -545,10 +537,9 @@ def apply_rules(request):
                 redirect_url += f"{sep}show_changed=1"
                 return JsonResponse({
                     'status': 'ok',
-                    'matched': len(matched_ids),
                     'updated': updated_count,
                     'total': transactions.count(),
-                    'message': f'Rules applied! Matched {len(matched_ids)} transactions ({updated_count} newly categorized).',
+                    'message': f'Rules applied successfully! Updated {updated_count} out of {transactions.count()} transactions.',
                     'redirect_url': redirect_url,
                 })
 
@@ -623,6 +614,8 @@ def rules_application_results(request):
         account_id = request.GET.get('account_id')
         show_changed = request.GET.get('show_changed') in ['1', 'true', 'True']
         
+        print(f"DEBUG: rules_application_results called with show_changed={show_changed}, account_id={account_id}")
+        
         # Get selected rule IDs and category IDs from GET parameters
         selected_rule_ids = request.GET.getlist('rule_ids')
         selected_category_ids = request.GET.getlist('category_ids')
@@ -630,6 +623,8 @@ def rules_application_results(request):
         # Convert to integers
         selected_rule_ids = [int(rid) for rid in selected_rule_ids if rid.isdigit()]
         selected_category_ids = [int(cid) for cid in selected_category_ids if cid.isdigit()]
+        
+        print(f"DEBUG: selected_rule_ids={selected_rule_ids}, selected_category_ids={selected_category_ids}")
         
         engine = RulesEngine(request.user)
         
@@ -804,15 +799,6 @@ def rules_application_results(request):
 
         # compute colspan for template (base 7 columns + previous column if show_changed)
         colspan = 7 + (1 if show_changed else 0)
-        
-        # Build color mappings for rules and categories
-        rule_colors = {}
-        for rule in all_rules:
-            rule_colors[rule.name] = '#5a67d8'  # Default rule color
-        
-        category_colors = {}
-        for category in all_custom_categories:
-            category_colors[category.name] = category.color
 
         return render(request, 'analyzer/apply_rules_results.html', {
             'results': filtered_results,
@@ -828,11 +814,7 @@ def rules_application_results(request):
             'rules': all_rules,
             'selected_rule_ids': selected_rule_ids,
             'selected_category_ids': selected_category_ids,
-            'rule_colors': rule_colors,
-            'category_colors': category_colors,
         })
-        
-        print(f"DEBUG: FINAL - Rendering template with {len(filtered_results)} filtered results")
         
     except Exception as e:
         import traceback
@@ -3289,7 +3271,6 @@ def export_rules_results_ajax_pdf(request):
 import json
 
 @login_required
-@login_required
 def create_your_own(request):
     """Unified page for creating rules and categories"""
     rules = Rule.objects.filter(user=request.user).order_by('-created_at')
@@ -3333,117 +3314,48 @@ def create_rule_ajax(request):
         if not conditions:
             return JsonResponse({'success': False, 'message': 'At least one condition is required'})
         
-        # Create rule with transaction
-        with db_transaction.atomic():
-            rule = Rule.objects.create(
-                user=request.user,
-                name=name,
-                category=category,
-                rule_type=rule_type,
-                is_active=True
-            )
-            
-            # Create conditions
-            for idx, cond in enumerate(conditions):
-                cond_type = cond.get('type', '').lower()
-                
-                if cond_type == 'keyword':
-                    # Validate keyword condition
-                    keyword = cond.get('value', '').strip()
-                    match_type = cond.get('match', 'CONTAINS').upper()
-                    
-                    if not keyword:
-                        raise ValueError('Keyword condition must have a value')
-                    
-                    # Validate match type
-                    valid_match_types = ['CONTAINS', 'STARTS_WITH', 'ENDS_WITH', 'EXACT']
-                    if match_type not in valid_match_types:
-                        raise ValueError(f'Invalid keyword match type: {match_type}')
-                    
-                    RuleCondition.objects.create(
-                        rule=rule,
-                        condition_type='KEYWORD',
-                        keyword=keyword,
-                        keyword_match_type=match_type
-                    )
-                
-                elif cond_type == 'amount':
-                    # Validate amount condition
-                    operator = cond.get('operator', 'GREATER_THAN').upper()
-                    
-                    valid_operators = ['EQUALS', 'GREATER_THAN', 'LESS_THAN', 'BETWEEN', 'GREATER_THAN_EQUAL', 'LESS_THAN_EQUAL']
-                    if operator not in valid_operators:
-                        raise ValueError(f'Invalid amount operator: {operator}')
-                    
-                    try:
-                        amount_value = float(cond.get('value', 0))
-                    except (TypeError, ValueError):
-                        raise ValueError('Amount value must be a valid number')
-                    
-                    if operator == 'BETWEEN':
-                        try:
-                            amount_value2 = float(cond.get('value2', 0))
-                        except (TypeError, ValueError):
-                            raise ValueError('Amount range end must be a valid number')
-                        
-                        if amount_value >= amount_value2:
-                            raise ValueError('First amount must be less than second amount in BETWEEN condition')
-                    else:
-                        amount_value2 = None
-                    
-                    RuleCondition.objects.create(
-                        rule=rule,
-                        condition_type='AMOUNT',
-                        amount_operator=operator,
-                        amount_value=amount_value,
-                        amount_value2=amount_value2
-                    )
-                
-                elif cond_type == 'date':
-                    # Validate date condition
-                    date_start = cond.get('from', '').strip()
-                    date_end = cond.get('to', '').strip()
-                    
-                    if not date_start or not date_end:
-                        raise ValueError('Date condition must have both start and end dates')
-                    
-                    # Parse dates to validate format
-                    from datetime import datetime
-                    try:
-                        start = datetime.strptime(date_start, '%Y-%m-%d').date()
-                        end = datetime.strptime(date_end, '%Y-%m-%d').date()
-                        if start > end:
-                            raise ValueError('Start date must be before end date')
-                    except ValueError as e:
-                        raise ValueError(f'Invalid date format or range: {str(e)}')
-                    
-                    RuleCondition.objects.create(
-                        rule=rule,
-                        condition_type='DATE',
-                        date_start=start,
-                        date_end=end
-                    )
-                
-                elif cond_type == 'source':
-                    # Validate source condition
-                    source = cond.get('source', 'UPI').upper()
-                    
-                    valid_sources = ['PAYTM', 'PHONEPE', 'GOOGLE_PAY', 'UPI', 'DEBIT_CARD', 
-                                   'CREDIT_CARD', 'NET_BANKING', 'CHEQUE', 'NEFT', 'RTGS']
-                    if source not in valid_sources:
-                        # Allow custom source but uppercase it
-                        source = source
-                    
-                    RuleCondition.objects.create(
-                        rule=rule,
-                        condition_type='SOURCE',
-                        source_channel=source
-                    )
-                else:
-                    raise ValueError(f'Unknown condition type: {cond_type}')
+        # Create rule
+        rule = Rule.objects.create(
+            user=request.user,
+            name=name,
+            category=category,
+            rule_type=rule_type,
+            is_active=True
+        )
+        
+        # Create conditions
+        for idx, cond in enumerate(conditions):
+            if cond['type'] == 'keyword':
+                RuleCondition.objects.create(
+                    rule=rule,
+                    condition_type='KEYWORD',
+                    keyword=cond.get('value', ''),
+                    keyword_match_type=cond.get('match', 'CONTAINS').upper()
+                )
+            elif cond['type'] == 'amount':
+                RuleCondition.objects.create(
+                    rule=rule,
+                    condition_type='AMOUNT',
+                    amount_operator=cond.get('operator', 'GREATER_THAN').upper(),
+                    amount_value=cond.get('value'),
+                    amount_value2=cond.get('value2')
+                )
+            elif cond['type'] == 'date':
+                RuleCondition.objects.create(
+                    rule=rule,
+                    condition_type='DATE',
+                    date_start=cond.get('from'),
+                    date_end=cond.get('to')
+                )
+            elif cond['type'] == 'source':
+                RuleCondition.objects.create(
+                    rule=rule,
+                    condition_type='SOURCE',
+                    source_channel=cond.get('source', 'UPI')
+                )
         
         # Build description
-        rule_desc = f"{rule_type} conditions → {rule.get_category_display()}"
+        rule_desc = f"{rule_type.upper()} conditions → {rule.get_category_display()}"
         
         return JsonResponse({
             'success': True,
@@ -3453,228 +3365,13 @@ def create_rule_ajax(request):
             'rule_description': rule_desc
         })
     
-    except ValueError as ve:
-        # Validation error
-        return JsonResponse({
-            'success': False,
-            'message': f'Validation error: {str(ve)}'
-        }, status=400)
     except Exception as e:
-        import traceback
-        print(f"ERROR in create_rule_ajax: {str(e)}\n{traceback.format_exc()}")
         return JsonResponse({
             'success': False,
             'message': f'Error creating rule: {str(e)}'
-        }, status=500)
-
-
-@login_required
-def get_rule_ajax(request, rule_id):
-    """AJAX endpoint to get rule data for editing"""
-    if request.method != 'GET':
-        return JsonResponse({'success': False, 'message': 'GET required'}, status=400)
-    
-    try:
-        rule = get_object_or_404(Rule, id=rule_id, user=request.user)
-        
-        # Get conditions in standardized format
-        conditions = []
-        for condition in rule.conditions.all():
-            cond_type = condition.condition_type.lower()
-            cond_data = {'type': cond_type}
-            
-            if cond_type == 'keyword':
-                cond_data['value'] = condition.keyword  # ✅ Standard field name
-                cond_data['match'] = condition.keyword_match_type.lower()  # ✅ Lowercase for consistency
-            elif cond_type == 'amount':
-                cond_data['operator'] = condition.amount_operator.lower()  # ✅ Lowercase for consistency
-                cond_data['value'] = float(condition.amount_value) if condition.amount_value else None
-                if condition.amount_value2:
-                    cond_data['value2'] = float(condition.amount_value2)
-            elif cond_type == 'date':
-                cond_data['from'] = str(condition.date_start) if condition.date_start else None
-                cond_data['to'] = str(condition.date_end) if condition.date_end else None
-            elif cond_type == 'source':
-                cond_data['source'] = condition.source_channel
-            
-            conditions.append(cond_data)
-        
-        return JsonResponse({
-            'success': True,
-            'rule_id': rule.id,
-            'rule_name': rule.name,
-            'category': rule.category,
-            'rule_type': rule.rule_type,
-            'conditions': conditions
-        })
-    
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': f'Error fetching rule: {str(e)}'
         })
 
 
-@login_required
-def update_rule_ajax(request, rule_id):
-    """AJAX endpoint to update a rule with conditions"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'message': 'POST required'}, status=400)
-    
-    try:
-        rule = get_object_or_404(Rule, id=rule_id, user=request.user)
-        
-        name = request.POST.get('name', '').strip()
-        category = request.POST.get('category', '').strip()
-        rule_type = request.POST.get('rule_type', 'AND')
-        conditions_json = request.POST.get('conditions', '[]')
-        
-        # Validation
-        if not name:
-            return JsonResponse({'success': False, 'message': 'Rule name is required'})
-        if not category:
-            return JsonResponse({'success': False, 'message': 'Category is required'})
-        
-        # Parse conditions
-        try:
-            conditions = json.loads(conditions_json)
-        except json.JSONDecodeError:
-            return JsonResponse({'success': False, 'message': 'Invalid conditions format'})
-        
-        if not conditions:
-            return JsonResponse({'success': False, 'message': 'At least one condition is required'})
-        
-        # Update rule with transaction for data consistency
-        with db_transaction.atomic():
-            rule.name = name
-            rule.category = category
-            rule.rule_type = rule_type
-            rule.save()
-            
-            # Delete old conditions and create new ones
-            rule.conditions.all().delete()
-            
-            # Apply same validation logic as create_rule_ajax
-            for idx, cond in enumerate(conditions):
-                cond_type = cond.get('type', '').lower()
-                
-                if cond_type == 'keyword':
-                    # ✅ Validate keyword condition
-                    keyword = cond.get('value', '').strip()  # Standard field name
-                    match_type = cond.get('match', 'CONTAINS').upper()  # Standard field name
-                    
-                    if not keyword:
-                        raise ValueError('Keyword condition must have a value')
-                    
-                    valid_match_types = ['CONTAINS', 'STARTS_WITH', 'ENDS_WITH', 'EXACT']
-                    if match_type not in valid_match_types:
-                        raise ValueError(f'Invalid keyword match type: {match_type}')
-                    
-                    RuleCondition.objects.create(
-                        rule=rule,
-                        condition_type='KEYWORD',
-                        keyword=keyword,
-                        keyword_match_type=match_type
-                    )
-                
-                elif cond_type == 'amount':
-                    # ✅ Validate amount condition
-                    operator = cond.get('operator', 'GREATER_THAN').upper()
-                    
-                    valid_operators = ['EQUALS', 'GREATER_THAN', 'LESS_THAN', 'BETWEEN', 
-                                     'GREATER_THAN_EQUAL', 'LESS_THAN_EQUAL']
-                    if operator not in valid_operators:
-                        raise ValueError(f'Invalid amount operator: {operator}')
-                    
-                    try:
-                        amount_value = float(cond.get('value', 0))
-                    except (TypeError, ValueError):
-                        raise ValueError('Amount value must be a valid number')
-                    
-                    if operator == 'BETWEEN':
-                        try:
-                            amount_value2 = float(cond.get('value2', 0))
-                        except (TypeError, ValueError):
-                            raise ValueError('Amount range end must be a valid number')
-                        
-                        if amount_value >= amount_value2:
-                            raise ValueError('First amount must be less than second amount in BETWEEN condition')
-                    else:
-                        amount_value2 = None
-                    
-                    RuleCondition.objects.create(
-                        rule=rule,
-                        condition_type='AMOUNT',
-                        amount_operator=operator,
-                        amount_value=amount_value,
-                        amount_value2=amount_value2
-                    )
-                
-                elif cond_type == 'date':
-                    # ✅ Validate date condition
-                    date_start = cond.get('from', '').strip()
-                    date_end = cond.get('to', '').strip()
-                    
-                    if not date_start or not date_end:
-                        raise ValueError('Date condition must have both start and end dates')
-                    
-                    from datetime import datetime
-                    try:
-                        start = datetime.strptime(date_start, '%Y-%m-%d').date()
-                        end = datetime.strptime(date_end, '%Y-%m-%d').date()
-                        if start > end:
-                            raise ValueError('Start date must be before end date')
-                    except ValueError as e:
-                        raise ValueError(f'Invalid date format or range: {str(e)}')
-                    
-                    RuleCondition.objects.create(
-                        rule=rule,
-                        condition_type='DATE',
-                        date_start=start,
-                        date_end=end
-                    )
-                
-                elif cond_type == 'source':
-                    # ✅ Validate source condition
-                    source = cond.get('source', 'UPI').upper()
-                    
-                    valid_sources = ['PAYTM', 'PHONEPE', 'GOOGLE_PAY', 'UPI', 'DEBIT_CARD', 
-                                   'CREDIT_CARD', 'NET_BANKING', 'CHEQUE', 'NEFT', 'RTGS']
-                    if source not in valid_sources:
-                        source = source  # Allow custom sources
-                    
-                    RuleCondition.objects.create(
-                        rule=rule,
-                        condition_type='SOURCE',
-                        source_channel=source
-                    )
-                else:
-                    raise ValueError(f'Unknown condition type: {cond_type}')
-        
-        return JsonResponse({
-            'success': True,
-            'message': f'Rule "{name}" updated successfully!',
-            'rule_id': rule.id,
-            'rule_name': rule.name
-        })
-    
-    except ValueError as ve:
-        # Validation error - client's fault (400)
-        return JsonResponse({
-            'success': False,
-            'message': f'Validation error: {str(ve)}'
-        }, status=400)
-    except Exception as e:
-        # Server error (500)
-        import traceback
-        print(f"ERROR in update_rule_ajax: {str(e)}\n{traceback.format_exc()}")
-        return JsonResponse({
-            'success': False,
-            'message': f'Error updating rule: {str(e)}'
-        }, status=500)
-
-
-@login_required
 @login_required
 def create_category_ajax(request):
     """AJAX endpoint to create a custom category"""
@@ -3745,6 +3442,88 @@ def delete_rule_ajax(request, rule_id):
 
 
 @login_required
+def edit_rule_ajax(request, rule_id):
+    """AJAX endpoint to edit a rule with conditions"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'POST required'}, status=400)
+    
+    try:
+        rule = get_object_or_404(Rule, id=rule_id, user=request.user)
+        
+        name = request.POST.get('name', '').strip()
+        category = request.POST.get('category', '').strip()
+        rule_type = request.POST.get('rule_type', 'AND')
+        conditions_json = request.POST.get('conditions', '[]')
+        
+        # Validation
+        if not name:
+            return JsonResponse({'success': False, 'message': 'Rule name is required'})
+        if not category:
+            return JsonResponse({'success': False, 'message': 'Category is required'})
+        
+        # Parse conditions
+        try:
+            conditions = json.loads(conditions_json)
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'message': 'Invalid conditions format'})
+        
+        if not conditions:
+            return JsonResponse({'success': False, 'message': 'At least one condition is required'})
+        
+        # Update rule
+        rule.name = name
+        rule.category = category
+        rule.rule_type = rule_type
+        rule.save()
+        
+        # Delete existing conditions and create new ones
+        rule.conditions.all().delete()
+        
+        for idx, cond in enumerate(conditions):
+            if cond['type'] == 'keyword':
+                RuleCondition.objects.create(
+                    rule=rule,
+                    condition_type='KEYWORD',
+                    keyword=cond.get('value', ''),
+                    keyword_match_type=cond.get('match', 'CONTAINS').upper()
+                )
+            elif cond['type'] == 'amount':
+                RuleCondition.objects.create(
+                    rule=rule,
+                    condition_type='AMOUNT',
+                    amount_operator=cond.get('operator', 'GREATER_THAN').upper(),
+                    amount_value=cond.get('value'),
+                    amount_value2=cond.get('value2')
+                )
+            elif cond['type'] == 'date':
+                RuleCondition.objects.create(
+                    rule=rule,
+                    condition_type='DATE',
+                    date_start=cond.get('from'),
+                    date_end=cond.get('to')
+                )
+            elif cond['type'] == 'source':
+                RuleCondition.objects.create(
+                    rule=rule,
+                    condition_type='SOURCE',
+                    source_channel=cond.get('source', 'UPI')
+                )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Rule "{name}" updated successfully!',
+            'rule_id': rule.id,
+            'rule_name': rule.name
+        })
+    
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error updating rule: {str(e)}'
+        })
+
+
+@login_required
 def delete_category_rule_ajax(request, rule_id):
     """AJAX endpoint to delete a custom category rule"""
     if request.method != 'POST':
@@ -3769,7 +3548,7 @@ def delete_category_rule_ajax(request, rule_id):
 
 @login_required
 def update_category_ajax(request, category_id):
-    """AJAX endpoint to update a custom category and its conditions"""
+    """AJAX endpoint to update a custom category"""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'message': 'POST required'}, status=400)
     
@@ -3780,7 +3559,6 @@ def update_category_ajax(request, category_id):
         description = request.POST.get('description', '').strip()
         icon = request.POST.get('icon', category.icon)
         color = request.POST.get('color', category.color)
-        conditions_json = request.POST.get('conditions', '[]')
         
         # Validation
         if not name:
@@ -3797,54 +3575,6 @@ def update_category_ajax(request, category_id):
         category.color = color
         category.save()
         
-        # Update conditions if provided
-        if conditions_json:
-            import json
-            conditions_data = json.loads(conditions_json)
-            
-            # Delete existing rule and conditions for this category
-            category.rules.all().delete()
-            
-            # Create new rule if conditions provided
-            if conditions_data:
-                # Determine rule type (OR by default - any condition matches)
-                rule_type = 'OR'
-                
-                rule = CustomCategoryRule.objects.create(
-                    user=request.user,
-                    custom_category=category,
-                    name=f'{name} Rule',
-                    rule_type=rule_type,
-                    is_active=True
-                )
-                
-                # Add conditions
-                for cond in conditions_data:
-                    cond_type = cond.get('type', '')
-                    
-                    if cond_type == 'keyword':
-                        CustomCategoryRuleCondition.objects.create(
-                            rule=rule,
-                            condition_type='KEYWORD',
-                            keyword=cond.get('value', ''),
-                            keyword_match_type=cond.get('match', 'CONTAINS').upper()
-                        )
-                    elif cond_type == 'amount':
-                        CustomCategoryRuleCondition.objects.create(
-                            rule=rule,
-                            condition_type='AMOUNT',
-                            amount_operator=cond.get('operator', 'GREATER_THAN').upper(),
-                            amount_value=float(cond.get('value', 0)),
-                            amount_value2=float(cond.get('value2', 0)) if cond.get('value2') else None
-                        )
-                    elif cond_type == 'date':
-                        CustomCategoryRuleCondition.objects.create(
-                            rule=rule,
-                            condition_type='DATE',
-                            date_start=cond.get('from'),
-                            date_end=cond.get('to')
-                        )
-        
         return JsonResponse({
             'success': True,
             'message': f'Category "{name}" updated successfully!',
@@ -3856,59 +3586,9 @@ def update_category_ajax(request, category_id):
         })
     
     except Exception as e:
-        import traceback
-        traceback.print_exc()
         return JsonResponse({
             'success': False,
             'message': f'Error updating category: {str(e)}'
-        })
-
-
-@login_required
-def get_category_conditions_ajax(request, category_id):
-    """AJAX endpoint to get conditions for a custom category"""
-    if request.method != 'GET':
-        return JsonResponse({'success': False, 'message': 'GET required'}, status=400)
-    
-    try:
-        category = get_object_or_404(CustomCategory, id=category_id, user=request.user)
-        
-        conditions = []
-        for rule in category.rules.all():
-            for cond in rule.conditions.all():
-                condition_dict = {
-                    'id': cond.id,
-                    'condition_type': cond.condition_type
-                }
-                
-                if cond.condition_type == 'KEYWORD':
-                    condition_dict.update({
-                        'keyword': cond.keyword,
-                        'keyword_match_type': cond.keyword_match_type
-                    })
-                elif cond.condition_type == 'AMOUNT':
-                    condition_dict.update({
-                        'amount_operator': cond.amount_operator,
-                        'amount_value': float(cond.amount_value),
-                        'amount_value2': float(cond.amount_value2) if cond.amount_value2 else None
-                    })
-                elif cond.condition_type == 'DATE':
-                    condition_dict.update({
-                        'date_start': str(cond.date_start) if cond.date_start else None,
-                        'date_end': str(cond.date_end) if cond.date_end else None
-                    })
-                
-                conditions.append(condition_dict)
-        
-        return JsonResponse({
-            'success': True,
-            'conditions': conditions
-        })
-    
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': f'Error fetching conditions: {str(e)}'
         })
 
 
