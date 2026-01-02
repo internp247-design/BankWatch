@@ -513,6 +513,34 @@
         background-color: #2a5298;
     }
 
+    .btn-apply {
+        background-color: #28a745;
+        color: white;
+        border: none;
+        padding: 0.4rem 0.8rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 600;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+    }
+
+    .btn-apply:hover {
+        background-color: #218838;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    }
+
+    .btn-apply:disabled {
+        background-color: #c3e6cb;
+        cursor: not-allowed;
+        opacity: 0.7;
+    }
+
     .sidebar::-webkit-scrollbar,
     .table-container::-webkit-scrollbar {
         width: 6px;
@@ -776,14 +804,24 @@
                             </td>
                             <td>
                                 {% if result.matched_rule_name %}
-                                    <span class="category-badge" style="background-color: #e3f2fd; color: #1e3c72;">{{ result.matched_rule_name }}</span>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <span class="category-badge" style="background-color: #e3f2fd; color: #1e3c72;">{{ result.matched_rule_name }}</span>
+                                        <button class="btn-apply" onclick="applyRuleToTransaction({{ result.id }}, {{ result.matched_rule_id }}, '{{ result.matched_rule_name }}')" title="Apply this rule">
+                                            <i class="fas fa-check"></i> Apply
+                                        </button>
+                                    </div>
                                 {% else %}
                                     <span style="color: #6c757d;">-</span>
                                 {% endif %}
                             </td>
                             <td>
                                 {% if result.matched_custom_category_name %}
-                                    <span class="category-badge" style="background-color: #d4edda; color: #155724;">{{ result.matched_custom_category_name }}</span>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <span class="category-badge" style="background-color: #d4edda; color: #155724;">{{ result.matched_custom_category_name }}</span>
+                                        <button class="btn-apply" onclick="applyCategoryToTransaction({{ result.id }}, {{ result.matched_custom_category_id }}, '{{ result.matched_custom_category_name }}')" title="Apply this category">
+                                            <i class="fas fa-check"></i> Apply
+                                        </button>
+                                    </div>
                                 {% else %}
                                     <span style="color: #6c757d;">-</span>
                                 {% endif %}
@@ -1411,6 +1449,148 @@
             }
             console.error('Error downloading Excel:', error);
             alert('Error downloading Excel file: ' + error.message);
+        });
+    }
+
+    // Function to apply a rule to a transaction
+    function applyRuleToTransaction(transactionId, ruleId, ruleName) {
+        if (!confirm(`Apply rule "${ruleName}" to this transaction?`)) {
+            return;
+        }
+        
+        const btn = event.target.closest('.btn-apply');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Applying...';
+        }
+        
+        const formData = new FormData();
+        formData.append('type', 'rule');
+        formData.append('id', ruleId);
+        
+        // Get CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (csrfToken) {
+            formData.append('csrfmiddlewaretoken', csrfToken.value);
+        }
+        
+        fetch(`/analyzer/api/transaction/${transactionId}/apply/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken ? csrfToken.value : ''
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-success alert-dismissible fade show';
+                alertDiv.style.position = 'fixed';
+                alertDiv.style.top = '20px';
+                alertDiv.style.right = '20px';
+                alertDiv.style.zIndex = '9999';
+                alertDiv.innerHTML = `
+                    <i class="fas fa-check-circle"></i> ${data.message}
+                    <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+                `;
+                document.body.appendChild(alertDiv);
+                
+                // Remove the row from the table
+                const row = document.querySelector(`tr[data-transaction-id="${transactionId}"]`);
+                if (row) {
+                    row.remove();
+                }
+                
+                // Update chart
+                updateChartFromTable();
+                
+                setTimeout(() => alertDiv.remove(), 3000);
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error applying rule: ' + error.message);
+        })
+        .finally(() => {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check"></i> Apply';
+            }
+        });
+    }
+
+    // Function to apply a category to a transaction
+    function applyCategoryToTransaction(transactionId, categoryId, categoryName) {
+        if (!confirm(`Apply category "${categoryName}" to this transaction?`)) {
+            return;
+        }
+        
+        const btn = event.target.closest('.btn-apply');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Applying...';
+        }
+        
+        const formData = new FormData();
+        formData.append('type', 'category');
+        formData.append('id', categoryId);
+        
+        // Get CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (csrfToken) {
+            formData.append('csrfmiddlewaretoken', csrfToken.value);
+        }
+        
+        fetch(`/analyzer/api/transaction/${transactionId}/apply/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken ? csrfToken.value : ''
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-success alert-dismissible fade show';
+                alertDiv.style.position = 'fixed';
+                alertDiv.style.top = '20px';
+                alertDiv.style.right = '20px';
+                alertDiv.style.zIndex = '9999';
+                alertDiv.innerHTML = `
+                    <i class="fas fa-check-circle"></i> ${data.message}
+                    <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+                `;
+                document.body.appendChild(alertDiv);
+                
+                // Remove the row from the table
+                const row = document.querySelector(`tr[data-transaction-id="${transactionId}"]`);
+                if (row) {
+                    row.remove();
+                }
+                
+                // Update chart
+                updateChartFromTable();
+                
+                setTimeout(() => alertDiv.remove(), 3000);
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error applying category: ' + error.message);
+        })
+        .finally(() => {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check"></i> Apply';
+            }
         });
     }
 

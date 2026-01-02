@@ -26,6 +26,7 @@ urlpatterns = [
     path('api/category/<int:category_id>/delete/', views.delete_category_ajax, name='delete_category_ajax'),
     path('api/rule/<int:rule_id>/delete/', views.delete_rule_ajax, name='delete_rule_ajax'),
     path('api/category-rule/<int:rule_id>/delete/', views.delete_category_rule_ajax, name='delete_category_rule_ajax'),
+    path('api/transaction/<int:transaction_id>/apply/', views.apply_transaction_ajax, name='apply_transaction_ajax'),
     
     # Rules Engine URLs (keep for backward compatibility)
     path('rules/', views.rules_list, name='rules_list'),

@@ -463,6 +463,7 @@ def delete_rule(request, rule_id):
     return render(request, 'analyzer/delete_rule.html', {'rule': rule})
 
 @login_required
+@login_required
 def apply_rules(request):
     """Apply rules to existing transactions"""
     try:
@@ -567,6 +568,63 @@ def apply_rules(request):
             }, status=500)
         messages.error(request, f"Error applying rules: {str(e)}")
         return redirect('rules_list')
+
+
+@login_required
+def apply_transaction_ajax(request, transaction_id):
+    """AJAX endpoint to apply a matched rule or category to a specific transaction"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'POST required'}, status=400)
+    
+    try:
+        transaction = get_object_or_404(Transaction, id=transaction_id, statement__account__user=request.user)
+        
+        # Get the type and ID of what to apply (rule or category)
+        apply_type = request.POST.get('type')  # 'rule' or 'category'
+        apply_id = request.POST.get('id')
+        
+        if not apply_type or not apply_id:
+            return JsonResponse({'success': False, 'message': 'Type and ID required'})
+        
+        previous_category = transaction.category
+        new_category = None
+        
+        if apply_type == 'rule':
+            # Apply a rule
+            rule = get_object_or_404(Rule, id=apply_id, user=request.user, is_active=True)
+            new_category = rule.category
+            success_msg = f'Applied rule "{rule.name}" to transaction'
+        elif apply_type == 'category':
+            # Apply a custom category
+            custom_category = get_object_or_404(CustomCategory, id=apply_id, user=request.user, is_active=True)
+            new_category = f"CUSTOM_{custom_category.id}"
+            success_msg = f'Applied category "{custom_category.name}" to transaction'
+        else:
+            return JsonResponse({'success': False, 'message': 'Invalid type'})
+        
+        # Update the transaction if category changed
+        if new_category and new_category != previous_category:
+            transaction.category = new_category
+            transaction.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': success_msg,
+                'transaction_id': transaction_id,
+                'previous_category': previous_category,
+                'new_category': new_category
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'message': 'Category already applied or unchanged'
+            })
+    
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error applying: {str(e)}'
+        })
 
 @login_required
 def test_rules(request):
