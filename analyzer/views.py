@@ -3762,7 +3762,7 @@ def delete_category_rule_ajax(request, rule_id):
 
 @login_required
 def update_category_ajax(request, category_id):
-    """AJAX endpoint to update a custom category"""
+    """AJAX endpoint to update a custom category and its conditions"""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'message': 'POST required'}, status=400)
     
@@ -3773,6 +3773,7 @@ def update_category_ajax(request, category_id):
         description = request.POST.get('description', '').strip()
         icon = request.POST.get('icon', category.icon)
         color = request.POST.get('color', category.color)
+        conditions_json = request.POST.get('conditions', '[]')
         
         # Validation
         if not name:
@@ -3789,6 +3790,54 @@ def update_category_ajax(request, category_id):
         category.color = color
         category.save()
         
+        # Update conditions if provided
+        if conditions_json:
+            import json
+            conditions_data = json.loads(conditions_json)
+            
+            # Delete existing rule and conditions for this category
+            category.rules.all().delete()
+            
+            # Create new rule if conditions provided
+            if conditions_data:
+                # Determine rule type (OR by default - any condition matches)
+                rule_type = 'OR'
+                
+                rule = CustomCategoryRule.objects.create(
+                    user=request.user,
+                    custom_category=category,
+                    name=f'{name} Rule',
+                    rule_type=rule_type,
+                    is_active=True
+                )
+                
+                # Add conditions
+                for cond in conditions_data:
+                    cond_type = cond.get('type', '')
+                    
+                    if cond_type == 'keyword':
+                        CustomCategoryRuleCondition.objects.create(
+                            rule=rule,
+                            condition_type='KEYWORD',
+                            keyword=cond.get('value', ''),
+                            keyword_match_type=cond.get('match', 'CONTAINS').upper()
+                        )
+                    elif cond_type == 'amount':
+                        CustomCategoryRuleCondition.objects.create(
+                            rule=rule,
+                            condition_type='AMOUNT',
+                            amount_operator=cond.get('operator', 'GREATER_THAN').upper(),
+                            amount_value=float(cond.get('value', 0)),
+                            amount_value2=float(cond.get('value2', 0)) if cond.get('value2') else None
+                        )
+                    elif cond_type == 'date':
+                        CustomCategoryRuleCondition.objects.create(
+                            rule=rule,
+                            condition_type='DATE',
+                            date_start=cond.get('from'),
+                            date_end=cond.get('to')
+                        )
+        
         return JsonResponse({
             'success': True,
             'message': f'Category "{name}" updated successfully!',
@@ -3800,9 +3849,59 @@ def update_category_ajax(request, category_id):
         })
     
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JsonResponse({
             'success': False,
             'message': f'Error updating category: {str(e)}'
+        })
+
+
+@login_required
+def get_category_conditions_ajax(request, category_id):
+    """AJAX endpoint to get conditions for a custom category"""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'GET required'}, status=400)
+    
+    try:
+        category = get_object_or_404(CustomCategory, id=category_id, user=request.user)
+        
+        conditions = []
+        for rule in category.rules.all():
+            for cond in rule.conditions.all():
+                condition_dict = {
+                    'id': cond.id,
+                    'condition_type': cond.condition_type
+                }
+                
+                if cond.condition_type == 'KEYWORD':
+                    condition_dict.update({
+                        'keyword': cond.keyword,
+                        'keyword_match_type': cond.keyword_match_type
+                    })
+                elif cond.condition_type == 'AMOUNT':
+                    condition_dict.update({
+                        'amount_operator': cond.amount_operator,
+                        'amount_value': float(cond.amount_value),
+                        'amount_value2': float(cond.amount_value2) if cond.amount_value2 else None
+                    })
+                elif cond.condition_type == 'DATE':
+                    condition_dict.update({
+                        'date_start': str(cond.date_start) if cond.date_start else None,
+                        'date_end': str(cond.date_end) if cond.date_end else None
+                    })
+                
+                conditions.append(condition_dict)
+        
+        return JsonResponse({
+            'success': True,
+            'conditions': conditions
+        })
+    
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error fetching conditions: {str(e)}'
         })
 
 

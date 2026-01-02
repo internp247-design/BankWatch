@@ -24,6 +24,7 @@ urlpatterns = [
     path('api/rule/<int:rule_id>/update/', views.update_rule_ajax, name='update_rule_ajax'),
     path('api/category/create/', views.create_category_ajax, name='create_category_ajax'),
     path('api/category/<int:category_id>/edit/', views.update_category_ajax, name='update_category_ajax'),
+    path('api/category/<int:category_id>/conditions/', views.get_category_conditions_ajax, name='get_category_conditions_ajax'),
     path('api/category/<int:category_id>/delete/', views.delete_category_ajax, name='delete_category_ajax'),
     path('api/rule/<int:rule_id>/delete/', views.delete_rule_ajax, name='delete_rule_ajax'),
     path('api/category-rule/<int:rule_id>/delete/', views.delete_category_rule_ajax, name='delete_category_rule_ajax'),
