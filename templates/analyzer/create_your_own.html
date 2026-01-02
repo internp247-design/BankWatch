@@ -902,14 +902,14 @@
                             <div class="rule-details">
                                 <div class="rule-name">{{ rule.name }}</div>
                                 <div class="rule-condition">
-                                    {% if rule.rulecondition_set.all %}
-                                        {% for condition in rule.rulecondition_set.all %}
-                                            <span>{{ condition.get_condition_display }}</span>
+                                    {% if rule.conditions.all %}
+                                        {% for condition in rule.conditions.all %}
+                                            <span>{{ condition }}</span>
                                             {% if not forloop.last %}<span> {{ rule.get_rule_type_display }} </span>{% endif %}
                                         {% endfor %}
                                         → {{ rule.get_category_display }}
                                     {% else %}
-                                        No conditions
+                                        No conditions added
                                     {% endif %}
                                 </div>
                             </div>
@@ -1040,8 +1040,13 @@
                                             <div class="rule-details">
                                                 <div class="rule-name">{{ rule.name }}</div>
                                                 <div class="rule-condition">
-                                                    {% if rule.customcategoryrulecondition_set.all %}
-                                                        Rule with {{ rule.customcategoryrulecondition_set.count }} condition(s)
+                                                    {% if rule.conditions.all %}
+                                                        {% for condition in rule.conditions.all %}
+                                                            <span>{{ condition }}</span>
+                                                            {% if not forloop.last %}<span> AND </span>{% endif %}
+                                                        {% endfor %}
+                                                    {% else %}
+                                                        No conditions added
                                                     {% endif %}
                                                 </div>
                                             </div>
