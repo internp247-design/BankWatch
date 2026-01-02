@@ -525,13 +525,6 @@ def apply_rules(request):
             # This allows showing all matched transactions, not just the ones that changed
             result_ids = matched_ids if matched_ids else updated_ids
             
-            print(f"\n{'='*70}")
-            print(f"DEBUG: apply_rules() completed")
-            print(f"  Matched transactions: {len(matched_ids)}")
-            print(f"  Updated transactions: {updated_count}")
-            print(f"  Result IDs being stored: {len(result_ids)}")
-            print(f"{'='*70}\n")
-            
             if result_ids:
                 request.session['last_rules_applied_ids'] = result_ids
                 request.session['last_rules_applied_prev'] = prev_map
@@ -637,14 +630,6 @@ def rules_application_results(request):
         selected_rule_ids = [int(rid) for rid in selected_rule_ids if rid.isdigit()]
         selected_category_ids = [int(cid) for cid in selected_category_ids if cid.isdigit()]
         
-        # DEBUG logging
-        print(f"\n\n{'='*70}")
-        print(f"DEBUG: rules_application_results() called")
-        print(f"  selected_rule_ids from GET: {selected_rule_ids}")
-        print(f"  selected_category_ids from GET: {selected_category_ids}")
-        print(f"  is_ajax: {request.headers.get('X-Requested-With') == 'XMLHttpRequest'}")
-        print(f"{'='*70}\n")
-        
         engine = RulesEngine(request.user)
         
         # Import custom category engine
@@ -693,10 +678,6 @@ def rules_application_results(request):
                 matched_rule_id = matched_rule.id if matched_rule else None
                 matched_rule_category = matched_rule.category if matched_rule else None
                 matched_rule_name = matched_rule.name if matched_rule else None
-                
-                # DEBUG: Log if this transaction matches the newly created rule
-                if matched_rule and matched_rule.id == 24:  # Insurance rule
-                    print(f"    [INSURANCE MATCH] TX {tx.id}: {tx.description[:50]}")
                 
                 # Check for custom category match
                 matched_custom_category = custom_category_engine.apply_rules_to_transaction(tx_data)
@@ -800,20 +781,17 @@ def rules_application_results(request):
         # Filter results to show only those matching selected rules/categories
         filtered_results = []
         if selected_rule_ids or selected_category_ids:
-            print(f"\n  Total results to filter: {len(results)}")
             for r in results:
                 include = False
                 # Include if matched rule is selected
                 if r['matched_rule_id'] and r['matched_rule_id'] in selected_rule_ids:
                     include = True
-                    print(f"    [MATCH] Transaction {r.get('id')} matched rule {r['matched_rule_id']}")
                 # Include if matched category is selected
                 if r['matched_custom_category_id'] and r['matched_custom_category_id'] in selected_category_ids:
                     include = True
                 
                 if include:
                     filtered_results.append(r)
-            print(f"  Filtered results: {len(filtered_results)}\n")
         else:
             filtered_results = results
 
