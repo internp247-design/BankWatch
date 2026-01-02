@@ -800,6 +800,15 @@ def rules_application_results(request):
 
         # compute colspan for template (base 7 columns + previous column if show_changed)
         colspan = 7 + (1 if show_changed else 0)
+        
+        # Build color mappings for rules and categories
+        rule_colors = {}
+        for rule in all_rules:
+            rule_colors[rule.name] = '#5a67d8'  # Default rule color
+        
+        category_colors = {}
+        for category in all_custom_categories:
+            category_colors[category.name] = category.color
 
         return render(request, 'analyzer/apply_rules_results.html', {
             'results': filtered_results,
@@ -815,6 +824,8 @@ def rules_application_results(request):
             'rules': all_rules,
             'selected_rule_ids': selected_rule_ids,
             'selected_category_ids': selected_category_ids,
+            'rule_colors': rule_colors,
+            'category_colors': category_colors,
         })
         
     except Exception as e:

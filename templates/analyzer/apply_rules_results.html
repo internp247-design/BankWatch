@@ -1096,7 +1096,12 @@
     }
 
     function generateColorsForMixedChart(labels) {
-        const ruleColors = [
+        // Get custom colors from backend
+        const backendRuleColors = {{ rule_colors|safe }};
+        const backendCategoryColors = {{ category_colors|safe }};
+        
+        // Fallback colors if not found
+        const defaultRuleColors = [
             '#1e3c72',
             '#2a5298',
             '#0052cc',
@@ -1104,7 +1109,7 @@
             '#1a3a52'
         ];
         
-        const categoryColors = [
+        const defaultCategoryColors = [
             '#28a745',
             '#20c997',
             '#17a2b8',
@@ -1118,13 +1123,25 @@
         
         labels.forEach(label => {
             if (label.startsWith('🔵')) {
-                // It's a rule
-                colors.push(ruleColors[ruleIndex % ruleColors.length]);
-                ruleIndex++;
+                // It's a rule - extract rule name and look up custom color
+                const ruleName = label.substring(2).trim();  // Remove emoji
+                const customColor = backendRuleColors[ruleName];
+                if (customColor && customColor !== '#5a67d8') {
+                    colors.push(customColor);
+                } else {
+                    colors.push(defaultRuleColors[ruleIndex % defaultRuleColors.length]);
+                    ruleIndex++;
+                }
             } else if (label.startsWith('📁')) {
-                // It's a category
-                colors.push(categoryColors[categoryIndex % categoryColors.length]);
-                categoryIndex++;
+                // It's a category - extract category name and look up custom color
+                const categoryName = label.substring(2).trim();  // Remove emoji
+                const customColor = backendCategoryColors[categoryName];
+                if (customColor) {
+                    colors.push(customColor);
+                } else {
+                    colors.push(defaultCategoryColors[categoryIndex % defaultCategoryColors.length]);
+                    categoryIndex++;
+                }
             }
         });
         

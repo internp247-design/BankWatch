@@ -1071,7 +1071,7 @@
     </div>
 </div>
 
-<!-- Condition Builder Modal -->
+<!-- Condition Builder Modal (deprecated - now inline in editRuleModal) -->
 <div id="conditionModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 2000; align-items: center; justify-content: center; flex-direction: column;">
     <div style="background: white; border-radius: 12px; padding: 32px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
         <h5 style="margin-bottom: 24px; color: var(--dark); font-weight: 600;">
@@ -1166,7 +1166,7 @@
 
 <!-- Edit Rule Modal -->
 <div id="editRuleModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 2000; align-items: center; justify-content: center; flex-direction: column;">
-    <div style="background: white; border-radius: 12px; padding: 32px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+    <div style="background: white; border-radius: 12px; padding: 32px; max-width: 650px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
         <h5 style="margin-bottom: 24px; color: var(--dark); font-weight: 600;">
             <i class="fas fa-edit"></i> Edit Rule
         </h5>
@@ -1202,19 +1202,119 @@
                 </select>
             </div>
             
-            <div class="form-group">
-                <label style="display: flex; justify-content: space-between; align-items: center;">
-                    <span>Conditions</span>
-                    <span class="badge" id="editConditionCount" style="background: var(--primary); color: white; border-radius: 20px; padding: 4px 12px; font-size: 12px;">0</span>
-                </label>
-                <button type="button" class="btn btn-secondary" style="width: 100%; margin-top: 10px;" onclick="openConditionBuilder()">
-                    <i class="fas fa-plus"></i> Add Condition
-                </button>
-                <div id="editConditionsList" style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+            <!-- CONDITIONS SECTION - INLINE -->
+            <div style="border-top: 2px solid #e0e0e0; padding-top: 20px; margin-top: 20px;">
+                <div class="form-group">
+                    <label style="display: flex; justify-content: space-between; align-items: center;">
+                        <span><i class="fas fa-filter"></i> Conditions</span>
+                        <span class="badge" id="editConditionCount" style="background: var(--primary); color: white; border-radius: 20px; padding: 4px 12px; font-size: 12px;">0</span>
+                    </label>
+                </div>
+                
+                <!-- Existing Conditions List -->
+                <div id="editConditionsList" style="margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px;">
                     <!-- Conditions will be rendered here -->
                 </div>
+                
+                <!-- Add Condition Form - INLINE (Initially Hidden) -->
+                <div id="addConditionFormContainer" style="display: none; background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; margin-bottom: 20px;">
+                    <h6 style="margin-bottom: 16px; color: var(--dark); font-weight: 600;">
+                        <i class="fas fa-plus-circle"></i> Add New Condition
+                    </h6>
+                    
+                    <div class="form-group">
+                        <label for="editConditionType">Condition Type</label>
+                        <select id="editConditionType" onchange="updateEditConditionFields()">
+                            <option value="">Select Type</option>
+                            <option value="keyword">Keyword in Description</option>
+                            <option value="amount">Transaction Amount</option>
+                            <option value="date">Date Range</option>
+                            <option value="source">Payment Source</option>
+                        </select>
+                    </div>
+
+                    <!-- Keyword Fields -->
+                    <div id="editKeywordFields" style="display: none;">
+                        <div class="form-group">
+                            <label for="editKeywordMatch">Match Type</label>
+                            <select id="editKeywordMatch">
+                                <option value="contains">Contains</option>
+                                <option value="starts_with">Starts With</option>
+                                <option value="ends_with">Ends With</option>
+                                <option value="exact">Exact Match</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="editKeywordValue">Keyword</label>
+                            <input type="text" id="editKeywordValue" placeholder="e.g., Amazon">
+                        </div>
+                    </div>
+
+                    <!-- Amount Fields -->
+                    <div id="editAmountFields" style="display: none;">
+                        <div class="form-group">
+                            <label for="editAmountOperator">Operator</label>
+                            <select id="editAmountOperator" onchange="updateEditAmountFields()">
+                                <option value="greater_than">Greater Than</option>
+                                <option value="less_than">Less Than</option>
+                                <option value="equals">Equals</option>
+                                <option value="between">Between</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="editAmountValue">Amount</label>
+                            <input type="number" id="editAmountValue" placeholder="0.00" step="0.01">
+                        </div>
+                        <div class="form-group" id="editAmountValue2Group" style="display: none;">
+                            <label for="editAmountValue2">To Amount</label>
+                            <input type="number" id="editAmountValue2" placeholder="0.00" step="0.01">
+                        </div>
+                    </div>
+
+                    <!-- Date Fields -->
+                    <div id="editDateFields" style="display: none;">
+                        <div class="form-group">
+                            <label for="editDateFrom">From Date</label>
+                            <input type="date" id="editDateFrom">
+                        </div>
+                        <div class="form-group">
+                            <label for="editDateTo">To Date</label>
+                            <input type="date" id="editDateTo">
+                        </div>
+                    </div>
+
+                    <!-- Source Fields -->
+                    <div id="editSourceFields" style="display: none;">
+                        <div class="form-group">
+                            <label for="editSourceType">Payment Source</label>
+                            <select id="editSourceType">
+                                <option value="UPI">UPI</option>
+                                <option value="CARD">Card</option>
+                                <option value="BANK">Bank Transfer</option>
+                                <option value="CHEQUE">Cheque</option>
+                                <option value="CASH">Cash</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div style="display: flex; gap: 12px; margin-top: 16px;">
+                        <button type="button" class="btn btn-primary" onclick="addConditionToEditForm()" style="flex: 1;">
+                            <i class="fas fa-plus"></i> Add Condition
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="cancelAddCondition()" style="flex: 1;">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Toggle Button to Show/Hide Add Condition Form -->
+                <button type="button" id="toggleAddConditionBtn" class="btn btn-secondary" style="width: 100%; margin-top: 10px;" onclick="toggleAddConditionForm()">
+                    <i class="fas fa-plus"></i> Add Condition
+                </button>
             </div>
             
+            <!-- Action Buttons -->
             <div style="display: flex; gap: 12px; margin-top: 24px;">
                 <button type="button" class="btn btn-primary" id="saveEditRuleBtn" onclick="saveEditRule()" style="flex: 1;">
                     <i class="fas fa-save"></i> Save
@@ -1390,13 +1490,37 @@
 
     // Condition Builder
     function openConditionBuilder() {
-        document.getElementById('conditionModal').style.display = 'flex';
-        resetConditionForm();
+        // This function is deprecated - use toggleAddConditionForm instead
+        toggleAddConditionForm();
+    }
+
+    function toggleAddConditionForm() {
+        const container = document.getElementById('addConditionFormContainer');
+        const btn = document.getElementById('toggleAddConditionBtn');
+        
+        if (container.style.display === 'none') {
+            container.style.display = 'block';
+            btn.innerHTML = '<i class="fas fa-minus"></i> Cancel Adding';
+            btn.style.background = 'var(--danger)';
+            resetEditConditionForm();
+        } else {
+            container.style.display = 'none';
+            btn.innerHTML = '<i class="fas fa-plus"></i> Add Condition';
+            btn.style.background = '';
+            resetEditConditionForm();
+        }
+    }
+
+    function cancelAddCondition() {
+        document.getElementById('addConditionFormContainer').style.display = 'none';
+        document.getElementById('toggleAddConditionBtn').innerHTML = '<i class="fas fa-plus"></i> Add Condition';
+        document.getElementById('toggleAddConditionBtn').style.background = '';
+        resetEditConditionForm();
     }
 
     function closeConditionBuilder() {
-        document.getElementById('conditionModal').style.display = 'none';
-        resetConditionForm();
+        // Deprecated - use cancelAddCondition instead
+        cancelAddCondition();
     }
 
     function resetConditionForm() {
@@ -1412,6 +1536,19 @@
         updateConditionFields();
     }
 
+    function resetEditConditionForm() {
+        document.getElementById('editConditionType').value = '';
+        document.getElementById('editKeywordMatch').value = 'contains';
+        document.getElementById('editKeywordValue').value = '';
+        document.getElementById('editAmountOperator').value = 'greater_than';
+        document.getElementById('editAmountValue').value = '';
+        document.getElementById('editAmountValue2').value = '';
+        document.getElementById('editDateFrom').value = '';
+        document.getElementById('editDateTo').value = '';
+        document.getElementById('editSourceType').value = 'UPI';
+        updateEditConditionFields();
+    }
+
     function updateConditionFields() {
         const type = document.getElementById('conditionType').value;
         document.getElementById('keywordFields').style.display = type === 'keyword' ? 'block' : 'none';
@@ -1420,9 +1557,69 @@
         document.getElementById('sourceFields').style.display = type === 'source' ? 'block' : 'none';
     }
 
+    function updateEditConditionFields() {
+        const type = document.getElementById('editConditionType').value;
+        document.getElementById('editKeywordFields').style.display = type === 'keyword' ? 'block' : 'none';
+        document.getElementById('editAmountFields').style.display = type === 'amount' ? 'block' : 'none';
+        document.getElementById('editDateFields').style.display = type === 'date' ? 'block' : 'none';
+        document.getElementById('editSourceFields').style.display = type === 'source' ? 'block' : 'none';
+    }
+
     function updateAmountFields() {
         const operator = document.getElementById('amountOperator').value;
         document.getElementById('amountValue2Group').style.display = operator === 'between' ? 'block' : 'none';
+    }
+
+    function updateEditAmountFields() {
+        const operator = document.getElementById('editAmountOperator').value;
+        document.getElementById('editAmountValue2Group').style.display = operator === 'between' ? 'block' : 'none';
+    }
+
+    function addConditionToEditForm() {
+        const type = document.getElementById('editConditionType').value;
+        if (!type) {
+            showNotification('Please select a condition type', 'warning');
+            return;
+        }
+
+        let condition = { type };
+
+        if (type === 'keyword') {
+            condition.match = document.getElementById('editKeywordMatch').value;
+            condition.value = document.getElementById('editKeywordValue').value;
+            if (!condition.value) {
+                showNotification('Please enter a keyword', 'warning');
+                return;
+            }
+        } else if (type === 'amount') {
+            condition.operator = document.getElementById('editAmountOperator').value;
+            condition.value = parseFloat(document.getElementById('editAmountValue').value);
+            if (isNaN(condition.value)) {
+                showNotification('Please enter a valid amount', 'warning');
+                return;
+            }
+            if (condition.operator === 'between') {
+                condition.value2 = parseFloat(document.getElementById('editAmountValue2').value);
+                if (isNaN(condition.value2)) {
+                    showNotification('Please enter both amounts for between', 'warning');
+                    return;
+                }
+            }
+        } else if (type === 'date') {
+            condition.from = document.getElementById('editDateFrom').value;
+            condition.to = document.getElementById('editDateTo').value;
+            if (!condition.from || !condition.to) {
+                showNotification('Please enter both dates', 'warning');
+                return;
+            }
+        } else if (type === 'source') {
+            condition.source = document.getElementById('editSourceType').value;
+        }
+
+        conditions.push(condition);
+        cancelAddCondition();
+        updateConditionCount();
+        showNotification('Condition added!', 'success');
     }
 
     function addCondition() {
