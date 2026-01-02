@@ -819,62 +819,71 @@
     let selectedRules = [];
     let selectedCategories = [];
 
-    // Handle checkbox changes for rules
-    document.querySelectorAll('.rule-checkbox').forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            const ruleItem = this.closest('.rule-item');
-            const ruleId = this.dataset.id;
-            
-            if (this.checked) {
-                ruleItem.classList.add('active');
-                if (!selectedRules.includes(ruleId)) {
-                    selectedRules.push(ruleId);
+    // Function to attach event listeners to checkboxes
+    // This is called on initial page load AND after AJAX updates the DOM
+    function attachCheckboxListeners() {
+        // Handle checkbox changes for rules
+        document.querySelectorAll('.rule-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const ruleItem = this.closest('.rule-item');
+                const ruleId = this.dataset.id;
+                
+                if (this.checked) {
+                    ruleItem.classList.add('active');
+                    if (!selectedRules.includes(ruleId)) {
+                        selectedRules.push(ruleId);
+                    }
+                } else {
+                    ruleItem.classList.remove('active');
+                    selectedRules = selectedRules.filter(id => id !== ruleId);
                 }
-            } else {
-                ruleItem.classList.remove('active');
-                selectedRules = selectedRules.filter(id => id !== ruleId);
-            }
-            
-            updateFilterButtonVisibility();
-            applyFilters();
+                
+                updateFilterButtonVisibility();
+                applyFilters();
+            });
         });
-    });
 
-    // Handle checkbox changes for categories
-    document.querySelectorAll('.category-checkbox').forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            const categoryItem = this.closest('.category-item');
-            const categoryId = this.dataset.id;
-            
-            if (this.checked) {
-                categoryItem.classList.add('active');
-                if (!selectedCategories.includes(categoryId)) {
-                    selectedCategories.push(categoryId);
+        // Handle checkbox changes for categories
+        document.querySelectorAll('.category-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const categoryItem = this.closest('.category-item');
+                const categoryId = this.dataset.id;
+                
+                if (this.checked) {
+                    categoryItem.classList.add('active');
+                    if (!selectedCategories.includes(categoryId)) {
+                        selectedCategories.push(categoryId);
+                    }
+                } else {
+                    categoryItem.classList.remove('active');
+                    selectedCategories = selectedCategories.filter(id => id !== categoryId);
                 }
-            } else {
-                categoryItem.classList.remove('active');
-                selectedCategories = selectedCategories.filter(id => id !== categoryId);
-            }
-            
-            updateFilterButtonVisibility();
-            applyFilters();
+                
+                updateFilterButtonVisibility();
+                applyFilters();
+            });
         });
-    });
 
-    // Handle item clicks to toggle checkbox
-    document.querySelectorAll('.rule-item, .category-item').forEach(item => {
-        item.addEventListener('click', function(e) {
-            // Don't trigger if clicking the checkbox directly
-            if (e.target.classList.contains('filter-checkbox')) {
-                return;
-            }
-            const checkbox = this.querySelector('.filter-checkbox');
-            if (checkbox) {
-                checkbox.checked = !checkbox.checked;
-                checkbox.dispatchEvent(new Event('change'));
-            }
+        // Handle item clicks to toggle checkbox
+        document.querySelectorAll('.rule-item, .category-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                // Don't trigger if clicking the checkbox directly
+                if (e.target.classList.contains('filter-checkbox')) {
+                    return;
+                }
+                const checkbox = this.querySelector('.filter-checkbox');
+                if (checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                    checkbox.dispatchEvent(new Event('change'));
+                }
+            });
         });
-    });
+    }
+
+    // Re-attach listeners after AJAX updates (renamed for clarity)
+    function reattachCheckboxListeners() {
+        attachCheckboxListeners();
+    }
 
     function updateFilterButtonVisibility() {
         const filterActions = document.getElementById('filterActions');
@@ -932,6 +941,10 @@
                 // Replace the old table container with the new one
                 const oldTableContainer = document.getElementById('tableContainer');
                 oldTableContainer.innerHTML = newTableContainer.innerHTML;
+                
+                // RE-ATTACH EVENT LISTENERS TO NEW ELEMENTS AFTER DOM UPDATE
+                // This is critical because the new elements don't have listeners
+                reattachCheckboxListeners();
                 
                 // Update the chart with filtered data
                 updateChartFromTable();
@@ -1407,6 +1420,9 @@
         const params = new URLSearchParams(window.location.search);
         const ruleIds = params.getAll('rule_ids');
         const categoryIds = params.getAll('category_ids');
+        
+        // ATTACH EVENT LISTENERS FIRST (before checking URL parameters)
+        attachCheckboxListeners();
         
         // Check the rule checkboxes if they're in the URL
         ruleIds.forEach(ruleId => {

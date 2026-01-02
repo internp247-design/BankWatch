@@ -615,8 +615,6 @@ def rules_application_results(request):
         account_id = request.GET.get('account_id')
         show_changed = request.GET.get('show_changed') in ['1', 'true', 'True']
         
-        print(f"DEBUG: rules_application_results called with show_changed={show_changed}, account_id={account_id}")
-        
         # Get selected rule IDs and category IDs from GET parameters
         selected_rule_ids = request.GET.getlist('rule_ids')
         selected_category_ids = request.GET.getlist('category_ids')
@@ -624,8 +622,6 @@ def rules_application_results(request):
         # Convert to integers
         selected_rule_ids = [int(rid) for rid in selected_rule_ids if rid.isdigit()]
         selected_category_ids = [int(cid) for cid in selected_category_ids if cid.isdigit()]
-        
-        print(f"DEBUG: selected_rule_ids={selected_rule_ids}, selected_category_ids={selected_category_ids}")
         
         engine = RulesEngine(request.user)
         
@@ -827,6 +823,8 @@ def rules_application_results(request):
             'rule_colors': rule_colors,
             'category_colors': category_colors,
         })
+        
+        print(f"DEBUG: FINAL - Rendering template with {len(filtered_results)} filtered results")
         
     except Exception as e:
         import traceback
