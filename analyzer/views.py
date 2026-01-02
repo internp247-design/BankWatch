@@ -3310,6 +3310,7 @@ def export_rules_results_ajax_pdf(request):
 import json
 
 @login_required
+@login_required
 def create_your_own(request):
     """Unified page for creating rules and categories"""
     rules = Rule.objects.filter(user=request.user).order_by('-created_at')
@@ -3326,7 +3327,6 @@ def create_your_own(request):
     return render(request, 'analyzer/create_your_own.html', context)
 
 
-@login_required
 @login_required
 def create_rule_ajax(request):
     """AJAX endpoint to create a rule with conditions"""
@@ -3695,6 +3695,7 @@ def update_rule_ajax(request, rule_id):
         }, status=500)
 
 
+@login_required
 @login_required
 def create_category_ajax(request):
     """AJAX endpoint to create a custom category"""
