@@ -169,18 +169,84 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const data = await response.json();
             if (data.status === 'ok') {
-                // Redirect to results page
-                if (data.redirect_url) {
-                    window.location.href = data.redirect_url;
-                } else {
-                    window.location.href = '{% url "rules_list" %}';
-                }
+                // Show success message before redirecting
+                const successMessage = document.createElement('div');
+                successMessage.style.cssText = `
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: white;
+                    padding: 40px;
+                    border-radius: 15px;
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                    z-index: 10000;
+                    text-align: center;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                `;
+                successMessage.innerHTML = `
+                    <div style="margin-bottom: 20px; font-size: 48px;">✓</div>
+                    <h2 style="margin-bottom: 15px; color: #48bb78; font-size: 24px;">Rules Applied Successfully!</h2>
+                    <p style="margin-bottom: 20px; color: #666; font-size: 16px; line-height: 1.6;">
+                        <strong style="display: block; font-size: 20px; color: #333; margin-bottom: 10px;">${data.matched || 0} transactions matched</strong>
+                        <span style="color: #999;">(${data.updated || 0} newly categorized)</span>
+                    </p>
+                    <div style="display: flex; gap: 10px; justify-content: center; align-items: center;">
+                        <i class="fas fa-spinner fa-spin" style="color: #5a67d8;"></i>
+                        <span style="color: #666;">Redirecting to results...</span>
+                    </div>
+                `;
+                document.body.appendChild(successMessage);
+                
+                // Redirect after 2 seconds
+                setTimeout(() => {
+                    if (data.redirect_url) {
+                        window.location.href = data.redirect_url;
+                    } else {
+                        window.location.href = '{% url "rules_list" %}';
+                    }
+                }, 2000);
             } else {
                 throw new Error(data.message || 'Unknown error');
             }
         } catch (err) {
             console.error(err);
-            alert('Error applying rules: ' + err.message);
+            
+            // Show error message
+            const errorMessage = document.createElement('div');
+            errorMessage.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: white;
+                padding: 40px;
+                border-radius: 15px;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                z-index: 10000;
+                text-align: center;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                max-width: 500px;
+            `;
+            errorMessage.innerHTML = `
+                <div style="margin-bottom: 20px; font-size: 48px; color: #f56565;">✕</div>
+                <h2 style="margin-bottom: 15px; color: #f56565; font-size: 24px;">Error Applying Rules</h2>
+                <p style="margin-bottom: 20px; color: #666; font-size: 14px; word-wrap: break-word;">
+                    ${err.message}
+                </p>
+                <button onclick="location.reload()" style="
+                    background: #5a67d8;
+                    color: white;
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    font-weight: 600;
+                ">Try Again</button>
+            `;
+            document.body.appendChild(errorMessage);
+            
             applyBtn.innerHTML = originalHtml;
             applyBtn.disabled = false;
         }

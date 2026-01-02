@@ -545,9 +545,10 @@ def apply_rules(request):
                 redirect_url += f"{sep}show_changed=1"
                 return JsonResponse({
                     'status': 'ok',
+                    'matched': len(matched_ids),
                     'updated': updated_count,
                     'total': transactions.count(),
-                    'message': f'Rules applied successfully! Updated {updated_count} out of {transactions.count()} transactions.',
+                    'message': f'Rules applied! Matched {len(matched_ids)} transactions ({updated_count} newly categorized).',
                     'redirect_url': redirect_url,
                 })
 
