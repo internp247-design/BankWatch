@@ -11,7 +11,7 @@ from django.urls import reverse
 from datetime import timedelta
 from django.utils import timezone
 
-from .models import BankAccount, BankStatement, Transaction, AnalysisSummary, Rule, CustomCategory, CustomCategoryRule, CustomCategoryRuleCondition, RuleCondition
+from .models import BankAccount, BankStatement, Transaction, AnalysisSummary, Rule, CustomCategory, CustomCategoryRule, CustomCategoryRuleCondition
 from .forms import BankStatementForm
 from .rules_forms import RuleForm, RuleConditionFormSet, CustomCategoryForm, CustomCategoryRuleForm, CustomCategoryRuleConditionFormSet
 from .rules_engine import RulesEngine, categorize_with_rules
@@ -404,13 +404,25 @@ def create_account(request):
 
 @login_required
 def rules_list(request):
-    """Redirect to new unified create-your-own page"""
-    return redirect('create_your_own')
+    """List all rules"""
+    rules = Rule.objects.filter(user=request.user).order_by('-created_at')
+    return render(request, 'analyzer/rules_list.html', {'rules': rules})
 
 @login_required
 def create_rule(request):
-    """Redirect to new unified create-your-own page"""
-    return redirect('create_your_own')
+    """Create a new rule"""
+    if request.method == 'POST':
+        form = RuleForm(request.POST)
+        if form.is_valid():
+            rule = form.save(commit=False)
+            rule.user = request.user
+            rule.save()
+            messages.success(request, f'Rule "{rule.name}" created successfully!')
+            return redirect('edit_rule', rule_id=rule.id)
+    else:
+        form = RuleForm()
+    
+    return render(request, 'analyzer/create_rule.html', {'form': form})
 
 @login_required
 def edit_rule(request, rule_id):
@@ -462,7 +474,6 @@ def delete_rule(request, rule_id):
     
     return render(request, 'analyzer/delete_rule.html', {'rule': rule})
 
-@login_required
 @login_required
 def apply_rules(request):
     """Apply rules to existing transactions"""
@@ -568,63 +579,6 @@ def apply_rules(request):
             }, status=500)
         messages.error(request, f"Error applying rules: {str(e)}")
         return redirect('rules_list')
-
-
-@login_required
-def apply_transaction_ajax(request, transaction_id):
-    """AJAX endpoint to apply a matched rule or category to a specific transaction"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'message': 'POST required'}, status=400)
-    
-    try:
-        transaction = get_object_or_404(Transaction, id=transaction_id, statement__account__user=request.user)
-        
-        # Get the type and ID of what to apply (rule or category)
-        apply_type = request.POST.get('type')  # 'rule' or 'category'
-        apply_id = request.POST.get('id')
-        
-        if not apply_type or not apply_id:
-            return JsonResponse({'success': False, 'message': 'Type and ID required'})
-        
-        previous_category = transaction.category
-        new_category = None
-        
-        if apply_type == 'rule':
-            # Apply a rule
-            rule = get_object_or_404(Rule, id=apply_id, user=request.user, is_active=True)
-            new_category = rule.category
-            success_msg = f'Applied rule "{rule.name}" to transaction'
-        elif apply_type == 'category':
-            # Apply a custom category
-            custom_category = get_object_or_404(CustomCategory, id=apply_id, user=request.user, is_active=True)
-            new_category = f"CUSTOM_{custom_category.id}"
-            success_msg = f'Applied category "{custom_category.name}" to transaction'
-        else:
-            return JsonResponse({'success': False, 'message': 'Invalid type'})
-        
-        # Update the transaction if category changed
-        if new_category and new_category != previous_category:
-            transaction.category = new_category
-            transaction.save()
-            
-            return JsonResponse({
-                'success': True,
-                'message': success_msg,
-                'transaction_id': transaction_id,
-                'previous_category': previous_category,
-                'new_category': new_category
-            })
-        else:
-            return JsonResponse({
-                'success': False,
-                'message': 'Category already applied or unchanged'
-            })
-    
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': f'Error applying: {str(e)}'
-        })
 
 @login_required
 def test_rules(request):
@@ -885,8 +839,18 @@ def rules_application_results(request):
 
 @login_required
 def rules_categorized(request):
-    """Redirect to new unified create-your-own page"""
-    return redirect('create_your_own')
+    """Show rules grouped by category for the current user."""
+    user_rules = Rule.objects.filter(user=request.user).order_by('category', '-created_at')
+    grouped = defaultdict(list)
+    for rule in user_rules:
+        grouped[rule.get_category_display()].append(rule)
+
+    # Convert to list of tuples for template ordering
+    grouped_list = [(category, grouped[category]) for category in sorted(grouped.keys())]
+
+    return render(request, 'analyzer/rules_categorized.html', {
+        'grouped_rules': grouped_list,
+    })
 
 @login_required
 def bulk_delete_transactions(request, statement_id=None):
@@ -1111,19 +1075,85 @@ def change_rule_status_on_results(request):
 
 @login_required
 def create_custom_category_and_rule(request):
-    """Redirect to new unified create-your-own page"""
-    return redirect('create_your_own')
+    """Create a custom category and its rule in one interface"""
+    if request.method == 'POST':
+        category_form = CustomCategoryForm(request.POST)
+        
+        if category_form.is_valid():
+            # Save custom category
+            custom_category = category_form.save(commit=False)
+            custom_category.user = request.user
+            custom_category.save()
+            
+            # Redirect to create rule for this category
+            messages.success(request, f'Custom category "{custom_category.name}" created successfully!')
+            return redirect('create_custom_category_rule', category_id=custom_category.id)
+    else:
+        category_form = CustomCategoryForm()
+    
+    context = {
+        'form': category_form,
+        'page_title': 'Create Custom Category',
+        'step': 1,
+        'step_title': 'Step 1: Create Custom Category'
+    }
+    return render(request, 'analyzer/create_custom_category.html', context)
 
 
 @login_required
 def create_custom_category_rule(request, category_id):
-    """Redirect to new unified create-your-own page"""
-    return redirect('create_your_own')
+    """Create a rule for a custom category"""
+    custom_category = get_object_or_404(CustomCategory, id=category_id, user=request.user)
+    
+    if request.method == 'POST':
+        rule_form = CustomCategoryRuleForm(request.POST)
+        
+        if rule_form.is_valid():
+            with db_transaction.atomic():
+                # Save rule first
+                rule = rule_form.save(commit=False)
+                rule.user = request.user
+                rule.custom_category = custom_category
+                rule.save()
+                
+                # Now bind the formset to the saved rule
+                condition_formset = CustomCategoryRuleConditionFormSet(request.POST, instance=rule)
+                
+                if condition_formset.is_valid():
+                    # Save conditions
+                    condition_formset.save()
+                    messages.success(request, f'Rule "{rule.name}" created successfully for "{custom_category.name}"!')
+                    return redirect('custom_categories_list')
+                else:
+                    # If formset is invalid, delete the rule and redisplay the form with errors
+                    rule.delete()
+        else:
+            condition_formset = CustomCategoryRuleConditionFormSet()
+    else:
+        rule_form = CustomCategoryRuleForm()
+        condition_formset = CustomCategoryRuleConditionFormSet()
+    
+    context = {
+        'custom_category': custom_category,
+        'rule_form': rule_form,
+        'condition_formset': condition_formset,
+        'page_title': f'Create Rule for {custom_category.name}',
+        'step': 2,
+        'step_title': 'Step 2: Create Category Rule'
+    }
+    return render(request, 'analyzer/create_custom_category_rule.html', context)
 
 
+@login_required
 def custom_categories_list(request):
-    """Redirect to new unified create-your-own page"""
-    return redirect('create_your_own')
+    """List all custom categories for the user"""
+    custom_categories = CustomCategory.objects.filter(user=request.user).prefetch_related('rules')
+    
+    context = {
+        'custom_categories': custom_categories,
+        'page_title': 'My Custom Categories'
+    }
+    return render(request, 'analyzer/custom_categories_list.html', context)
 
 
 @login_required
@@ -1287,34 +1317,8 @@ def apply_custom_category(request, statement_id):
 
 
 @login_required
-@login_required
 def apply_custom_category_rules(request):
-    """
-    Apply custom category rules to user transactions
-    
-    Purpose: 
-    This endpoint evaluates all rules for selected custom categories against the user's 
-    transactions and returns which transactions match the rules. The matching process uses 
-    the CustomCategoryRulesEngine to check conditions (keyword, amount, date).
-    
-    Method: POST
-    
-    Request Parameters:
-    - category_ids (list): IDs of custom categories whose rules to apply
-    
-    Response:
-    - success (bool): True if operation completed
-    - message (str): Human-readable result message
-    - matched_transaction_ids (list): IDs of transactions matching any rule
-    - category_names (list): Names of the selected categories
-    - category_colors (list): Colors of the selected categories
-    - applied_count (int): Number of transactions that matched
-    
-    Example:
-    POST /analyzer/apply-custom-category-rules/
-    Data: category_ids=1&category_ids=2
-    Response: {"success": true, "matched_transaction_ids": [15, 22, 45], ...}
-    """
+    """Apply multiple custom categories to transactions from rule application results"""
     if request.method == 'POST':
         category_ids = request.POST.getlist('category_ids')
         
@@ -3321,353 +3325,3 @@ def export_rules_results_ajax_pdf(request):
             'success': False,
             'error': error_msg
         }, status=500)
-
-
-# ============================================================================
-# UNIFIED "CREATE YOUR OWN" PAGE
-# ============================================================================
-import json
-
-@login_required
-def create_your_own(request):
-    """Unified page for creating rules and categories"""
-    rules = Rule.objects.filter(user=request.user).order_by('-created_at')
-    custom_categories = CustomCategory.objects.filter(user=request.user).order_by('-created_at')
-    
-    context = {
-        'total_rules': rules.count(),
-        'total_categories': custom_categories.count(),
-        'rules': rules,
-        'custom_categories': custom_categories,
-        'categories': Transaction.CATEGORY_CHOICES,
-    }
-    
-    return render(request, 'analyzer/create_your_own.html', context)
-
-
-@login_required
-def create_rule_ajax(request):
-    """AJAX endpoint to create a rule with conditions"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'message': 'POST required'}, status=400)
-    
-    try:
-        name = request.POST.get('name', '').strip()
-        category = request.POST.get('category', '').strip()
-        rule_type = request.POST.get('rule_type', 'AND')
-        conditions_json = request.POST.get('conditions', '[]')
-        
-        # Validation
-        if not name:
-            return JsonResponse({'success': False, 'message': 'Rule name is required'})
-        if not category:
-            return JsonResponse({'success': False, 'message': 'Category is required'})
-        
-        # Parse conditions
-        try:
-            conditions = json.loads(conditions_json)
-        except json.JSONDecodeError:
-            return JsonResponse({'success': False, 'message': 'Invalid conditions format'})
-        
-        if not conditions:
-            return JsonResponse({'success': False, 'message': 'At least one condition is required'})
-        
-        # Create rule
-        rule = Rule.objects.create(
-            user=request.user,
-            name=name,
-            category=category,
-            rule_type=rule_type,
-            is_active=True
-        )
-        
-        # Create conditions
-        for idx, cond in enumerate(conditions):
-            if cond['type'] == 'keyword':
-                RuleCondition.objects.create(
-                    rule=rule,
-                    condition_type='KEYWORD',
-                    keyword=cond.get('value', ''),
-                    keyword_match_type=cond.get('match', 'CONTAINS').upper()
-                )
-            elif cond['type'] == 'amount':
-                RuleCondition.objects.create(
-                    rule=rule,
-                    condition_type='AMOUNT',
-                    amount_operator=cond.get('operator', 'GREATER_THAN').upper(),
-                    amount_value=cond.get('value'),
-                    amount_value2=cond.get('value2')
-                )
-            elif cond['type'] == 'date':
-                RuleCondition.objects.create(
-                    rule=rule,
-                    condition_type='DATE',
-                    date_start=cond.get('from'),
-                    date_end=cond.get('to')
-                )
-            elif cond['type'] == 'source':
-                RuleCondition.objects.create(
-                    rule=rule,
-                    condition_type='SOURCE',
-                    source_channel=cond.get('source', 'UPI')
-                )
-        
-        # Build description
-        rule_desc = f"{rule_type.upper()} conditions → {rule.get_category_display()}"
-        
-        return JsonResponse({
-            'success': True,
-            'message': f'Rule "{name}" created successfully!',
-            'rule_id': rule.id,
-            'rule_name': rule.name,
-            'rule_description': rule_desc
-        })
-    
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': f'Error creating rule: {str(e)}'
-        })
-
-
-@login_required
-def create_category_ajax(request):
-    """AJAX endpoint to create a custom category"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'message': 'POST required'}, status=400)
-    
-    try:
-        name = request.POST.get('name', '').strip()
-        description = request.POST.get('description', '').strip()
-        icon = request.POST.get('icon', '🛒')
-        color = request.POST.get('color', '#5a67d8')
-        
-        # Validation
-        if not name:
-            return JsonResponse({'success': False, 'message': 'Category name is required'})
-        
-        # Check uniqueness
-        if CustomCategory.objects.filter(user=request.user, name=name).exists():
-            return JsonResponse({'success': False, 'message': 'Category with this name already exists'})
-        
-        # Create category
-        category = CustomCategory.objects.create(
-            user=request.user,
-            name=name,
-            description=description,
-            icon=icon,
-            color=color,
-            is_active=True
-        )
-        
-        return JsonResponse({
-            'success': True,
-            'message': f'Category "{name}" created successfully!',
-            'category_id': category.id,
-            'category_name': category.name,
-            'category_icon': category.icon,
-            'category_description': category.description
-        })
-    
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': f'Error creating category: {str(e)}'
-        })
-
-
-@login_required
-def delete_rule_ajax(request, rule_id):
-    """AJAX endpoint to delete a rule"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'message': 'POST required'}, status=400)
-    
-    try:
-        rule = get_object_or_404(Rule, id=rule_id, user=request.user)
-        rule_name = rule.name
-        rule.delete()
-        
-        return JsonResponse({
-            'success': True,
-            'message': f'Rule "{rule_name}" deleted successfully!'
-        })
-    
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': f'Error deleting rule: {str(e)}'
-        })
-
-
-@login_required
-def edit_rule_ajax(request, rule_id):
-    """AJAX endpoint to edit a rule with conditions"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'message': 'POST required'}, status=400)
-    
-    try:
-        rule = get_object_or_404(Rule, id=rule_id, user=request.user)
-        
-        name = request.POST.get('name', '').strip()
-        category = request.POST.get('category', '').strip()
-        rule_type = request.POST.get('rule_type', 'AND')
-        conditions_json = request.POST.get('conditions', '[]')
-        
-        # Validation
-        if not name:
-            return JsonResponse({'success': False, 'message': 'Rule name is required'})
-        if not category:
-            return JsonResponse({'success': False, 'message': 'Category is required'})
-        
-        # Parse conditions
-        try:
-            conditions = json.loads(conditions_json)
-        except json.JSONDecodeError:
-            return JsonResponse({'success': False, 'message': 'Invalid conditions format'})
-        
-        if not conditions:
-            return JsonResponse({'success': False, 'message': 'At least one condition is required'})
-        
-        # Update rule
-        rule.name = name
-        rule.category = category
-        rule.rule_type = rule_type
-        rule.save()
-        
-        # Delete existing conditions and create new ones
-        rule.conditions.all().delete()
-        
-        for idx, cond in enumerate(conditions):
-            if cond['type'] == 'keyword':
-                RuleCondition.objects.create(
-                    rule=rule,
-                    condition_type='KEYWORD',
-                    keyword=cond.get('value', ''),
-                    keyword_match_type=cond.get('match', 'CONTAINS').upper()
-                )
-            elif cond['type'] == 'amount':
-                RuleCondition.objects.create(
-                    rule=rule,
-                    condition_type='AMOUNT',
-                    amount_operator=cond.get('operator', 'GREATER_THAN').upper(),
-                    amount_value=cond.get('value'),
-                    amount_value2=cond.get('value2')
-                )
-            elif cond['type'] == 'date':
-                RuleCondition.objects.create(
-                    rule=rule,
-                    condition_type='DATE',
-                    date_start=cond.get('from'),
-                    date_end=cond.get('to')
-                )
-            elif cond['type'] == 'source':
-                RuleCondition.objects.create(
-                    rule=rule,
-                    condition_type='SOURCE',
-                    source_channel=cond.get('source', 'UPI')
-                )
-        
-        return JsonResponse({
-            'success': True,
-            'message': f'Rule "{name}" updated successfully!',
-            'rule_id': rule.id,
-            'rule_name': rule.name
-        })
-    
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': f'Error updating rule: {str(e)}'
-        })
-
-
-@login_required
-def delete_category_rule_ajax(request, rule_id):
-    """AJAX endpoint to delete a custom category rule"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'message': 'POST required'}, status=400)
-    
-    try:
-        rule = get_object_or_404(CustomCategoryRule, id=rule_id, user=request.user)
-        rule_name = rule.name
-        rule.delete()
-        
-        return JsonResponse({
-            'success': True,
-            'message': f'Rule "{rule_name}" deleted successfully!'
-        })
-    
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': f'Error deleting rule: {str(e)}'
-        })
-
-
-@login_required
-def update_category_ajax(request, category_id):
-    """AJAX endpoint to update a custom category"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'message': 'POST required'}, status=400)
-    
-    try:
-        category = get_object_or_404(CustomCategory, id=category_id, user=request.user)
-        
-        name = request.POST.get('name', '').strip()
-        description = request.POST.get('description', '').strip()
-        icon = request.POST.get('icon', category.icon)
-        color = request.POST.get('color', category.color)
-        
-        # Validation
-        if not name:
-            return JsonResponse({'success': False, 'message': 'Category name is required'})
-        
-        # Check if name already exists (excluding current category)
-        if CustomCategory.objects.filter(user=request.user, name=name).exclude(id=category_id).exists():
-            return JsonResponse({'success': False, 'message': 'Category with this name already exists'})
-        
-        # Update category
-        category.name = name
-        category.description = description
-        category.icon = icon
-        category.color = color
-        category.save()
-        
-        return JsonResponse({
-            'success': True,
-            'message': f'Category "{name}" updated successfully!',
-            'category_id': category.id,
-            'category_name': category.name,
-            'category_icon': category.icon,
-            'category_description': category.description,
-            'category_color': category.color
-        })
-    
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': f'Error updating category: {str(e)}'
-        })
-
-
-@login_required
-def delete_category_ajax(request, category_id):
-    """AJAX endpoint to delete a custom category"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'message': 'POST required'}, status=400)
-    
-    try:
-        category = get_object_or_404(CustomCategory, id=category_id, user=request.user)
-        category_name = category.name
-        category.delete()
-        
-        return JsonResponse({
-            'success': True,
-            'message': f'Category "{category_name}" deleted successfully!'
-        })
-    
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': f'Error deleting category: {str(e)}'
-        })

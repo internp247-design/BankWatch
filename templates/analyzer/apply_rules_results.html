@@ -513,34 +513,6 @@
         background-color: #2a5298;
     }
 
-    .btn-apply {
-        background-color: #28a745;
-        color: white;
-        border: none;
-        padding: 0.4rem 0.8rem;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.85rem;
-        font-weight: 600;
-        transition: all 0.2s;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        white-space: nowrap;
-    }
-
-    .btn-apply:hover {
-        background-color: #218838;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
-    }
-
-    .btn-apply:disabled {
-        background-color: #c3e6cb;
-        cursor: not-allowed;
-        opacity: 0.7;
-    }
-
     .sidebar::-webkit-scrollbar,
     .table-container::-webkit-scrollbar {
         width: 6px;
@@ -804,24 +776,14 @@
                             </td>
                             <td>
                                 {% if result.matched_rule_name %}
-                                    <div style="display: flex; gap: 8px; align-items: center;">
-                                        <span class="category-badge" style="background-color: #e3f2fd; color: #1e3c72;">{{ result.matched_rule_name }}</span>
-                                        <button class="btn-apply" onclick="applyRuleToTransaction({{ result.id }}, {{ result.matched_rule_id }}, '{{ result.matched_rule_name }}')" title="Apply this rule">
-                                            <i class="fas fa-check"></i> Apply
-                                        </button>
-                                    </div>
+                                    <span class="category-badge" style="background-color: #e3f2fd; color: #1e3c72;">{{ result.matched_rule_name }}</span>
                                 {% else %}
                                     <span style="color: #6c757d;">-</span>
                                 {% endif %}
                             </td>
                             <td>
                                 {% if result.matched_custom_category_name %}
-                                    <div style="display: flex; gap: 8px; align-items: center;">
-                                        <span class="category-badge" style="background-color: #d4edda; color: #155724;">{{ result.matched_custom_category_name }}</span>
-                                        <button class="btn-apply" onclick="applyCategoryToTransaction({{ result.id }}, {{ result.matched_custom_category_id }}, '{{ result.matched_custom_category_name }}')" title="Apply this category">
-                                            <i class="fas fa-check"></i> Apply
-                                        </button>
-                                    </div>
+                                    <span class="category-badge" style="background-color: #d4edda; color: #155724;">{{ result.matched_custom_category_name }}</span>
                                 {% else %}
                                     <span style="color: #6c757d;">-</span>
                                 {% endif %}
@@ -857,71 +819,62 @@
     let selectedRules = [];
     let selectedCategories = [];
 
-    // Function to attach event listeners to checkboxes
-    // This is called on initial page load AND after AJAX updates the DOM
-    function attachCheckboxListeners() {
-        // Handle checkbox changes for rules
-        document.querySelectorAll('.rule-checkbox').forEach(checkbox => {
-            checkbox.addEventListener('change', function() {
-                const ruleItem = this.closest('.rule-item');
-                const ruleId = this.dataset.id;
-                
-                if (this.checked) {
-                    ruleItem.classList.add('active');
-                    if (!selectedRules.includes(ruleId)) {
-                        selectedRules.push(ruleId);
-                    }
-                } else {
-                    ruleItem.classList.remove('active');
-                    selectedRules = selectedRules.filter(id => id !== ruleId);
+    // Handle checkbox changes for rules
+    document.querySelectorAll('.rule-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const ruleItem = this.closest('.rule-item');
+            const ruleId = this.dataset.id;
+            
+            if (this.checked) {
+                ruleItem.classList.add('active');
+                if (!selectedRules.includes(ruleId)) {
+                    selectedRules.push(ruleId);
                 }
-                
-                updateFilterButtonVisibility();
-                applyFilters();
-            });
+            } else {
+                ruleItem.classList.remove('active');
+                selectedRules = selectedRules.filter(id => id !== ruleId);
+            }
+            
+            updateFilterButtonVisibility();
+            applyFilters();
         });
+    });
 
-        // Handle checkbox changes for categories
-        document.querySelectorAll('.category-checkbox').forEach(checkbox => {
-            checkbox.addEventListener('change', function() {
-                const categoryItem = this.closest('.category-item');
-                const categoryId = this.dataset.id;
-                
-                if (this.checked) {
-                    categoryItem.classList.add('active');
-                    if (!selectedCategories.includes(categoryId)) {
-                        selectedCategories.push(categoryId);
-                    }
-                } else {
-                    categoryItem.classList.remove('active');
-                    selectedCategories = selectedCategories.filter(id => id !== categoryId);
+    // Handle checkbox changes for categories
+    document.querySelectorAll('.category-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const categoryItem = this.closest('.category-item');
+            const categoryId = this.dataset.id;
+            
+            if (this.checked) {
+                categoryItem.classList.add('active');
+                if (!selectedCategories.includes(categoryId)) {
+                    selectedCategories.push(categoryId);
                 }
-                
-                updateFilterButtonVisibility();
-                applyFilters();
-            });
+            } else {
+                categoryItem.classList.remove('active');
+                selectedCategories = selectedCategories.filter(id => id !== categoryId);
+            }
+            
+            updateFilterButtonVisibility();
+            applyFilters();
         });
+    });
 
-        // Handle item clicks to toggle checkbox
-        document.querySelectorAll('.rule-item, .category-item').forEach(item => {
-            item.addEventListener('click', function(e) {
-                // Don't trigger if clicking the checkbox directly
-                if (e.target.classList.contains('filter-checkbox')) {
-                    return;
-                }
-                const checkbox = this.querySelector('.filter-checkbox');
-                if (checkbox) {
-                    checkbox.checked = !checkbox.checked;
-                    checkbox.dispatchEvent(new Event('change'));
-                }
-            });
+    // Handle item clicks to toggle checkbox
+    document.querySelectorAll('.rule-item, .category-item').forEach(item => {
+        item.addEventListener('click', function(e) {
+            // Don't trigger if clicking the checkbox directly
+            if (e.target.classList.contains('filter-checkbox')) {
+                return;
+            }
+            const checkbox = this.querySelector('.filter-checkbox');
+            if (checkbox) {
+                checkbox.checked = !checkbox.checked;
+                checkbox.dispatchEvent(new Event('change'));
+            }
         });
-    }
-
-    // Re-attach listeners after AJAX updates (renamed for clarity)
-    function reattachCheckboxListeners() {
-        attachCheckboxListeners();
-    }
+    });
 
     function updateFilterButtonVisibility() {
         const filterActions = document.getElementById('filterActions');
@@ -979,10 +932,6 @@
                 // Replace the old table container with the new one
                 const oldTableContainer = document.getElementById('tableContainer');
                 oldTableContainer.innerHTML = newTableContainer.innerHTML;
-                
-                // RE-ATTACH EVENT LISTENERS TO NEW ELEMENTS AFTER DOM UPDATE
-                // This is critical because the new elements don't have listeners
-                reattachCheckboxListeners();
                 
                 // Update the chart with filtered data
                 updateChartFromTable();
@@ -1147,12 +1096,7 @@
     }
 
     function generateColorsForMixedChart(labels) {
-        // Get custom colors from backend
-        const backendRuleColors = {{ rule_colors|safe }};
-        const backendCategoryColors = {{ category_colors|safe }};
-        
-        // Fallback colors if not found
-        const defaultRuleColors = [
+        const ruleColors = [
             '#1e3c72',
             '#2a5298',
             '#0052cc',
@@ -1160,7 +1104,7 @@
             '#1a3a52'
         ];
         
-        const defaultCategoryColors = [
+        const categoryColors = [
             '#28a745',
             '#20c997',
             '#17a2b8',
@@ -1174,25 +1118,13 @@
         
         labels.forEach(label => {
             if (label.startsWith('🔵')) {
-                // It's a rule - extract rule name and look up custom color
-                const ruleName = label.substring(2).trim();  // Remove emoji
-                const customColor = backendRuleColors[ruleName];
-                if (customColor && customColor !== '#5a67d8') {
-                    colors.push(customColor);
-                } else {
-                    colors.push(defaultRuleColors[ruleIndex % defaultRuleColors.length]);
-                    ruleIndex++;
-                }
+                // It's a rule
+                colors.push(ruleColors[ruleIndex % ruleColors.length]);
+                ruleIndex++;
             } else if (label.startsWith('📁')) {
-                // It's a category - extract category name and look up custom color
-                const categoryName = label.substring(2).trim();  // Remove emoji
-                const customColor = backendCategoryColors[categoryName];
-                if (customColor) {
-                    colors.push(customColor);
-                } else {
-                    colors.push(defaultCategoryColors[categoryIndex % defaultCategoryColors.length]);
-                    categoryIndex++;
-                }
+                // It's a category
+                colors.push(categoryColors[categoryIndex % categoryColors.length]);
+                categoryIndex++;
             }
         });
         
@@ -1452,157 +1384,12 @@
         });
     }
 
-    // Function to apply a rule to a transaction
-    function applyRuleToTransaction(transactionId, ruleId, ruleName) {
-        if (!confirm(`Apply rule "${ruleName}" to this transaction?`)) {
-            return;
-        }
-        
-        const btn = event.target.closest('.btn-apply');
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Applying...';
-        }
-        
-        const formData = new FormData();
-        formData.append('type', 'rule');
-        formData.append('id', ruleId);
-        
-        // Get CSRF token
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (csrfToken) {
-            formData.append('csrfmiddlewaretoken', csrfToken.value);
-        }
-        
-        fetch(`/analyzer/api/transaction/${transactionId}/apply/`, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': csrfToken ? csrfToken.value : ''
-            },
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Show success message
-                const alertDiv = document.createElement('div');
-                alertDiv.className = 'alert alert-success alert-dismissible fade show';
-                alertDiv.style.position = 'fixed';
-                alertDiv.style.top = '20px';
-                alertDiv.style.right = '20px';
-                alertDiv.style.zIndex = '9999';
-                alertDiv.innerHTML = `
-                    <i class="fas fa-check-circle"></i> ${data.message}
-                    <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
-                `;
-                document.body.appendChild(alertDiv);
-                
-                // Remove the row from the table
-                const row = document.querySelector(`tr[data-transaction-id="${transactionId}"]`);
-                if (row) {
-                    row.remove();
-                }
-                
-                // Update chart
-                updateChartFromTable();
-                
-                setTimeout(() => alertDiv.remove(), 3000);
-            } else {
-                alert('Error: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error applying rule: ' + error.message);
-        })
-        .finally(() => {
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-check"></i> Apply';
-            }
-        });
-    }
-
-    // Function to apply a category to a transaction
-    function applyCategoryToTransaction(transactionId, categoryId, categoryName) {
-        if (!confirm(`Apply category "${categoryName}" to this transaction?`)) {
-            return;
-        }
-        
-        const btn = event.target.closest('.btn-apply');
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Applying...';
-        }
-        
-        const formData = new FormData();
-        formData.append('type', 'category');
-        formData.append('id', categoryId);
-        
-        // Get CSRF token
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (csrfToken) {
-            formData.append('csrfmiddlewaretoken', csrfToken.value);
-        }
-        
-        fetch(`/analyzer/api/transaction/${transactionId}/apply/`, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': csrfToken ? csrfToken.value : ''
-            },
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Show success message
-                const alertDiv = document.createElement('div');
-                alertDiv.className = 'alert alert-success alert-dismissible fade show';
-                alertDiv.style.position = 'fixed';
-                alertDiv.style.top = '20px';
-                alertDiv.style.right = '20px';
-                alertDiv.style.zIndex = '9999';
-                alertDiv.innerHTML = `
-                    <i class="fas fa-check-circle"></i> ${data.message}
-                    <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
-                `;
-                document.body.appendChild(alertDiv);
-                
-                // Remove the row from the table
-                const row = document.querySelector(`tr[data-transaction-id="${transactionId}"]`);
-                if (row) {
-                    row.remove();
-                }
-                
-                // Update chart
-                updateChartFromTable();
-                
-                setTimeout(() => alertDiv.remove(), 3000);
-            } else {
-                alert('Error: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error applying category: ' + error.message);
-        })
-        .finally(() => {
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-check"></i> Apply';
-            }
-        });
-    }
-
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
         // Parse URL parameters to set initial filter state
         const params = new URLSearchParams(window.location.search);
         const ruleIds = params.getAll('rule_ids');
         const categoryIds = params.getAll('category_ids');
-        
-        // ATTACH EVENT LISTENERS FIRST (before checking URL parameters)
-        attachCheckboxListeners();
         
         // Check the rule checkboxes if they're in the URL
         ruleIds.forEach(ruleId => {

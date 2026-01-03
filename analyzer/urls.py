@@ -15,20 +15,7 @@ urlpatterns = [
     path('accounts/<int:account_id>/view/', views.view_account_details, name='view_account_details'),
     path('accounts/<int:account_id>/delete/', views.delete_account, name='delete_account'),
     
-    # Unified Create Your Own Page
-    path('create-your-own/', views.create_your_own, name='create_your_own'),
-    
-    # AJAX Endpoints for Create Your Own
-    path('api/rule/create/', views.create_rule_ajax, name='create_rule_ajax'),
-    path('api/rule/<int:rule_id>/edit/', views.edit_rule_ajax, name='edit_rule_ajax'),
-    path('api/category/create/', views.create_category_ajax, name='create_category_ajax'),
-    path('api/category/<int:category_id>/edit/', views.update_category_ajax, name='update_category_ajax'),
-    path('api/category/<int:category_id>/delete/', views.delete_category_ajax, name='delete_category_ajax'),
-    path('api/rule/<int:rule_id>/delete/', views.delete_rule_ajax, name='delete_rule_ajax'),
-    path('api/category-rule/<int:rule_id>/delete/', views.delete_category_rule_ajax, name='delete_category_rule_ajax'),
-    path('api/transaction/<int:transaction_id>/apply/', views.apply_transaction_ajax, name='apply_transaction_ajax'),
-    
-    # Rules Engine URLs (keep for backward compatibility)
+    # Rules Engine URLs
     path('rules/', views.rules_list, name='rules_list'),
     path('rules/create/', views.create_rule, name='create_rule'),
     path('rules/<int:rule_id>/edit/', views.edit_rule, name='edit_rule'),

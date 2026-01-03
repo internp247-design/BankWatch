@@ -51,24 +51,27 @@
                             </ul>
                         </li>
                         
-                        <!-- Create Your Own (Rules & Categories) -->
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'create_your_own' %}">
-                                <i class="fas fa-magic"></i> Create Your Own
-                            </a>
-                        </li>
-                        
-                        <!-- Rules Dropdown (Legacy) -->
+                        <!-- Rules Dropdown -->
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" id="rulesDropdown" role="button" data-bs-toggle="dropdown">
-                                <i class="fas fa-cogs"></i> More
+                                <i class="fas fa-cogs"></i> Rules
                             </a>
                             <ul class="dropdown-menu" aria-labelledby="rulesDropdown">
                                 <li><a class="dropdown-item" href="{% url 'rules_list' %}"><i class="fas fa-list"></i> All Rules</a></li>
+                                <li><a class="dropdown-item" href="{% url 'create_rule' %}"><i class="fas fa-plus"></i> Create Rule</a></li>
                                 <li><a class="dropdown-item" href="{% url 'test_rules' %}"><i class="fas fa-flask"></i> Test Rules</a></li>
                                 <li><a class="dropdown-item" href="{% url 'apply_rules' %}"><i class="fas fa-play"></i> Apply Rules</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{% url 'custom_categories_list' %}"><i class="fas fa-list"></i> All Categories</a></li>
+                            </ul>
+                        </li>
+                        
+                        <!-- Custom Categories Dropdown -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="categoriesDropdown" role="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-tags"></i> Categories
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="categoriesDropdown">
+                                <li><a class="dropdown-item" href="{% url 'custom_categories_list' %}"><i class="fas fa-list"></i> My Custom Categories</a></li>
+                                <li><a class="dropdown-item" href="{% url 'create_custom_category' %}"><i class="fas fa-plus"></i> Create Category</a></li>
                                 <li><a class="dropdown-item" href="{% url 'apply_custom_category_rules' %}"><i class="fas fa-play"></i> Apply Categories</a></li>
                             </ul>
                         </li>
