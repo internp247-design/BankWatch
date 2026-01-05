@@ -168,7 +168,7 @@
                     {% for transaction in transactions %}
                     <tr class="transaction-row" data-transaction-id="{{ transaction.id }}">
                         <td class="date-cell">{{ transaction.date|date:"d M, Y" }}</td>
-                        <td class="description-cell">{{ transaction.description|truncatewords:8 }}</td>
+                        <td class="description-cell">{{ transaction.description }}</td>
                         <td class="category-cell">
                             <span class="category-badge clickable-category" data-transaction-id="{{ transaction.id }}" 
                                   data-category="{{ transaction.category }}" data-label="{{ transaction.user_label|default:'' }}">
@@ -616,12 +616,14 @@
         background: white;
         border-radius: 12px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        overflow: hidden;
+        overflow-x: auto;
+        overflow-y: visible;
     }
 
     .transactions-table {
         width: 100%;
         border-collapse: collapse;
+        table-layout: fixed;
     }
 
     .transactions-table thead {
@@ -630,18 +632,29 @@
     }
 
     .transactions-table th {
-        padding: 16px 20px;
+        padding: 16px 12px;
         text-align: left;
         font-weight: 700;
         color: #7f8c8d;
         font-size: 13px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
 
     .transactions-table td {
-        padding: 14px 20px;
+        padding: 14px 12px;
         border-bottom: 1px solid #f0f0f0;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        word-break: break-word;
+        vertical-align: middle;
+        min-height: 50px;
+    }
+
+    .transaction-row {
+        transition: background-color 0.2s ease;
     }
 
     .transaction-row:hover {
@@ -655,16 +668,46 @@
     .date-cell {
         font-weight: 600;
         color: #2c3e50;
-        width: 120px;
+        width: 100px;
+        white-space: nowrap;
+        flex-shrink: 0;
     }
 
     .description-cell {
         color: #555;
-        max-width: 300px;
+        width: 35%;
+        min-width: 150px;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        white-space: normal;
+        line-height: 1.4;
+        display: table-cell;
     }
 
     .category-cell {
-        width: 150px;
+        width: 120px;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    .label-cell {
+        width: 100px;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        white-space: normal;
+    }
+
+    .type-cell {
+        width: 110px;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    .amount-cell {
+        width: 110px;
+        white-space: nowrap;
+        flex-shrink: 0;
+        text-align: right;
     }
 
     .category-badge {
@@ -1092,10 +1135,52 @@
             gap: 15px;
         }
 
+        .transactions-table {
+            table-layout: fixed;
+            width: 100%;
+        }
+
         .transactions-table th,
         .transactions-table td {
-            padding: 12px 10px;
-            font-size: 13px;
+            padding: 10px 8px;
+            font-size: 12px;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .date-cell {
+            width: 70px;
+            font-size: 11px;
+        }
+
+        .description-cell {
+            width: 35%;
+            min-width: 100px;
+            font-size: 11px;
+            line-height: 1.3;
+        }
+
+        .category-cell {
+            width: 80px;
+        }
+
+        .label-cell {
+            width: 60px;
+        }
+
+        .type-cell {
+            width: 70px;
+            font-size: 11px;
+        }
+
+        .amount-cell {
+            width: 80px;
+            font-size: 11px;
+        }
+
+        .transactions-table-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         .chart-wrapper {
@@ -1205,6 +1290,64 @@
 <script>
     // ==================== TRANSACTION FILTERING ====================
     const timeFilter = document.getElementById('transactionTimeFilter');
+    
+    function updatePagination(data) {
+        // Update pagination info if needed
+        // For now, we're just showing page 1 after filter change
+        const paginationWrapper = document.querySelector('.pagination-wrapper');
+        if (paginationWrapper && data.total_pages > 1) {
+            let paginationHtml = '<nav aria-label="Page navigation"><ul class="pagination">';
+            
+            if (data.has_previous) {
+                paginationHtml += `<li><a href="javascript:void(0);" onclick="loadPage(1)" class="page-link">First</a></li>`;
+                paginationHtml += `<li><a href="javascript:void(0);" onclick="loadPage(${data.current_page - 1})" class="page-link">Previous</a></li>`;
+            }
+            
+            for (let i = 1; i <= data.total_pages; i++) {
+                if (data.current_page === i) {
+                    paginationHtml += `<li class="active"><span class="page-link">${i}</span></li>`;
+                } else if (i > data.current_page - 3 && i < data.current_page + 3) {
+                    paginationHtml += `<li><a href="javascript:void(0);" onclick="loadPage(${i})" class="page-link">${i}</a></li>`;
+                }
+            }
+            
+            if (data.has_next) {
+                paginationHtml += `<li><a href="javascript:void(0);" onclick="loadPage(${data.current_page + 1})" class="page-link">Next</a></li>`;
+                paginationHtml += `<li><a href="javascript:void(0);" onclick="loadPage(${data.total_pages})" class="page-link">Last</a></li>`;
+            }
+            
+            paginationHtml += '</ul></nav>';
+            paginationWrapper.innerHTML = paginationHtml;
+        }
+    }
+
+    function loadPage(pageNumber) {
+        const period = timeFilter ? timeFilter.value : 'all';
+        const accountId = {{ account.id }};
+        const tableBody = document.getElementById('transactionTableBody');
+        
+        if (tableBody) {
+            tableBody.innerHTML = '<tr><td colspan="6" class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
+        }
+        
+        fetch(`/analyzer/api/accounts/${accountId}/transactions-filtered/?period=${period}&page=${pageNumber}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    renderTransactions(data.transactions);
+                    updatePagination(data);
+                    // Scroll to table
+                    document.querySelector('.transactions-table-wrapper').scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    tableBody.innerHTML = '<tr><td colspan="6" class="text-center">Error loading transactions</td></tr>';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center">Error loading transactions</td></tr>';
+            });
+    }
+    
     if (timeFilter) {
         timeFilter.addEventListener('change', function() {
             const period = this.value;
@@ -1216,23 +1359,29 @@
                 tableBody.innerHTML = '<tr><td colspan="6" class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
             }
             
-            // Fetch filtered transactions
+            // Fetch filtered transactions (always start at page 1 when filter changes)
             fetch(`/analyzer/api/accounts/${accountId}/transactions-filtered/?period=${period}&page=1`)
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     if (data.success) {
                         renderTransactions(data.transactions);
                         updatePagination(data);
                     } else {
-                        tableBody.innerHTML = '<tr><td colspan="6" class="text-center">Error loading transactions</td></tr>';
+                        tableBody.innerHTML = `<tr><td colspan="6" class="text-center">Error: ${data.error || 'Failed to load transactions'}</td></tr>`;
                     }
                 })
                 .catch(error => {
-                    console.error('Error:', error);
-                    tableBody.innerHTML = '<tr><td colspan="6" class="text-center">Error loading transactions</td></tr>';
+                    console.error('Error fetching filtered transactions:', error);
+                    tableBody.innerHTML = '<tr><td colspan="6" class="text-center">Error loading transactions. Please try again.</td></tr>';
                 });
         });
     }
+</script>
 
     function renderTransactions(transactions) {
         const tableBody = document.getElementById('transactionTableBody');
@@ -1249,11 +1398,13 @@
             const typeClass = transaction.type === 'CREDIT' ? 'credit' : 'debit';
             const amountSign = transaction.type === 'CREDIT' ? '+' : '-';
             const editIndicator = transaction.is_manually_edited ? '<i class="fas fa-edit"></i>' : '';
+            // Escape special characters in description
+            const escapedDescription = transaction.description.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
             
             html += `
                 <tr class="transaction-row" data-transaction-id="${transaction.id}">
                     <td class="date-cell">${transaction.date}</td>
-                    <td class="description-cell">${transaction.description.substring(0, 50)}</td>
+                    <td class="description-cell">${escapedDescription}</td>
                     <td class="category-cell">
                         <span class="category-badge clickable-category" data-transaction-id="${transaction.id}" 
                               data-category="${transaction.category}" data-label="${transaction.user_label}">
