@@ -138,28 +138,46 @@
     <div class="transactions-section">
         <div class="section-title">
             <h2><i class="fas fa-list"></i> Transaction History</h2>
-            <span class="transaction-badge">{{ transactions|length }} transactions</span>
+            <div class="title-controls">
+                <span class="transaction-badge">{{ all_transactions|length }} transactions</span>
+                <select id="transactionTimeFilter" class="time-filter-select">
+                    <option value="all">All Time</option>
+                    <option value="5days">Last 5 Days</option>
+                    <option value="1week">Last 1 Week</option>
+                    <option value="15days">Last 15 Days</option>
+                    <option value="30days">Last 30 Days</option>
+                    <option value="90days">Last 90 Days</option>
+                </select>
+            </div>
         </div>
 
         {% if transactions %}
         <div class="transactions-table-wrapper">
-            <table class="transactions-table">
+            <table class="transactions-table" id="transactionsTable">
                 <thead>
                     <tr>
                         <th>Date</th>
                         <th>Description</th>
-                        <th>Category</th>
+                        <th>Category <span class="text-muted">(Click to edit)</span></th>
+                        <th>Label</th>
                         <th>Type</th>
                         <th class="text-right">Amount</th>
                     </tr>
                 </thead>
-                <tbody>
-                    {% for transaction in recent_transactions %}
-                    <tr class="transaction-row">
+                <tbody id="transactionTableBody">
+                    {% for transaction in transactions %}
+                    <tr class="transaction-row" data-transaction-id="{{ transaction.id }}">
                         <td class="date-cell">{{ transaction.date|date:"d M, Y" }}</td>
                         <td class="description-cell">{{ transaction.description|truncatewords:8 }}</td>
                         <td class="category-cell">
-                            <span class="category-badge">{{ transaction.get_category_display }}</span>
+                            <span class="category-badge clickable-category" data-transaction-id="{{ transaction.id }}" 
+                                  data-category="{{ transaction.category }}" data-label="{{ transaction.user_label|default:'' }}">
+                                {{ transaction.get_category_display }}
+                                {% if transaction.is_manually_edited %}<i class="fas fa-edit"></i>{% endif %}
+                            </span>
+                        </td>
+                        <td class="label-cell">
+                            <span class="user-label-badge">{{ transaction.user_label|default:"—" }}</span>
                         </td>
                         <td class="type-cell">
                             {% if transaction.transaction_type == 'CREDIT' %}
@@ -180,6 +198,33 @@
                 </tbody>
             </table>
         </div>
+        
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="pagination-wrapper">
+            <nav aria-label="Page navigation">
+                <ul class="pagination">
+                    {% if page_obj.has_previous %}
+                    <li><a href="?page=1" class="page-link">First</a></li>
+                    <li><a href="?page={{ page_obj.previous_page_number }}" class="page-link">Previous</a></li>
+                    {% endif %}
+                    
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li><a href="?page={{ num }}" class="page-link">{{ num }}</a></li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                    <li><a href="?page={{ page_obj.next_page_number }}" class="page-link">Next</a></li>
+                    <li><a href="?page={{ page_obj.paginator.num_pages }}" class="page-link">Last</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
         {% else %}
         <div class="empty-state">
             <div class="empty-icon">
@@ -192,6 +237,37 @@
             </a>
         </div>
         {% endif %}
+    </div>
+
+    <!-- Category Edit Modal -->
+    <div id="categoryEditModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Edit Transaction Category</h2>
+            <div class="modal-body">
+                <div class="modal-section">
+                    <label for="categorySelect">Category <span class="required">*</span></label>
+                    <select id="categorySelect" class="form-control">
+                        {% for code, name in category_choices %}
+                        <option value="{{ code }}">{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="modal-section">
+                    <label for="labelInput">Label/Subcategory (Optional)</label>
+                    <input type="text" id="labelInput" class="form-control" placeholder="e.g., 'Groceries', 'Gym subscription'">
+                </div>
+                <div class="modal-section" id="transactionDetails">
+                    <p><strong>Date:</strong> <span id="detailDate"></span></p>
+                    <p><strong>Description:</strong> <span id="detailDescription"></span></p>
+                    <p><strong>Amount:</strong> <span id="detailAmount"></span></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancelBtn" class="btn btn-secondary">Cancel</button>
+                <button id="saveBtn" class="btn btn-primary">Save Changes</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -600,6 +676,288 @@
         font-weight: 600;
     }
 
+    .category-badge.clickable-category {
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .category-badge.clickable-category:hover {
+        background: #3f51b5;
+        color: white;
+        box-shadow: 0 2px 8px rgba(63, 81, 181, 0.3);
+    }
+
+    .category-badge.clickable-category i {
+        font-size: 10px;
+        margin-left: 5px;
+    }
+
+    .user-label-badge {
+        background: #f0f0f0;
+        color: #666;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+        display: inline-block;
+    }
+
+    .label-cell {
+        font-size: 12px;
+    }
+
+    /* Title Controls */
+    .section-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding: 0 20px;
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+
+    .title-controls {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .time-filter-select {
+        padding: 8px 12px;
+        border: 2px solid #e0e0e0;
+        border-radius: 6px;
+        background: white;
+        color: #333;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .time-filter-select:hover {
+        border-color: #667eea;
+    }
+
+    .time-filter-select:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    /* Pagination */
+    .pagination-wrapper {
+        display: flex;
+        justify-content: center;
+        margin-top: 30px;
+        padding: 20px;
+    }
+
+    .pagination {
+        list-style: none;
+        display: flex;
+        gap: 5px;
+        padding: 0;
+        margin: 0;
+    }
+
+    .pagination li {
+        display: inline;
+    }
+
+    .pagination a,
+    .pagination span {
+        display: inline-block;
+        padding: 8px 12px;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        text-decoration: none;
+        color: #333;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .pagination a:hover {
+        border-color: #667eea;
+        color: #667eea;
+        background: #f5f7fa;
+    }
+
+    .pagination li.active span {
+        background: #667eea;
+        color: white;
+        border-color: #667eea;
+    }
+
+    /* Modal Styles */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    .modal-content {
+        background-color: white;
+        margin: 10% auto;
+        padding: 30px;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 500px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        animation: slideDown 0.3s ease;
+    }
+
+    @keyframes slideDown {
+        from {
+            transform: translateY(-50px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .modal h2 {
+        margin-top: 0;
+        color: #2c3e50;
+        font-size: 22px;
+        font-weight: 700;
+    }
+
+    .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: color 0.3s ease;
+    }
+
+    .close:hover,
+    .close:focus {
+        color: #000;
+    }
+
+    .modal-body {
+        margin: 20px 0;
+    }
+
+    .modal-section {
+        margin-bottom: 20px;
+    }
+
+    .modal-section label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #333;
+        font-size: 14px;
+    }
+
+    .modal-section .required {
+        color: #dc3545;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        font-size: 14px;
+        font-family: inherit;
+        transition: all 0.3s ease;
+        box-sizing: border-box;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    #transactionDetails {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 6px;
+        font-size: 13px;
+    }
+
+    #transactionDetails p {
+        margin: 8px 0;
+    }
+
+    #transactionDetails strong {
+        color: #2c3e50;
+    }
+
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 25px;
+        padding-top: 15px;
+        border-top: 1px solid #e0e0e0;
+    }
+
+    .btn {
+        padding: 10px 20px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        border: none;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+        background: #667eea;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #5568d3;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-secondary {
+        background: #e0e0e0;
+        color: #333;
+    }
+
+    .btn-secondary:hover {
+        background: #d0d0d0;
+    }
+
+    .text-muted {
+        color: #7f8c8d;
+        font-size: 12px;
+        font-weight: normal;
+    }
+
+    .category-badge
+
     .type-cell {
         width: 120px;
     }
@@ -842,5 +1200,229 @@
         }
     });
     {% endif %}
+</script>
+
+<script>
+    // ==================== TRANSACTION FILTERING ====================
+    const timeFilter = document.getElementById('transactionTimeFilter');
+    if (timeFilter) {
+        timeFilter.addEventListener('change', function() {
+            const period = this.value;
+            const accountId = {{ account.id }};
+            
+            // Show loading state
+            const tableBody = document.getElementById('transactionTableBody');
+            if (tableBody) {
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
+            }
+            
+            // Fetch filtered transactions
+            fetch(`/analyzer/api/accounts/${accountId}/transactions-filtered/?period=${period}&page=1`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        renderTransactions(data.transactions);
+                        updatePagination(data);
+                    } else {
+                        tableBody.innerHTML = '<tr><td colspan="6" class="text-center">Error loading transactions</td></tr>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    tableBody.innerHTML = '<tr><td colspan="6" class="text-center">Error loading transactions</td></tr>';
+                });
+        });
+    }
+
+    function renderTransactions(transactions) {
+        const tableBody = document.getElementById('transactionTableBody');
+        if (!tableBody || transactions.length === 0) {
+            if (tableBody) tableBody.innerHTML = '<tr><td colspan="6" class="text-center">No transactions found</td></tr>';
+            return;
+        }
+
+        let html = '';
+        transactions.forEach(transaction => {
+            const amountClass = transaction.type === 'CREDIT' ? 'positive' : 'negative';
+            const typeIcon = transaction.type === 'CREDIT' ? 'fa-arrow-down' : 'fa-arrow-up';
+            const typeLabel = transaction.type === 'CREDIT' ? 'Credit' : 'Debit';
+            const typeClass = transaction.type === 'CREDIT' ? 'credit' : 'debit';
+            const amountSign = transaction.type === 'CREDIT' ? '+' : '-';
+            const editIndicator = transaction.is_manually_edited ? '<i class="fas fa-edit"></i>' : '';
+            
+            html += `
+                <tr class="transaction-row" data-transaction-id="${transaction.id}">
+                    <td class="date-cell">${transaction.date}</td>
+                    <td class="description-cell">${transaction.description.substring(0, 50)}</td>
+                    <td class="category-cell">
+                        <span class="category-badge clickable-category" data-transaction-id="${transaction.id}" 
+                              data-category="${transaction.category}" data-label="${transaction.user_label}">
+                            ${transaction.category_display} ${editIndicator}
+                        </span>
+                    </td>
+                    <td class="label-cell">
+                        <span class="user-label-badge">${transaction.user_label ? transaction.user_label : '—'}</span>
+                    </td>
+                    <td class="type-cell">
+                        <span class="type-badge ${typeClass}"><i class="fas ${typeIcon}"></i> ${typeLabel}</span>
+                    </td>
+                    <td class="amount-cell ${amountClass}">
+                        <span class="amount-${typeClass}">₹${transaction.amount.toFixed(2)}</span>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        tableBody.innerHTML = html;
+        
+        // Re-attach event listeners to category badges
+        attachCategoryEditListeners();
+    }
+
+    // ==================== CATEGORY EDIT MODAL ====================
+    const modal = document.getElementById('categoryEditModal');
+    const closeBtn = document.querySelector('.close');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const categorySelect = document.getElementById('categorySelect');
+    const labelInput = document.getElementById('labelInput');
+    
+    let currentTransactionId = null;
+
+    function openCategoryEditModal(transactionId, row) {
+        currentTransactionId = transactionId;
+        
+        // Get transaction data from the row
+        const dateCell = row.querySelector('.date-cell').textContent;
+        const descCell = row.querySelector('.description-cell').textContent;
+        const amountCell = row.querySelector('.amount-cell').textContent;
+        
+        // Get current category and label
+        const categoryBadge = row.querySelector('.category-badge');
+        const currentCategory = categoryBadge.getAttribute('data-category');
+        const currentLabel = categoryBadge.getAttribute('data-label') || '';
+        
+        // Populate modal
+        document.getElementById('detailDate').textContent = dateCell;
+        document.getElementById('detailDescription').textContent = descCell;
+        document.getElementById('detailAmount').textContent = amountCell;
+        
+        categorySelect.value = currentCategory;
+        labelInput.value = currentLabel;
+        
+        modal.style.display = 'block';
+    }
+
+    function closeCategoryEditModal() {
+        modal.style.display = 'none';
+        currentTransactionId = null;
+        categorySelect.value = '';
+        labelInput.value = '';
+    }
+
+    closeBtn.addEventListener('click', closeCategoryEditModal);
+    cancelBtn.addEventListener('click', closeCategoryEditModal);
+    
+    window.addEventListener('click', function(event) {
+        if (event.target == modal) {
+            closeCategoryEditModal();
+        }
+    });
+
+    saveBtn.addEventListener('click', function() {
+        if (!currentTransactionId) return;
+        
+        const newCategory = categorySelect.value;
+        const newLabel = labelInput.value.trim();
+        
+        if (!newCategory) {
+            alert('Please select a category');
+            return;
+        }
+        
+        // Show saving state
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        
+        // Send update request
+        fetch('/analyzer/api/transactions/update-category/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                transaction_id: currentTransactionId,
+                category: newCategory,
+                user_label: newLabel
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update the row in the table
+                const row = document.querySelector(`[data-transaction-id="${currentTransactionId}"]`);
+                if (row) {
+                    // Update category badge
+                    const categoryBadge = row.querySelector('.category-badge');
+                    categoryBadge.textContent = data.transaction.category_display;
+                    if (data.transaction.is_manually_edited) {
+                        categoryBadge.innerHTML += ' <i class="fas fa-edit"></i>';
+                    }
+                    categoryBadge.setAttribute('data-category', data.transaction.category);
+                    categoryBadge.setAttribute('data-label', data.transaction.user_label);
+                    
+                    // Update label cell
+                    const labelCell = row.querySelector('.user-label-badge');
+                    labelCell.textContent = data.transaction.user_label ? data.transaction.user_label : '—';
+                }
+                
+                closeCategoryEditModal();
+                alert('Transaction updated successfully!');
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to update transaction');
+        })
+        .finally(() => {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = 'Save Changes';
+        });
+    });
+
+    function attachCategoryEditListeners() {
+        const categoryBadges = document.querySelectorAll('.clickable-category');
+        categoryBadges.forEach(badge => {
+            badge.addEventListener('click', function() {
+                const transactionId = parseInt(this.getAttribute('data-transaction-id'));
+                const row = document.querySelector(`[data-transaction-id="${transactionId}"]`);
+                if (row) {
+                    openCategoryEditModal(transactionId, row);
+                }
+            });
+        });
+    }
+
+    // Initial attachment of listeners
+    attachCategoryEditListeners();
+
+    // Helper function to get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
 </script>
 {% endblock %}

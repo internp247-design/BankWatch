@@ -506,6 +506,10 @@ def apply_rules(request):
             matched_map = {}
             with db_transaction.atomic():
                 for transaction in transactions:
+                    # IMPORTANT: Skip transactions that have been manually edited by user
+                    if transaction.is_manually_edited:
+                        continue
+                    
                     transaction_data = {
                         'date': transaction.date,
                         'description': transaction.description,
@@ -968,19 +972,26 @@ def view_account_details(request, account_id):
     """View account-specific financial overview"""
     account = get_object_or_404(BankAccount, id=account_id, user=request.user)
     
-    # Get transactions for this account only
+    # Get ALL transactions for this account (not just recent 15)
     account_transactions = Transaction.objects.filter(
         statement__account=account
-    ).select_related('statement').order_by('-date')
+    ).select_related('statement', 'edited_by').order_by('-date')
     
-    recent_transactions = account_transactions[:15]
+    # Pagination - show 50 transactions per page
+    from django.core.paginator import Paginator
+    paginator = Paginator(account_transactions, 50)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+    
+    # Get all transactions (not paginated) for summary calculations
+    all_transactions = account_transactions
     
     # Calculate summary data for this account only
-    total_income = account_transactions.filter(transaction_type='CREDIT').aggregate(
+    total_income = all_transactions.filter(transaction_type='CREDIT').aggregate(
         total=models.Sum('amount')
     )['total'] or 0
     
-    total_expenses = account_transactions.filter(transaction_type='DEBIT').aggregate(
+    total_expenses = all_transactions.filter(transaction_type='DEBIT').aggregate(
         total=models.Sum('amount')
     )['total'] or 0
     
@@ -988,7 +999,7 @@ def view_account_details(request, account_id):
     
     # Calculate category totals for charts
     category_totals = {}
-    expense_transactions = account_transactions.filter(transaction_type='DEBIT')
+    expense_transactions = all_transactions.filter(transaction_type='DEBIT')
     
     for category_code, category_name in Transaction.CATEGORY_CHOICES:
         if category_code != 'INCOME':
@@ -1022,13 +1033,15 @@ def view_account_details(request, account_id):
     
     context = {
         'account': account,
-        'transactions': account_transactions,
-        'recent_transactions': recent_transactions,
+        'page_obj': page_obj,
+        'transactions': page_obj.object_list,  # Current page transactions
+        'all_transactions': all_transactions,   # All transactions for chart data
         'monthly_income': total_income,
         'monthly_expenses': total_expenses,
         'monthly_savings': net_savings,
         'category_totals': category_totals,
         'financial_health': financial_health,
+        'category_choices': Transaction.CATEGORY_CHOICES,
     }
     
     return render(request, 'analyzer/account_details.html', context)
@@ -3266,3 +3279,124 @@ def export_rules_results_ajax_pdf(request):
             'success': False,
             'error': error_msg
         }, status=500)
+
+
+# ===================== TRANSACTION FILTERING & EDITING ENDPOINTS =====================
+
+@login_required
+def get_account_transactions_filtered(request, account_id):
+    """
+    API endpoint to get transactions for account with time period filtering
+    """
+    account = get_object_or_404(BankAccount, id=account_id, user=request.user)
+    time_period = request.GET.get('period', 'all')
+    page_number = request.GET.get('page', 1)
+    
+    # Get all transactions for this account
+    account_transactions = Transaction.objects.filter(
+        statement__account=account
+    ).select_related('statement', 'edited_by').order_by('-date')
+    
+    # Apply time period filter
+    now = timezone.now().date()
+    if time_period == '5days':
+        start_date = now - timedelta(days=5)
+        account_transactions = account_transactions.filter(date__gte=start_date)
+    elif time_period == '1week':
+        start_date = now - timedelta(days=7)
+        account_transactions = account_transactions.filter(date__gte=start_date)
+    elif time_period == '15days':
+        start_date = now - timedelta(days=15)
+        account_transactions = account_transactions.filter(date__gte=start_date)
+    elif time_period == '30days':
+        start_date = now - timedelta(days=30)
+        account_transactions = account_transactions.filter(date__gte=start_date)
+    elif time_period == '90days':
+        start_date = now - timedelta(days=90)
+        account_transactions = account_transactions.filter(date__gte=start_date)
+    # else: all time (no filter)
+    
+    # Pagination
+    from django.core.paginator import Paginator
+    paginator = Paginator(account_transactions, 50)
+    page_obj = paginator.get_page(page_number)
+    
+    # Build transaction list
+    transactions_data = []
+    for transaction in page_obj.object_list:
+        transactions_data.append({
+            'id': transaction.id,
+            'date': transaction.date.strftime('%Y-%m-%d'),
+            'description': transaction.description,
+            'category': transaction.category,
+            'category_display': transaction.get_category_display(),
+            'user_label': transaction.user_label or '',
+            'type': transaction.transaction_type,
+            'amount': float(transaction.amount),
+            'is_manually_edited': transaction.is_manually_edited,
+        })
+    
+    return JsonResponse({
+        'success': True,
+        'transactions': transactions_data,
+        'total_count': paginator.count,
+        'total_pages': paginator.num_pages,
+        'current_page': page_obj.number,
+        'has_next': page_obj.has_next(),
+        'has_previous': page_obj.has_previous(),
+    })
+
+
+@login_required
+def update_transaction_category(request):
+    """
+    AJAX endpoint to update transaction category and user label
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'}, status=400)
+    
+    try:
+        import json
+        data = json.loads(request.body)
+        
+        transaction_id = data.get('transaction_id')
+        new_category = data.get('category')
+        user_label = data.get('user_label', '').strip()
+        
+        # Validate transaction ownership
+        transaction = get_object_or_404(
+            Transaction,
+            id=transaction_id,
+            statement__account__user=request.user
+        )
+        
+        # Validate category
+        valid_categories = [cat[0] for cat in Transaction.CATEGORY_CHOICES]
+        if new_category not in valid_categories:
+            return JsonResponse({'success': False, 'error': 'Invalid category'}, status=400)
+        
+        # Update transaction
+        transaction.category = new_category
+        transaction.user_label = user_label if user_label else None
+        transaction.is_manually_edited = True
+        transaction.edited_by = request.user
+        transaction.last_edited_at = timezone.now()
+        transaction.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Transaction updated successfully',
+            'transaction': {
+                'id': transaction.id,
+                'category': transaction.category,
+                'category_display': transaction.get_category_display(),
+                'user_label': transaction.user_label or '',
+                'is_manually_edited': transaction.is_manually_edited,
+            }
+        })
+    
+    except Transaction.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Transaction not found'}, status=404)
+    except Exception as e:
+        print(f"ERROR - Failed to update transaction: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)

@@ -83,6 +83,14 @@ class Transaction(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     transaction_type = models.CharField(max_length=10, choices=[('DEBIT', 'Debit'), ('CREDIT', 'Credit')])
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='OTHER')
+    # User-assigned label/subcategory for manual overrides
+    user_label = models.CharField(max_length=100, blank=True, null=True, help_text="User-assigned label or subcategory")
+    # Flag to track if user has manually edited this transaction
+    is_manually_edited = models.BooleanField(default=False)
+    # User who last edited this transaction
+    edited_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='edited_transactions')
+    # Timestamp of last edit
+    last_edited_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
