@@ -2637,17 +2637,31 @@ def export_rules_results_ajax_excel(request):
         rule_names = 'None'
         category_names = 'None'
         
-        try:
-            selected_rules = Rule.objects.filter(id__in=selected_rule_ids, user=request.user)
-            rule_names = ', '.join([rule.name for rule in selected_rules]) if selected_rules.exists() else "None"
-        except:
-            pass
+        print(f"DEBUG Excel Export - selected_rule_ids={selected_rule_ids}, selected_category_ids={selected_category_ids}")
         
-        try:
-            selected_categories = CustomCategory.objects.filter(id__in=selected_category_ids, user=request.user)
-            category_names = ', '.join([cat.name for cat in selected_categories]) if selected_categories.exists() else "None"
-        except:
-            pass
+        if selected_rule_ids:
+            try:
+                selected_rules = Rule.objects.filter(id__in=selected_rule_ids, user=request.user).order_by('name')
+                if selected_rules.exists():
+                    rule_names = ', '.join([rule.name for rule in selected_rules])
+                    print(f"DEBUG Excel Export - rule_names={rule_names}")
+                else:
+                    rule_names = "None"
+            except Exception as e:
+                print(f"ERROR Excel Export - Failed to fetch rules: {str(e)}")
+                rule_names = "None"
+        
+        if selected_category_ids:
+            try:
+                selected_categories = CustomCategory.objects.filter(id__in=selected_category_ids, user=request.user).order_by('name')
+                if selected_categories.exists():
+                    category_names = ', '.join([cat.name for cat in selected_categories])
+                    print(f"DEBUG Excel Export - category_names={category_names}")
+                else:
+                    category_names = "None"
+            except Exception as e:
+                print(f"ERROR Excel Export - Failed to fetch categories: {str(e)}")
+                category_names = "None"
         
         # Create Excel workbook
         wb = Workbook()
@@ -2979,21 +2993,35 @@ def export_rules_results_ajax_pdf(request):
                 })
                 total_amount += amount
         
-        # Get rule and category names
+        # Get rule and category names for display
         rule_names = 'None'
         category_names = 'None'
         
-        try:
-            selected_rules = Rule.objects.filter(id__in=selected_rule_ids, user=request.user)
-            rule_names = ', '.join([rule.name for rule in selected_rules]) if selected_rules.exists() else "None"
-        except:
-            pass
+        print(f"DEBUG PDF Export - selected_rule_ids={selected_rule_ids}, selected_category_ids={selected_category_ids}")
         
-        try:
-            selected_categories = CustomCategory.objects.filter(id__in=selected_category_ids, user=request.user)
-            category_names = ', '.join([cat.name for cat in selected_categories]) if selected_categories.exists() else "None"
-        except:
-            pass
+        if selected_rule_ids:
+            try:
+                selected_rules = Rule.objects.filter(id__in=selected_rule_ids, user=request.user).order_by('name')
+                if selected_rules.exists():
+                    rule_names = ', '.join([rule.name for rule in selected_rules])
+                    print(f"DEBUG PDF Export - rule_names={rule_names}")
+                else:
+                    rule_names = "None"
+            except Exception as e:
+                print(f"ERROR PDF Export - Failed to fetch rules: {str(e)}")
+                rule_names = "None"
+        
+        if selected_category_ids:
+            try:
+                selected_categories = CustomCategory.objects.filter(id__in=selected_category_ids, user=request.user).order_by('name')
+                if selected_categories.exists():
+                    category_names = ', '.join([cat.name for cat in selected_categories])
+                    print(f"DEBUG PDF Export - category_names={category_names}")
+                else:
+                    category_names = "None"
+            except Exception as e:
+                print(f"ERROR PDF Export - Failed to fetch categories: {str(e)}")
+                category_names = "None"
         
         # Create PDF in memory
         pdf_buffer = BytesIO()

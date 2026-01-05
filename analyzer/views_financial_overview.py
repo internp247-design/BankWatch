@@ -18,7 +18,16 @@ def get_financial_overview_data(request):
     
     # Filter by time period
     now = timezone.now().date()
-    if time_period == '30days':
+    if time_period == '5days':
+        start_date = now - timedelta(days=5)
+        transactions = all_transactions.filter(date__gte=start_date)
+    elif time_period == '1week':
+        start_date = now - timedelta(days=7)
+        transactions = all_transactions.filter(date__gte=start_date)
+    elif time_period == '15days':
+        start_date = now - timedelta(days=15)
+        transactions = all_transactions.filter(date__gte=start_date)
+    elif time_period == '30days':
         start_date = now - timedelta(days=30)
         transactions = all_transactions.filter(date__gte=start_date)
     elif time_period == '90days':

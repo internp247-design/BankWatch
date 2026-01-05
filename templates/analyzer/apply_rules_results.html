@@ -709,6 +709,92 @@
             </div>
         </div>
 
+        <!-- Filtered Summary Section -->
+        {% if rule_category_report or selected_rule_ids or selected_category_ids %}
+        <div class="dashboard-section">
+            <h2 style="margin-bottom: 1.5rem; color: #1e3c72;"><i class="fas fa-th"></i> Filtered Summary</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+                <!-- Rules Selected Column -->
+                <div style="background: white; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <h4 style="color: #1e3c72; margin-bottom: 1rem; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-check-circle" style="color: #28a745;"></i>
+                        Rules Selected: 
+                        <span style="background: #28a745; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">
+                            {{ selected_rule_ids|length }}
+                        </span>
+                    </h4>
+                    {% if selected_rule_ids %}
+                        <div style="border: 1px solid #e9ecef; border-radius: 6px; max-height: 300px; overflow-y: auto;">
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <tbody>
+                                    {% for item in rule_category_report %}
+                                        {% if item.type == 'rule' %}
+                                        <tr style="border-bottom: 1px solid #e9ecef;">
+                                            <td style="padding: 0.8rem; text-align: left; font-weight: 600; color: #1e3c72; width: 60%;">
+                                                {{ item.name }}
+                                            </td>
+                                            <td style="padding: 0.8rem; text-align: right; color: #6c757d; font-size: 0.9rem;">
+                                                {{ item.transaction_count }} txn
+                                            </td>
+                                            <td style="padding: 0.8rem; text-align: right; color: #28a745; font-weight: 600; font-size: 0.9rem;">
+                                                ₹{{ item.total_amount|floatformat:2 }}
+                                            </td>
+                                        </tr>
+                                        {% endif %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div style="color: #6c757d; font-size: 0.95rem; padding: 1rem; text-align: center; background: #f8f9fa; border-radius: 6px;">
+                            <i class="fas fa-filter" style="margin-right: 0.5rem;"></i>
+                            No rules selected
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Categories Selected Column -->
+                <div style="background: white; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <h4 style="color: #1e3c72; margin-bottom: 1rem; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-check-circle" style="color: #17a2b8;"></i>
+                        Categories Selected: 
+                        <span style="background: #17a2b8; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">
+                            {{ selected_category_ids|length }}
+                        </span>
+                    </h4>
+                    {% if selected_category_ids %}
+                        <div style="border: 1px solid #e9ecef; border-radius: 6px; max-height: 300px; overflow-y: auto;">
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <tbody>
+                                    {% for item in rule_category_report %}
+                                        {% if item.type == 'category' %}
+                                        <tr style="border-bottom: 1px solid #e9ecef;">
+                                            <td style="padding: 0.8rem; text-align: left; font-weight: 600; color: #1e3c72; width: 60%;">
+                                                {{ item.name }}
+                                            </td>
+                                            <td style="padding: 0.8rem; text-align: right; color: #6c757d; font-size: 0.9rem;">
+                                                {{ item.transaction_count }} txn
+                                            </td>
+                                            <td style="padding: 0.8rem; text-align: right; color: #17a2b8; font-weight: 600; font-size: 0.9rem;">
+                                                ₹{{ item.total_amount|floatformat:2 }}
+                                            </td>
+                                        </tr>
+                                        {% endif %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div style="color: #6c757d; font-size: 0.95rem; padding: 1rem; text-align: center; background: #f8f9fa; border-radius: 6px;">
+                            <i class="fas fa-filter" style="margin-right: 0.5rem;"></i>
+                            No categories selected
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Analytics Chart -->
         <div class="dashboard-section">
             <h2 style="margin-bottom: 1.5rem; color: #1e3c72;"><i class="fas fa-chart-pie"></i> Category Analytics</h2>
@@ -1179,17 +1265,23 @@
             
             // Collect transaction IDs from visible rows
             const transactionIds = [];
-            const descriptions = new Set();
             rows.forEach(row => {
-                const descCell = row.cells[1];
-                if (descCell) {
-                    const desc = descCell.textContent.trim();
-                    if (!descriptions.has(desc)) {
-                        descriptions.add(desc);
-                        transactionIds.push(row);
-                    }
+                const dataId = row.getAttribute('data-transaction-id');
+                if (dataId) {
+                    transactionIds.push(dataId);
                 }
             });
+            
+            // Get selected rules and categories from checked checkboxes
+            const selectedRuleIds = Array.from(document.querySelectorAll('.rule-checkbox:checked'))
+                .map(checkbox => checkbox.dataset.id)
+                .filter(id => id);
+            
+            const selectedCategoryIds = Array.from(document.querySelectorAll('.category-checkbox:checked'))
+                .map(checkbox => checkbox.dataset.id)
+                .filter(id => id);
+            
+            console.log('Export PDF - Selected Rules:', selectedRuleIds, 'Selected Categories:', selectedCategoryIds, 'Transactions:', transactionIds.length);
             
             // Build form data with current filters
             const formData = new FormData();
@@ -1201,12 +1293,12 @@
             }
             
             // Add selected rule IDs
-            selectedRules.forEach(ruleId => {
+            selectedRuleIds.forEach(ruleId => {
                 formData.append('rule_ids', ruleId);
             });
             
             // Add selected category IDs
-            selectedCategories.forEach(categoryId => {
+            selectedCategoryIds.forEach(categoryId => {
                 formData.append('category_ids', categoryId);
             });
             
@@ -1216,24 +1308,9 @@
                 formData.append('account_id', accountSelect.value);
             }
             
-            // Collect transaction IDs from visible rows in the table
-            rows.forEach(row => {
-                const cells = row.cells;
-                if (cells.length > 0) {
-                    // Try to extract transaction ID from data attribute or find it differently
-                    const dataId = row.getAttribute('data-transaction-id');
-                    if (dataId) {
-                        formData.append('transaction_ids', dataId);
-                    } else {
-                        // Alternative: extract from table row - use first visible cell to identify
-                        // This is a fallback - ideally each row should have data-transaction-id
-                        const dateCell = cells[0] ? cells[0].textContent.trim() : '';
-                        const descCell = cells[1] ? cells[1].textContent.trim() : '';
-                        if (dateCell && descCell) {
-                            // We'll pass this info, but the server will need to match it
-                        }
-                    }
-                }
+            // Add transaction IDs
+            transactionIds.forEach(id => {
+                formData.append('transaction_ids', id);
             });
             
             // Make AJAX request to PDF endpoint
@@ -1274,7 +1351,7 @@
                     const alertDiv = document.createElement('div');
                     alertDiv.className = 'alert alert-success alert-dismissible fade show';
                     alertDiv.innerHTML = `
-                        <i class="fas fa-check-circle"></i> PDF downloaded successfully! Filters preserved.
+                        <i class="fas fa-check-circle"></i> PDF downloaded successfully with selections preserved!
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     `;
                     const container = document.querySelector('.dashboard-section');
@@ -1302,13 +1379,13 @@
     }
 
     function downloadRulesExcel() {
-        // Get selected rules, categories, and transaction IDs from the UI (matching PDF logic)
-        const selectedRuleIds = Array.from(document.querySelectorAll('.rule-item.active'))
-            .map(el => el.dataset.ruleId)
+        // Get selected rules and categories from the checked checkboxes (matching current selectedRules/selectedCategories)
+        const selectedRuleIds = Array.from(document.querySelectorAll('.rule-checkbox:checked'))
+            .map(checkbox => checkbox.dataset.id)
             .filter(id => id);
         
-        const selectedCategoryIds = Array.from(document.querySelectorAll('.category-item.active'))
-            .map(el => el.dataset.categoryId)
+        const selectedCategoryIds = Array.from(document.querySelectorAll('.category-checkbox:checked'))
+            .map(checkbox => checkbox.dataset.id)
             .filter(id => id);
         
         // Get transaction IDs from visible rows in the table
@@ -1316,8 +1393,10 @@
             .map(row => row.dataset.transactionId)
             .filter(id => id);
         
+        console.log('Export Excel - Selected Rules:', selectedRuleIds, 'Selected Categories:', selectedCategoryIds, 'Transactions:', transactionIds.length);
+        
         if (transactionIds.length === 0) {
-            alert('No transactions to export. Please apply filters first.');
+            alert('No transactions to export. Please select rules or categories first.');
             return;
         }
         
@@ -1370,7 +1449,7 @@
                 URL.revokeObjectURL(url);
                 
                 // Show success message
-                alert('Excel file downloaded successfully!');
+                alert('Excel file downloaded successfully with selections preserved!');
             } else {
                 alert('Error: ' + (data.error || 'Failed to export Excel'));
             }
