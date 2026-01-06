@@ -644,9 +644,11 @@ def rules_application_results(request):
         
         engine = RulesEngine(request.user)
         
-        # Import custom category engine
+        # Import category engines
         from .rules_engine import CustomCategoryRulesEngine
+        from .user_label_engine import UserLabelClassificationEngine
         custom_category_engine = CustomCategoryRulesEngine(request.user)
+        user_label_engine = UserLabelClassificationEngine(request.user)
         
         # If show_changed requested, read the list of ids from session (set by apply_rules)
         if show_changed:
@@ -682,19 +684,41 @@ def rules_application_results(request):
                     'date': tx.date,
                     'description': tx.description,
                     'amount': float(tx.amount),
-                    'transaction_type': tx.transaction_type
+                    'transaction_type': tx.transaction_type,
+                    'user_label': tx.user_label or ''
                 }
                 
-                # Check for rule match
-                matched_rule = engine.find_matching_rule(tx_data)
-                matched_rule_id = matched_rule.id if matched_rule else None
-                matched_rule_category = matched_rule.category if matched_rule else None
-                matched_rule_name = matched_rule.name if matched_rule else None
+                # PRIORITY 1: Check if transaction was manually edited with a label
+                matched_custom_category = None
+                matched_rule_name = None
+                matched_rule_id = None
+                matched_rule_category = None
+                matched_custom_category_id = None
+                matched_custom_category_name = None
+                user_label_match_source = None
                 
-                # Check for custom category match
-                matched_custom_category = custom_category_engine.apply_rules_to_transaction(tx_data)
-                matched_custom_category_id = matched_custom_category.id if matched_custom_category else None
-                matched_custom_category_name = matched_custom_category.name if matched_custom_category else None
+                # If transaction has user label, check for label-based category matching
+                if tx.user_label and tx.user_label.strip():
+                    label_match = user_label_engine.find_matching_category_by_label(tx_data)
+                    if label_match:
+                        matched_custom_category = label_match.get('matched_custom_category')
+                        matched_custom_category_id = label_match.get('matched_custom_category_id')
+                        matched_custom_category_name = label_match.get('matched_custom_category_name')
+                        user_label_match_source = label_match.get('source')
+                
+                # PRIORITY 2: If no user label match, check for custom category rules
+                if not matched_custom_category:
+                    matched_custom_category = custom_category_engine.apply_rules_to_transaction(tx_data)
+                    matched_custom_category_id = matched_custom_category.id if matched_custom_category else None
+                    matched_custom_category_name = matched_custom_category.name if matched_custom_category else None
+                    user_label_match_source = 'custom_category_rule' if matched_custom_category else None
+                
+                # PRIORITY 3: Check for rule match (only if no custom category matched)
+                if not matched_custom_category:
+                    matched_rule = engine.find_matching_rule(tx_data)
+                    matched_rule_id = matched_rule.id if matched_rule else None
+                    matched_rule_category = matched_rule.category if matched_rule else None
+                    matched_rule_name = matched_rule.name if matched_rule else None
                 
                 # Only include if there's a match (rule or custom category)
                 if matched_rule_name or matched_custom_category_name:
