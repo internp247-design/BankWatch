@@ -668,15 +668,17 @@
     .date-cell {
         font-weight: 600;
         color: #2c3e50;
-        width: 80px;
+        width: 75px;
         white-space: nowrap;
         flex-shrink: 0;
+        min-width: 75px;
     }
 
     .description-cell {
         color: #555;
-        width: 45%;
-        min-width: 280px;
+        width: auto;
+        flex-grow: 1;
+        min-width: 300px;
         word-wrap: break-word;
         overflow-wrap: break-word;
         white-space: normal;
@@ -685,10 +687,11 @@
     }
 
     .category-cell {
-        width: 150px;
+        width: 160px;
         white-space: nowrap;
         flex-shrink: 0;
         cursor: pointer;
+        min-width: 160px;
     }
 
     .label-cell {
@@ -696,19 +699,22 @@
         word-wrap: break-word;
         overflow-wrap: break-word;
         white-space: normal;
+        flex-shrink: 0;
     }
 
     .type-cell {
-        width: 95px;
+        width: 110px;
         white-space: nowrap;
         flex-shrink: 0;
+        min-width: 110px;
     }
 
     .amount-cell {
-        width: 125px;
+        width: 130px;
         white-space: nowrap;
         flex-shrink: 0;
         text-align: right;
+        min-width: 130px;
     }
 
     .category-badge {
@@ -1349,6 +1355,160 @@
             });
     }
     
+    // ==================== CATEGORY EDIT MODAL SETUP ====================
+    // Initialize modal elements
+    const modal = document.getElementById('categoryEditModal');
+    const closeBtn = document.querySelector('.close');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const categorySelect = document.getElementById('categorySelect');
+    const labelInput = document.getElementById('labelInput');
+    
+    let currentTransactionId = null;
+
+    function openCategoryEditModal(transactionId, row) {
+        currentTransactionId = transactionId;
+        
+        // Get transaction data from the row
+        const dateCell = row.querySelector('.date-cell').textContent;
+        const descCell = row.querySelector('.description-cell').textContent;
+        const amountCell = row.querySelector('.amount-cell').textContent;
+        
+        // Get current category and label
+        const categoryBadge = row.querySelector('.category-badge');
+        const currentCategory = categoryBadge.getAttribute('data-category');
+        const currentLabel = categoryBadge.getAttribute('data-label') || '';
+        
+        // Populate modal
+        document.getElementById('detailDate').textContent = dateCell;
+        document.getElementById('detailDescription').textContent = descCell;
+        document.getElementById('detailAmount').textContent = amountCell;
+        
+        categorySelect.value = currentCategory;
+        labelInput.value = currentLabel;
+        
+        modal.style.display = 'block';
+    }
+
+    function closeCategoryEditModal() {
+        modal.style.display = 'none';
+        currentTransactionId = null;
+        categorySelect.value = '';
+        labelInput.value = '';
+    }
+
+    // Attach modal close handlers
+    closeBtn.addEventListener('click', closeCategoryEditModal);
+    cancelBtn.addEventListener('click', closeCategoryEditModal);
+    
+    window.addEventListener('click', function(event) {
+        if (event.target == modal) {
+            closeCategoryEditModal();
+        }
+    });
+
+    // Attach save handler
+    saveBtn.addEventListener('click', function() {
+        if (!currentTransactionId) return;
+        
+        const newCategory = categorySelect.value;
+        const newLabel = labelInput.value.trim();
+        
+        if (!newCategory) {
+            alert('Please select a category');
+            return;
+        }
+        
+        // Show saving state
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        
+        // Send update request
+        fetch('/analyzer/api/transactions/update-category/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                transaction_id: currentTransactionId,
+                category: newCategory,
+                user_label: newLabel
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update the row in the table
+                const row = document.querySelector(`[data-transaction-id="${currentTransactionId}"]`);
+                if (row) {
+                    // Update category badge
+                    const categoryBadge = row.querySelector('.category-badge');
+                    const editIcon = data.transaction.is_manually_edited ? ' <i class="fas fa-edit"></i>' : '';
+                    categoryBadge.innerHTML = data.transaction.category_display + editIcon;
+                    categoryBadge.setAttribute('data-category', data.transaction.category);
+                    categoryBadge.setAttribute('data-label', data.transaction.user_label);
+                    
+                    // Update label cell
+                    const labelCell = row.querySelector('.user-label-badge');
+                    labelCell.textContent = data.transaction.user_label ? data.transaction.user_label : '—';
+                }
+                
+                closeCategoryEditModal();
+                alert('Transaction updated successfully!');
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to update transaction');
+        })
+        .finally(() => {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = 'Save Changes';
+        });
+    });
+
+    function attachCategoryEditListeners() {
+        const categoryBadges = document.querySelectorAll('.clickable-category');
+        categoryBadges.forEach(badge => {
+            // Clone to remove any existing listeners
+            const newBadge = badge.cloneNode(true);
+            if (badge.parentNode) {
+                badge.parentNode.replaceChild(newBadge, badge);
+            }
+            
+            newBadge.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const transactionId = parseInt(this.getAttribute('data-transaction-id'));
+                const row = document.querySelector(`[data-transaction-id="${transactionId}"]`);
+                if (row) {
+                    openCategoryEditModal(transactionId, row);
+                }
+            });
+        });
+    }
+
+    // Helper function to get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Attach listeners on initial page load
+    attachCategoryEditListeners();
+
     if (timeFilter) {
         timeFilter.addEventListener('change', function() {
             const period = this.value;
@@ -1427,162 +1587,8 @@
         
         tableBody.innerHTML = html;
         
-        // Re-attach event listeners to category badges
+        // Re-attach event listeners to category badges after DOM update
         attachCategoryEditListeners();
-    }
-
-    // ==================== CATEGORY EDIT MODAL ====================
-    const modal = document.getElementById('categoryEditModal');
-    const closeBtn = document.querySelector('.close');
-    const cancelBtn = document.getElementById('cancelBtn');
-    const saveBtn = document.getElementById('saveBtn');
-    const categorySelect = document.getElementById('categorySelect');
-    const labelInput = document.getElementById('labelInput');
-    
-    let currentTransactionId = null;
-
-    function openCategoryEditModal(transactionId, row) {
-        currentTransactionId = transactionId;
-        
-        // Get transaction data from the row
-        const dateCell = row.querySelector('.date-cell').textContent;
-        const descCell = row.querySelector('.description-cell').textContent;
-        const amountCell = row.querySelector('.amount-cell').textContent;
-        
-        // Get current category and label
-        const categoryBadge = row.querySelector('.category-badge');
-        const currentCategory = categoryBadge.getAttribute('data-category');
-        const currentLabel = categoryBadge.getAttribute('data-label') || '';
-        
-        // Populate modal
-        document.getElementById('detailDate').textContent = dateCell;
-        document.getElementById('detailDescription').textContent = descCell;
-        document.getElementById('detailAmount').textContent = amountCell;
-        
-        categorySelect.value = currentCategory;
-        labelInput.value = currentLabel;
-        
-        modal.style.display = 'block';
-    }
-
-    function closeCategoryEditModal() {
-        modal.style.display = 'none';
-        currentTransactionId = null;
-        categorySelect.value = '';
-        labelInput.value = '';
-    }
-
-    closeBtn.addEventListener('click', closeCategoryEditModal);
-    cancelBtn.addEventListener('click', closeCategoryEditModal);
-    
-    window.addEventListener('click', function(event) {
-        if (event.target == modal) {
-            closeCategoryEditModal();
-        }
-    });
-
-    saveBtn.addEventListener('click', function() {
-        if (!currentTransactionId) return;
-        
-        const newCategory = categorySelect.value;
-        const newLabel = labelInput.value.trim();
-        
-        if (!newCategory) {
-            alert('Please select a category');
-            return;
-        }
-        
-        // Show saving state
-        saveBtn.disabled = true;
-        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-        
-        // Send update request
-        fetch('/analyzer/api/transactions/update-category/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify({
-                transaction_id: currentTransactionId,
-                category: newCategory,
-                user_label: newLabel
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Update the row in the table
-                const row = document.querySelector(`[data-transaction-id="${currentTransactionId}"]`);
-                if (row) {
-                    // Update category badge
-                    const categoryBadge = row.querySelector('.category-badge');
-                    categoryBadge.textContent = data.transaction.category_display;
-                    if (data.transaction.is_manually_edited) {
-                        categoryBadge.innerHTML += ' <i class="fas fa-edit"></i>';
-                    }
-                    categoryBadge.setAttribute('data-category', data.transaction.category);
-                    categoryBadge.setAttribute('data-label', data.transaction.user_label);
-                    
-                    // Update label cell
-                    const labelCell = row.querySelector('.user-label-badge');
-                    labelCell.textContent = data.transaction.user_label ? data.transaction.user_label : '—';
-                }
-                
-                closeCategoryEditModal();
-                alert('Transaction updated successfully!');
-            } else {
-                alert('Error: ' + data.error);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Failed to update transaction');
-        })
-        .finally(() => {
-            saveBtn.disabled = false;
-            saveBtn.innerHTML = 'Save Changes';
-        });
-    });
-
-    function attachCategoryEditListeners() {
-        const categoryBadges = document.querySelectorAll('.clickable-category');
-        categoryBadges.forEach(badge => {
-            // Remove existing listener to prevent duplicates
-            const newBadge = badge.cloneNode(true);
-            badge.parentNode.replaceChild(newBadge, badge);
-            
-            newBadge.addEventListener('click', function(e) {
-                e.stopPropagation();
-                console.log('Category clicked for ID:', this.getAttribute('data-transaction-id'));
-                const transactionId = parseInt(this.getAttribute('data-transaction-id'));
-                const row = document.querySelector(`[data-transaction-id="${transactionId}"]`);
-                if (row) {
-                    openCategoryEditModal(transactionId, row);
-                } else {
-                    console.error('Row not found for transaction ID:', transactionId);
-                }
-            });
-        });
-    }
-
-    // Initial attachment of listeners
-    attachCategoryEditListeners();
-
-    // Helper function to get CSRF token
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
     }
 </script>
 {% endblock %}
