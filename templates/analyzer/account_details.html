@@ -668,15 +668,15 @@
     .date-cell {
         font-weight: 600;
         color: #2c3e50;
-        width: 100px;
+        width: 80px;
         white-space: nowrap;
         flex-shrink: 0;
     }
 
     .description-cell {
         color: #555;
-        width: 35%;
-        min-width: 150px;
+        width: 50%;
+        min-width: 200px;
         word-wrap: break-word;
         overflow-wrap: break-word;
         white-space: normal;
@@ -685,26 +685,27 @@
     }
 
     .category-cell {
-        width: 120px;
+        width: 110px;
         white-space: nowrap;
         flex-shrink: 0;
+        pointer-events: auto;
     }
 
     .label-cell {
-        width: 100px;
+        width: 90px;
         word-wrap: break-word;
         overflow-wrap: break-word;
         white-space: normal;
     }
 
     .type-cell {
-        width: 110px;
+        width: 100px;
         white-space: nowrap;
         flex-shrink: 0;
     }
 
     .amount-cell {
-        width: 110px;
+        width: 100px;
         white-space: nowrap;
         flex-shrink: 0;
         text-align: right;
@@ -722,17 +723,21 @@
     .category-badge.clickable-category {
         cursor: pointer;
         transition: all 0.3s ease;
+        pointer-events: auto;
+        display: inline-block;
     }
 
     .category-badge.clickable-category:hover {
         background: #3f51b5;
         color: white;
         box-shadow: 0 2px 8px rgba(63, 81, 181, 0.3);
+        transform: scale(1.05);
     }
 
     .category-badge.clickable-category i {
         font-size: 10px;
         margin-left: 5px;
+        pointer-events: none;
     }
 
     .user-label-badge {
@@ -1149,19 +1154,19 @@
         }
 
         .date-cell {
-            width: 70px;
+            width: 65px;
             font-size: 11px;
         }
 
         .description-cell {
-            width: 35%;
-            min-width: 100px;
+            width: 50%;
+            min-width: 120px;
             font-size: 11px;
             line-height: 1.3;
         }
 
         .category-cell {
-            width: 80px;
+            width: 90px;
         }
 
         .label-cell {
@@ -1174,7 +1179,7 @@
         }
 
         .amount-cell {
-            width: 80px;
+            width: 75px;
             font-size: 11px;
         }
 
@@ -1547,18 +1552,41 @@
     function attachCategoryEditListeners() {
         const categoryBadges = document.querySelectorAll('.clickable-category');
         categoryBadges.forEach(badge => {
-            badge.addEventListener('click', function() {
+            // Remove any existing listeners first
+            const newBadge = badge.cloneNode(true);
+            badge.parentNode.replaceChild(newBadge, badge);
+            
+            newBadge.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
                 const transactionId = parseInt(this.getAttribute('data-transaction-id'));
                 const row = document.querySelector(`[data-transaction-id="${transactionId}"]`);
                 if (row) {
                     openCategoryEditModal(transactionId, row);
                 }
-            });
+            }, false);
         });
     }
 
     // Initial attachment of listeners
     attachCategoryEditListeners();
+
+    // Add event delegation for dynamically loaded content
+    const transactionsTable = document.getElementById('transactionsTable');
+    if (transactionsTable) {
+        transactionsTable.addEventListener('click', function(e) {
+            const clickedBadge = e.target.closest('.clickable-category');
+            if (clickedBadge) {
+                e.preventDefault();
+                e.stopPropagation();
+                const transactionId = parseInt(clickedBadge.getAttribute('data-transaction-id'));
+                const row = document.querySelector(`[data-transaction-id="${transactionId}"]`);
+                if (row) {
+                    openCategoryEditModal(transactionId, row);
+                }
+            }
+        });
+    }
 
     // Helper function to get CSRF token
     function getCookie(name) {
