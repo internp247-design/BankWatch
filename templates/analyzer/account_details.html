@@ -668,15 +668,15 @@
     .date-cell {
         font-weight: 600;
         color: #2c3e50;
-        width: 90px;
+        width: 80px;
         white-space: nowrap;
         flex-shrink: 0;
     }
 
     .description-cell {
         color: #555;
-        width: 40%;
-        min-width: 250px;
+        width: 45%;
+        min-width: 280px;
         word-wrap: break-word;
         overflow-wrap: break-word;
         white-space: normal;
@@ -685,26 +685,27 @@
     }
 
     .category-cell {
-        width: 140px;
+        width: 150px;
         white-space: nowrap;
         flex-shrink: 0;
+        cursor: pointer;
     }
 
     .label-cell {
-        width: 110px;
+        width: 100px;
         word-wrap: break-word;
         overflow-wrap: break-word;
         white-space: normal;
     }
 
     .type-cell {
-        width: 100px;
+        width: 95px;
         white-space: nowrap;
         flex-shrink: 0;
     }
 
     .amount-cell {
-        width: 120px;
+        width: 125px;
         white-space: nowrap;
         flex-shrink: 0;
         text-align: right;
@@ -1547,11 +1548,19 @@
     function attachCategoryEditListeners() {
         const categoryBadges = document.querySelectorAll('.clickable-category');
         categoryBadges.forEach(badge => {
-            badge.addEventListener('click', function() {
+            // Remove existing listener to prevent duplicates
+            const newBadge = badge.cloneNode(true);
+            badge.parentNode.replaceChild(newBadge, badge);
+            
+            newBadge.addEventListener('click', function(e) {
+                e.stopPropagation();
+                console.log('Category clicked for ID:', this.getAttribute('data-transaction-id'));
                 const transactionId = parseInt(this.getAttribute('data-transaction-id'));
                 const row = document.querySelector(`[data-transaction-id="${transactionId}"]`);
                 if (row) {
                     openCategoryEditModal(transactionId, row);
+                } else {
+                    console.error('Row not found for transaction ID:', transactionId);
                 }
             });
         });
