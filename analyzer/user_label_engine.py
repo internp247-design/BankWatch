@@ -57,6 +57,7 @@ class UserLabelClassificationEngine:
                     'matched_custom_category': category,
                     'matched_custom_category_id': category.id,
                     'matched_custom_category_name': category.name,
+                    'matched_label': category.name,  # Use category name as label
                     'source': 'custom_category_name_match'
                 }
         
@@ -71,6 +72,7 @@ class UserLabelClassificationEngine:
         best_match = None
         best_label_length = 0
         best_category = None
+        best_label_text = None
         
         for label, category in labeled_transactions:
             if not label:
@@ -85,6 +87,7 @@ class UserLabelClassificationEngine:
                     best_label_length = len(label_lower)
                     best_match = label
                     best_category = category
+                    best_label_text = label  # Store the actual label text
         
         # If we found a user label match, try to find corresponding custom category
         if best_category and best_match:
@@ -95,6 +98,7 @@ class UserLabelClassificationEngine:
                         'matched_custom_category': category,
                         'matched_custom_category_id': category.id,
                         'matched_custom_category_name': category.name,
+                        'matched_label': best_label_text,  # Return the matched label text
                         'source': 'user_label_category_match'
                     }
         
