@@ -835,6 +835,7 @@
                             <th>Type</th>
                             <th>Matched Rule</th>
                             <th>Matched Category</th>
+                            <th title="Manually edited transaction">✎</th>
                             {% if show_changed %}<th>Previous Category</th>{% endif %}
                         </tr>
                     </thead>
@@ -870,6 +871,14 @@
                             <td>
                                 {% if result.matched_custom_category_name %}
                                     <span class="category-badge" style="background-color: #d4edda; color: #155724;">{{ result.matched_custom_category_name }}</span>
+                                {% else %}
+                                    <span style="color: #6c757d;">-</span>
+                                {% endif %}
+                            </td>
+                            <td title="{% if result.is_manually_edited %}Manually edited transaction - Category/Label set by user{% endif %}" style="text-align: center;">
+                                {% if result.is_manually_edited %}
+                                    <i class="fas fa-edit" style="color: #ff9800; font-size: 16px;"></i>
+                                    {% if result.user_label %}<span style="font-size: 11px; color: #666;">{{ result.user_label }}</span>{% endif %}
                                 {% else %}
                                     <span style="color: #6c757d;">-</span>
                                 {% endif %}
