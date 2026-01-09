@@ -1359,8 +1359,16 @@ def apply_custom_category(request, statement_id):
 @login_required
 def apply_custom_category_rules(request):
     """Apply multiple custom categories to transactions from rule application results"""
-    if request.method == 'POST':
-        category_ids = request.POST.getlist('category_ids')
+    # If GET request (from navigation link), redirect to rules application results
+    if request.method == 'GET' and not request.GET.get('category_ids'):
+        return redirect('rules_application_results')
+    
+    if request.method in ['POST', 'GET']:
+        # Accept both POST and GET for flexibility
+        if request.method == 'POST':
+            category_ids = request.POST.getlist('category_ids')
+        else:
+            category_ids = request.GET.getlist('category_ids')
         
         if not category_ids:
             return JsonResponse({
