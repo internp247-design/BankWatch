@@ -696,6 +696,9 @@ def rules_application_results(request):
                 matched_custom_category_id = matched_custom_category.id if matched_custom_category else None
                 matched_custom_category_name = matched_custom_category.name if matched_custom_category else None
                 
+                if tx.is_manually_edited:
+                    print(f"DEBUG RESULTS: TX {tx.id} is manually edited: description='{tx.description}', matched_rule={matched_rule_name}, matched_cat={matched_custom_category_name}")
+                
                 # PRIORITY ORDER for determining if transaction should be included:
                 # 1. Manually edited transaction (ALWAYS include if user manually categorized it)
                 # 2. Matches a rule
@@ -819,14 +822,18 @@ def rules_application_results(request):
                 # Check if transaction matches a selected RULE condition
                 if r['matched_rule_id'] and r['matched_rule_id'] in selected_rule_ids:
                     include = True
+                    print(f"DEBUG: TX {r['id']} (edited={r['is_manually_edited']}) matched rule {r['matched_rule_id']}")
                 
                 # Check if transaction matches a selected CATEGORY condition
                 if r['matched_custom_category_id'] and r['matched_custom_category_id'] in selected_category_ids:
                     include = True
+                    print(f"DEBUG: TX {r['id']} (edited={r['is_manually_edited']}) matched category {r['matched_custom_category_id']}")
                 
                 # Add to results ONLY if it matches at least one selected rule or category
                 if include:
                     filtered_results.append(r)
+                elif r['is_manually_edited']:
+                    print(f"DEBUG: TX {r['id']} is manually edited but matched_rule_id={r['matched_rule_id']}, matched_cat_id={r['matched_custom_category_id']}, selected_rules={selected_rule_ids}, selected_cats={selected_category_ids}")
         else:
             filtered_results = results
 
