@@ -809,26 +809,22 @@ def rules_application_results(request):
                             item['total_amount'] += float(result['amount'] or 0)
         
         # Filter results to show only those matching selected rules/categories
-        # IMPORTANT: Manually edited transactions should ALWAYS be included if they match ANY selected rule/category
+        # IMPORTANT: ALL transactions (including manually edited) must still match the selected rule/category conditions
+        # Manual edits only provide data, not permission to bypass condition matching
         filtered_results = []
         if selected_rule_ids or selected_category_ids:
             for r in results:
                 include = False
                 
-                # PRIORITY 1: If manually edited, include regardless of rule/category match
-                # (manually edited transactions have highest priority)
-                if r['is_manually_edited']:
-                    # Manually edited transaction - include it if any filters are applied
-                    # OR always include to preserve the manual edit
+                # Check if transaction matches a selected RULE condition
+                if r['matched_rule_id'] and r['matched_rule_id'] in selected_rule_ids:
                     include = True
-                else:
-                    # For non-manually-edited: Include only if matched rule is selected
-                    if r['matched_rule_id'] and r['matched_rule_id'] in selected_rule_ids:
-                        include = True
-                    # Include if matched category is selected
-                    if r['matched_custom_category_id'] and r['matched_custom_category_id'] in selected_category_ids:
-                        include = True
                 
+                # Check if transaction matches a selected CATEGORY condition
+                if r['matched_custom_category_id'] and r['matched_custom_category_id'] in selected_category_ids:
+                    include = True
+                
+                # Add to results ONLY if it matches at least one selected rule or category
                 if include:
                     filtered_results.append(r)
         else:
