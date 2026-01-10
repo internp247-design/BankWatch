@@ -55,21 +55,37 @@ class RulesEngine:
         return False
     
     def _matches_keyword_condition(self, transaction_data, condition):
-        """Check keyword condition"""
-        description = transaction_data.get('description', '').lower()
-        keyword = condition.keyword.lower()
+        """Check keyword condition - matches against description, category, or user_label"""
+        keyword = condition.keyword.lower().strip()
         
         if not keyword:
             return False
-            
+        
+        # Check description
+        description = transaction_data.get('description', '').lower()
+        
+        # Check category (including user-edited category)
+        category = transaction_data.get('category', '').lower()
+        
+        # Check user_label (subcategory/label)
+        user_label = transaction_data.get('user_label', '').lower().strip()
+        
+        # Combine all fields for matching
+        search_fields = [description, category, user_label]
+        
+        # Apply matching logic based on condition type
         if condition.keyword_match_type == 'CONTAINS':
-            return keyword in description
+            # Check if keyword is contained in ANY of the fields
+            return any(keyword in field for field in search_fields if field)
         elif condition.keyword_match_type == 'STARTS_WITH':
-            return description.startswith(keyword)
+            # Check if ANY field starts with keyword
+            return any(field.startswith(keyword) for field in search_fields if field)
         elif condition.keyword_match_type == 'ENDS_WITH':
-            return description.endswith(keyword)
+            # Check if ANY field ends with keyword
+            return any(field.endswith(keyword) for field in search_fields if field)
         elif condition.keyword_match_type == 'EXACT':
-            return description == keyword
+            # Check if keyword exactly matches ANY field
+            return any(field == keyword for field in search_fields if field)
         return False
     
     def _matches_amount_condition(self, transaction_data, condition):
@@ -214,21 +230,37 @@ class CustomCategoryRulesEngine:
         return False
     
     def _matches_keyword_condition(self, transaction_data, condition):
-        """Check keyword condition"""
-        description = transaction_data.get('description', '').lower()
-        keyword = condition.keyword.lower()
+        """Check keyword condition - matches against description, category, or user_label"""
+        keyword = condition.keyword.lower().strip()
         
         if not keyword:
             return False
-            
+        
+        # Check description
+        description = transaction_data.get('description', '').lower()
+        
+        # Check category (including user-edited category)
+        category = transaction_data.get('category', '').lower()
+        
+        # Check user_label (subcategory/label)
+        user_label = transaction_data.get('user_label', '').lower().strip()
+        
+        # Combine all fields for matching
+        search_fields = [description, category, user_label]
+        
+        # Apply matching logic based on condition type
         if condition.keyword_match_type == 'CONTAINS':
-            return keyword in description
+            # Check if keyword is contained in ANY of the fields
+            return any(keyword in field for field in search_fields if field)
         elif condition.keyword_match_type == 'STARTS_WITH':
-            return description.startswith(keyword)
+            # Check if ANY field starts with keyword
+            return any(field.startswith(keyword) for field in search_fields if field)
         elif condition.keyword_match_type == 'ENDS_WITH':
-            return description.endswith(keyword)
+            # Check if ANY field ends with keyword
+            return any(field.endswith(keyword) for field in search_fields if field)
         elif condition.keyword_match_type == 'EXACT':
-            return description == keyword
+            # Check if keyword exactly matches ANY field
+            return any(field == keyword for field in search_fields if field)
         return False
     
     def _matches_amount_condition(self, transaction_data, condition):
