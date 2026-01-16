@@ -98,51 +98,52 @@ class PDFParser:
                 
                 # Common transaction patterns
                 patterns = [
-                    # Pattern 1: Date Description Amount (with optional CR/DR)
-                    r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s+(.*?)\s+([+-]?[\d,]+\.\d{2})\s*(CR|DR|Cr|Dr)?',
-                    # Pattern 2: Date Amount Description (with optional CR/DR)
-                    r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s+([+-]?[\d,]+\.\d{2})\s+(.*?)\s*(CR|DR|Cr|Dr)?',
-                    # Pattern 3: Amounts with explicit CR/DR markers
-                    r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s+(.*?)\s+(\d+[\d,]*\.\d{2})\s+(CR|DR|Cr|Dr)',
+                    # Date + Description + Amount (with optional CR/DR)
+                    r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s+(.*?)\s+([+-]?[\d,]+\.?\d*)\s*(CR|DR|Cr|Dr)?',
+                    # Date + Amount + Description (with optional CR/DR)  
+                    r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s+([+-]?[\d,]+\.?\d*)\s+(.*?)\s*(CR|DR|Cr|Dr)?',
                 ]
                 
                 all_matches = []
                 for pattern in patterns:
-                    matches = re.findall(pattern, text)
+                    matches = re.findall(pattern, text, re.IGNORECASE)
                     all_matches.extend(matches)
                 
                 print(f"Found {len(all_matches)} potential transactions")
                 
+                # Deduplicate matches to avoid processing same transaction twice
+                seen_keys = set()
+                unique_matches = []
+                
                 for match in all_matches:
+                    if len(match) == 4:
+                        # Create a key to detect duplicates
+                        key = (match[0], match[1] if match[1].replace(',', '').replace('.', '').isdigit() else match[2])
+                        if key not in seen_keys:
+                            seen_keys.add(key)
+                            unique_matches.append(match)
+                
+                print(f"After deduplication: {len(unique_matches)} transactions")
+                
+                for match in unique_matches:
                     try:
-                        if len(match) == 4:
-                            # Pattern with CR/DR marker
-                            date_str, amount_or_desc, desc_or_amount, cr_dr = match
-                            
-                            # Determine if amount_or_desc or desc_or_amount contains the amount
-                            if amount_or_desc.replace(',', '').replace('.', '').replace('-', '').replace('+', '').isdigit():
-                                amount_str = amount_or_desc
-                                description = desc_or_amount
-                            else:
-                                amount_str = desc_or_amount
-                                description = amount_or_desc
-                            
-                            # Add CR/DR marker to amount_str for proper parsing
-                            amount_str = f"{amount_str} {cr_dr}"
-                        elif len(match) == 3:
-                            date_str = match[0]
-                            cr_dr_marker = match[2] if match[2] else ""
-                            
-                            # Check if match[1] is amount or description
-                            if match[1].replace(',', '').replace('.', '').replace('-', '').replace('+', '').isdigit():
-                                amount_str = f"{match[1]} {cr_dr_marker}"
-                                description = "Transaction"
-                            else:
-                                # match[1] is description, need to find amount
-                                date_str, description, amount_str = match[0], match[1], match[2]
-                                amount_str = f"{amount_str} {cr_dr_marker}"
-                        else:
+                        if len(match) != 4:
                             continue
+                            
+                        date_str = match[0]
+                        field1 = match[1]
+                        field2 = match[2]
+                        cr_dr_marker = match[3].upper() if match[3] else ""
+                        
+                        # Determine if field1 or field2 is the amount
+                        field1_is_amount = field1.replace(',', '').replace('+', '').replace('-', '').replace('.', '').replace('₹', '').isdigit()
+                        
+                        if field1_is_amount:
+                            amount_str = field1 + (' ' + cr_dr_marker if cr_dr_marker else '')
+                            description = field2
+                        else:
+                            amount_str = field2 + (' ' + cr_dr_marker if cr_dr_marker else '')
+                            description = field1
                         
                         # Parse date
                         date = PDFParser._parse_date(date_str)
@@ -151,7 +152,7 @@ class PDFParser:
                         
                         # Parse amount
                         amount, transaction_type = PDFParser._parse_amount(amount_str)
-                        if amount is None:
+                        if amount is None or amount <= 0:
                             continue
                         
                         transactions.append({
@@ -198,29 +199,35 @@ class PDFParser:
             # Store original for debit/credit detection
             original_str = amount_str.lower()
             
-            # Detect debit/credit from markers in original string (BEFORE cleaning)
+            # Detect debit/credit from markers BEFORE any cleaning
             is_debit = 'dr' in original_str or 'debit' in original_str
             has_credit_marker = 'cr' in original_str or 'credit' in original_str
             
-            # Clean the amount string
-            amount_str_clean = amount_str.replace(',', '').replace('+', '').replace('₹', '').replace('-', '').strip()
+            # Check if amount starts with negative sign BEFORE cleaning
+            has_negative_sign = '-' in amount_str and amount_str.index('-') < amount_str.index(next((c for c in amount_str if c.isdigit()), '0'))
+            
+            # Clean the amount string - remove everything except digits and decimal point
+            amount_str_clean = ''.join(c for c in amount_str if c.isdigit() or c == '.')
             
             # Parse the numeric amount
+            if not amount_str_clean:
+                return None, None
+                
             amount = float(amount_str_clean)
             
-            # Determine transaction type based on sign AND markers
-            if amount < 0:
+            # Determine transaction type
+            # Priority: explicit CR/DR markers > negative sign > default to CREDIT
+            if is_debit and not has_credit_marker:
                 transaction_type = 'DEBIT'
-                amount = abs(amount)
-            elif is_debit and not has_credit_marker:
+            elif has_credit_marker and not is_debit:
+                transaction_type = 'CREDIT'
+            elif has_negative_sign:
                 transaction_type = 'DEBIT'
-                amount = abs(amount)
             else:
                 transaction_type = 'CREDIT'
-                amount = abs(amount)
             
             return amount, transaction_type
-        except ValueError:
+        except (ValueError, StopIteration):
             return None, None
 
 class ExcelParser:
