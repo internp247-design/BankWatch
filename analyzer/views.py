@@ -200,6 +200,13 @@ def upload_statement(request):
                     # Create Transaction objects
                     created_count = 0
                     for transaction_data in transactions_data:
+                        # Validate transaction_type - must be DEBIT or CREDIT
+                        # If UNKNOWN or invalid, default to DEBIT (most transactions are expenses)
+                        transaction_type = transaction_data.get('transaction_type', 'DEBIT')
+                        if transaction_type not in ['DEBIT', 'CREDIT']:
+                            transaction_type = 'DEBIT'
+                        transaction_data['transaction_type'] = transaction_type
+                        
                         # Determine category with multiple strategies
                         category = 'OTHER'
                         desc = transaction_data['description'].upper()

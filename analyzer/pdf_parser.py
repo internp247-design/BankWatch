@@ -362,10 +362,16 @@ def parse_transactions_from_text(text):
         elif ' CR ' in ln_upper or '/CR/' in ln_upper or 'CREDIT' in ln_upper or 'CR/' in ln_upper:
             transaction_type = 'CREDIT'
         else:
-            # if we can guess by surrounding words
+            # No explicit marker found - try to infer from description keywords
+            # Default to DEBIT since most transactions are expenses
+            transaction_type = 'DEBIT'
+            
+            # Check for credit-indicating keywords in description
             if amount is not None:
-                # no reliable hint; leave UNKNOWN
-                transaction_type = 'UNKNOWN'
+                desc_upper = ln.upper()
+                credit_keywords = ['SALARY', 'DEPOSIT', 'REFUND', 'CREDIT', 'INCOME', 'TRANSFER IN', 'RECEIVED']
+                if any(kw in desc_upper for kw in credit_keywords):
+                    transaction_type = 'CREDIT'
 
         # Try to find a marker in the remaining text to start description
         desc = after_date
