@@ -98,8 +98,12 @@ class PDFParser:
                 
                 # Common transaction patterns
                 patterns = [
-                    r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s+(.*?)\s+([+-]?[\d,]+\.\d{2})',
-                    r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s+([+-]?[\d,]+\.\d{2})\s+(.*)',
+                    # Pattern 1: Date Description Amount (with optional CR/DR)
+                    r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s+(.*?)\s+([+-]?[\d,]+\.\d{2})\s*(CR|DR|Cr|Dr)?',
+                    # Pattern 2: Date Amount Description (with optional CR/DR)
+                    r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s+([+-]?[\d,]+\.\d{2})\s+(.*?)\s*(CR|DR|Cr|Dr)?',
+                    # Pattern 3: Amounts with explicit CR/DR markers
+                    r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s+(.*?)\s+(\d+[\d,]*\.\d{2})\s+(CR|DR|Cr|Dr)',
                 ]
                 
                 all_matches = []
@@ -111,11 +115,34 @@ class PDFParser:
                 
                 for match in all_matches:
                     try:
-                        if len(match) == 3:
-                            if match[1].replace(',', '').replace('.', '').replace('-', '').isdigit():
-                                date_str, amount_str, description = match
+                        if len(match) == 4:
+                            # Pattern with CR/DR marker
+                            date_str, amount_or_desc, desc_or_amount, cr_dr = match
+                            
+                            # Determine if amount_or_desc or desc_or_amount contains the amount
+                            if amount_or_desc.replace(',', '').replace('.', '').replace('-', '').replace('+', '').isdigit():
+                                amount_str = amount_or_desc
+                                description = desc_or_amount
                             else:
-                                date_str, description, amount_str = match
+                                amount_str = desc_or_amount
+                                description = amount_or_desc
+                            
+                            # Add CR/DR marker to amount_str for proper parsing
+                            amount_str = f"{amount_str} {cr_dr}"
+                        elif len(match) == 3:
+                            date_str = match[0]
+                            cr_dr_marker = match[2] if match[2] else ""
+                            
+                            # Check if match[1] is amount or description
+                            if match[1].replace(',', '').replace('.', '').replace('-', '').replace('+', '').isdigit():
+                                amount_str = f"{match[1]} {cr_dr_marker}"
+                                description = "Transaction"
+                            else:
+                                # match[1] is description, need to find amount
+                                date_str, description, amount_str = match[0], match[1], match[2]
+                                amount_str = f"{amount_str} {cr_dr_marker}"
+                        else:
+                            continue
                         
                         # Parse date
                         date = PDFParser._parse_date(date_str)
@@ -168,12 +195,30 @@ class PDFParser:
     def _parse_amount(amount_str):
         """Parse amount string to float and determine transaction type"""
         try:
-            # Detect debit/credit BEFORE cleaning the string
-            is_debit = 'dr' in amount_str.lower() or '-' in amount_str
+            # Store original for debit/credit detection
+            original_str = amount_str.lower()
             
+            # Detect debit/credit from markers in original string (BEFORE cleaning)
+            is_debit = 'dr' in original_str or 'debit' in original_str
+            has_credit_marker = 'cr' in original_str or 'credit' in original_str
+            
+            # Clean the amount string
             amount_str_clean = amount_str.replace(',', '').replace('+', '').replace('₹', '').replace('-', '').strip()
-            amount = abs(float(amount_str_clean))
-            transaction_type = 'DEBIT' if is_debit else 'CREDIT'
+            
+            # Parse the numeric amount
+            amount = float(amount_str_clean)
+            
+            # Determine transaction type based on sign AND markers
+            if amount < 0:
+                transaction_type = 'DEBIT'
+                amount = abs(amount)
+            elif is_debit and not has_credit_marker:
+                transaction_type = 'DEBIT'
+                amount = abs(amount)
+            else:
+                transaction_type = 'CREDIT'
+                amount = abs(amount)
+            
             return amount, transaction_type
         except ValueError:
             return None, None
