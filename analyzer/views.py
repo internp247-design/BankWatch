@@ -1,4 +1,5 @@
 import os
+from decimal import Decimal
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -249,7 +250,7 @@ def upload_statement(request):
                             statement=statement,
                             date=transaction_data['date'],
                             description=transaction_data['description'][:500],
-                            amount=transaction_data['amount'],
+                            amount=Decimal(str(transaction_data['amount'])) if transaction_data['amount'] else Decimal('0'),
                             transaction_type=transaction_data['transaction_type'],
                             category=category
                         )

@@ -168,8 +168,10 @@ class PDFParser:
     def _parse_amount(amount_str):
         """Parse amount string to float and determine transaction type"""
         try:
-            amount_str_clean = amount_str.replace(',', '').replace('+', '').replace('₹', '').strip()
+            # Detect debit/credit BEFORE cleaning the string
             is_debit = 'dr' in amount_str.lower() or '-' in amount_str
+            
+            amount_str_clean = amount_str.replace(',', '').replace('+', '').replace('₹', '').replace('-', '').strip()
             amount = abs(float(amount_str_clean))
             transaction_type = 'DEBIT' if is_debit else 'CREDIT'
             return amount, transaction_type
