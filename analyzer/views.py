@@ -1521,26 +1521,38 @@ def get_financial_overview_data(request):
     
     net_savings = total_income - total_expenses
     
-    # Calculate percentages
-    total_all = total_income + total_expenses
-    income_percentage = (total_income / total_all * 100) if total_all > 0 else 0
-    expense_percentage = (total_expenses / total_all * 100) if total_all > 0 else 0
-    
-    # Calculate financial health
+    # Calculate percentages correctly
+    # Savings rate: percentage of income that is saved (negative if spending exceeds income)
     if total_income > 0:
         savings_rate = (net_savings / total_income) * 100
+    else:
+        savings_rate = 0 if net_savings == 0 else -100  # All expenses with no income = -100%
+    
+    # Calculate financial health based on savings rate
+    if total_income > 0:
         if savings_rate >= 20:
             health_status = 'Excellent'
             health_score = 85
         elif savings_rate >= 10:
             health_status = 'Good'
             health_score = 70
-        else:
+        elif savings_rate >= 0:
             health_status = 'Needs Attention'
             health_score = 50
+        elif savings_rate >= -20:
+            health_status = 'Poor'
+            health_score = 30
+        else:
+            health_status = 'Critical'
+            health_score = 10
     else:
         health_status = 'No Data'
         health_score = 0
+    
+    # For percentage displays: show what percentage of income was spent
+    # This is more useful for users than income_percentage
+    expense_percentage = (total_expenses / total_income * 100) if total_income > 0 else 0
+    income_percentage = 100  # Income is always 100% of itself
     
     return JsonResponse({
         'success': True,
