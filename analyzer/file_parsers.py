@@ -92,55 +92,58 @@ class PDFParser:
                     page.extract_text() or "" for page in pdf.pages
                 )
 
-            # SBI Transaction Line Pattern
+            # SBI Transaction Line Pattern - Precise format
+            # Example: 01-12-25 UPI/DR/533524614417/JOS BAKERY/YESB/q588612696/UPI - - 48.00 287.30
+            # Example: 01-12-25 UPI/CR/533534475414/SIJOY S/SBIN/sijoy1018@/UPI - 1500.00 - 1787.30
             pattern = re.compile(
-                r'(\d{2}-\d{2}-\d{2})\s+'
-                r'(.+?)\s+-\s+-\s+'
-                r'([\d,]+\.\d{2})\s+'
-                r'([\d,]+\.\d{2})'
+                r'(\d{2}-\d{2}-\d{2})\s+'                    # Date: DD-MM-YY
+                r'(UPI/[DC]R/[^-\n]+)\s+'                    # UPI reference (contains /DR/ or /CR/)
+                r'(?:[-]\s+[-]\s+([\d,]+\.?\d+)|'            # DEBIT: - - amount
+                r'[-]\s+([\d,]+\.?\d+)\s+[-])\s+'            # CREDIT: - amount -
+                r'([\d,]+\.?\d+)'                             # Balance (ignore this)
             )
 
             for match in pattern.finditer(full_text):
-                date_str, description, amount_str, _balance = match.groups()
-
+                date_str = match.group(1)
+                description = match.group(2)
+                debit_amount = match.group(3)
+                credit_amount = match.group(4)
+                
                 # Parse date
                 try:
                     date = datetime.strptime(date_str, '%d-%m-%y').date()
                 except ValueError:
                     continue
 
-                description = description.strip()
-
-                # Detect transaction type from description
-                desc_upper = description.upper()
-                
-                # Check for explicit debit/credit markers
-                if '/DR/' in description:
+                # Determine transaction type and amount
+                if debit_amount:
+                    # DEBIT: - - amount balance
                     transaction_type = 'DEBIT'
-                elif '/CR/' in description:
+                    amount_str = debit_amount
+                elif credit_amount:
+                    # CREDIT: - amount - balance
                     transaction_type = 'CREDIT'
-                # Check for common credit keywords
-                elif any(keyword in desc_upper for keyword in ['INTEREST CREDIT', 'SALARY', 'TRANSFER CR', 'DEPOSIT', 'REFUND', 'CREDIT']):
-                    transaction_type = 'CREDIT'
-                # Check for common debit keywords
-                elif any(keyword in desc_upper for keyword in ['IMPS', 'NEFT', 'RTGS', 'UPI', 'CHQ', 'DEBIT', 'PAYMENT', 'WITHDRAWAL']):
-                    transaction_type = 'DEBIT'
-                # Default based on common patterns - anything else, assume DEBIT
+                    amount_str = credit_amount
                 else:
-                    transaction_type = 'DEBIT'
+                    continue
 
-                # Parse amount (IGNORE BALANCE COMPLETELY)
-                amount = float(amount_str.replace(',', ''))
+                # Parse amount
+                try:
+                    amount = float(amount_str.replace(',', ''))
+                    if amount <= 0:
+                        continue
+                except ValueError:
+                    continue
 
                 transactions.append({
                     'date': date,
-                    'description': description,
+                    'description': description.strip(),
                     'amount': amount,
                     'transaction_type': transaction_type
                 })
 
         except Exception as e:
-            print("PDF parsing error:", e)
+            print(f"PDF parsing error: {e}")
 
         # Fallback safety
         if not transactions:
