@@ -112,12 +112,22 @@ class PDFParser:
                 description = description.strip()
 
                 # Detect transaction type from description
+                desc_upper = description.upper()
+                
+                # Check for explicit debit/credit markers
                 if '/DR/' in description:
                     transaction_type = 'DEBIT'
-                elif '/CR/' in description or 'INTEREST CREDIT' in description.upper():
+                elif '/CR/' in description:
                     transaction_type = 'CREDIT'
+                # Check for common credit keywords
+                elif any(keyword in desc_upper for keyword in ['INTEREST CREDIT', 'SALARY', 'TRANSFER CR', 'DEPOSIT', 'REFUND', 'CREDIT']):
+                    transaction_type = 'CREDIT'
+                # Check for common debit keywords
+                elif any(keyword in desc_upper for keyword in ['IMPS', 'NEFT', 'RTGS', 'UPI', 'CHQ', 'DEBIT', 'PAYMENT', 'WITHDRAWAL']):
+                    transaction_type = 'DEBIT'
+                # Default based on common patterns - anything else, assume DEBIT
                 else:
-                    continue  # Ignore unknown lines
+                    transaction_type = 'DEBIT'
 
                 # Parse amount (IGNORE BALANCE COMPLETELY)
                 amount = float(amount_str.replace(',', ''))
