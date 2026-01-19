@@ -92,64 +92,77 @@ class PDFParser:
                     page.extract_text() or "" for page in pdf.pages
                 )
 
-            # SBI Transaction Line Pattern - Precise format
+            # Pattern 1: DEBIT transactions (- - amount balance)
             # Example: 01-12-25 UPI/DR/533524614417/JOS BAKERY/YESB/q588612696/UPI - - 48.00 287.30
-            # Example: 01-12-25 UPI/CR/533534475414/SIJOY S/SBIN/sijoy1018@/UPI - 1500.00 - 1787.30
-            pattern = re.compile(
-                r'(\d{2}-\d{2}-\d{2})\s+'                    # Date: DD-MM-YY
-                r'(UPI/[DC]R/[^-\n]+)\s+'                    # UPI reference (contains /DR/ or /CR/)
-                r'(?:[-]\s+[-]\s+([\d,]+\.?\d+)|'            # DEBIT: - - amount
-                r'[-]\s+([\d,]+\.?\d+)\s+[-])\s+'            # CREDIT: - amount -
-                r'([\d,]+\.?\d+)'                             # Balance (ignore this)
+            debit_pattern = re.compile(
+                r'(\d{2}-\d{2}-\d{2})\s+'           # Date: DD-MM-YY
+                r'(.+?)\s+'                          # Description (any text)
+                r'-\s+-\s+'                          # Debit marker: - -
+                r'([\d,]+\.?\d+)\s+'                # Amount
+                r'([\d,]+\.?\d+)'                    # Balance (ignored)
             )
 
-            for match in pattern.finditer(full_text):
-                date_str = match.group(1)
-                description = match.group(2)
-                debit_amount = match.group(3)
-                credit_amount = match.group(4)
-                
-                # Parse date
-                try:
-                    date = datetime.strptime(date_str, '%d-%m-%y').date()
-                except ValueError:
-                    continue
+            # Pattern 2: CREDIT transactions (- amount - balance)
+            # Example: 01-12-25 UPI/CR/533534475414/SIJOY S/SBIN/sijoy1018@/UPI - 1500.00 - 1787.30
+            credit_pattern = re.compile(
+                r'(\d{2}-\d{2}-\d{2})\s+'           # Date: DD-MM-YY
+                r'(.+?)\s+'                          # Description (any text)
+                r'-\s+'                              # Credit marker: -
+                r'([\d,]+\.?\d+)\s+'                # Amount
+                r'-\s+'                              # Separator: -
+                r'([\d,]+\.?\d+)'                    # Balance (ignored)
+            )
 
-                # Determine transaction type and amount
-                if debit_amount:
-                    # DEBIT: - - amount balance
-                    transaction_type = 'DEBIT'
-                    amount_str = debit_amount
-                elif credit_amount:
-                    # CREDIT: - amount - balance
-                    transaction_type = 'CREDIT'
-                    amount_str = credit_amount
-                else:
-                    continue
+            # Extract DEBIT transactions
+            for match in debit_pattern.finditer(full_text):
+                date_str, description, amount_str, _balance = match.groups()
+                transaction = PDFParser._parse_transaction(
+                    date_str, description, amount_str, 'DEBIT'
+                )
+                if transaction:
+                    transactions.append(transaction)
 
-                # Parse amount
-                try:
-                    amount = float(amount_str.replace(',', ''))
-                    if amount <= 0:
-                        continue
-                except ValueError:
-                    continue
-
-                transactions.append({
-                    'date': date,
-                    'description': description.strip(),
-                    'amount': amount,
-                    'transaction_type': transaction_type
-                })
+            # Extract CREDIT transactions
+            for match in credit_pattern.finditer(full_text):
+                date_str, description, amount_str, _balance = match.groups()
+                transaction = PDFParser._parse_transaction(
+                    date_str, description, amount_str, 'CREDIT'
+                )
+                if transaction:
+                    transactions.append(transaction)
 
         except Exception as e:
             print(f"PDF parsing error: {e}")
 
+        # Sort by date and return
+        if transactions:
+            transactions.sort(key=lambda x: x['date'])
+            return transactions
+        
         # Fallback safety
-        if not transactions:
-            return StatementParser._create_sample_transactions()
+        return StatementParser._create_sample_transactions()
 
-        return transactions
+    @staticmethod
+    def _parse_transaction(date_str, description, amount_str, trans_type):
+        """Helper method to parse individual transaction"""
+        try:
+            # Parse date
+            date = datetime.strptime(date_str, '%d-%m-%y').date()
+            description = description.strip()
+            
+            # Parse amount
+            amount = float(amount_str.replace(',', ''))
+            if amount <= 0:
+                return None
+
+            return {
+                'date': date,
+                'description': description,
+                'amount': amount,
+                'transaction_type': trans_type
+            }
+        except (ValueError, AttributeError):
+            return None
 
 class ExcelParser:
     """Parse transactions from Excel bank statements"""
