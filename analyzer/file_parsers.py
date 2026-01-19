@@ -77,158 +77,66 @@ class StatementParser:
         ]
 
 class PDFParser:
-    """Parse transactions from PDF bank statements"""
-    
+    """Parse transactions from SBI-style PDF bank statements"""
+
     @staticmethod
     def extract_transactions(pdf_path):
-        """Extract transactions from PDF file"""
         transactions = []
-        
+
         if not PDFPLUMBER_AVAILABLE:
-            print("PDF parsing not available. Install pdfplumber.")
             return StatementParser._create_sample_transactions()
-        
+
         try:
             with pdfplumber.open(pdf_path) as pdf:
-                text = ""
-                for page in pdf.pages:
-                    text += page.extract_text() or ""
-                
-                print(f"Extracted {len(text)} characters from PDF")
-                
-                # Common transaction patterns
-                patterns = [
-                    # Date + Description + Amount (with optional CR/DR)
-                    r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s+(.*?)\s+([+-]?[\d,]+\.?\d*)\s*(CR|DR|Cr|Dr)?',
-                    # Date + Amount + Description (with optional CR/DR)  
-                    r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s+([+-]?[\d,]+\.?\d*)\s+(.*?)\s*(CR|DR|Cr|Dr)?',
-                ]
-                
-                all_matches = []
-                for pattern in patterns:
-                    matches = re.findall(pattern, text, re.IGNORECASE)
-                    all_matches.extend(matches)
-                
-                print(f"Found {len(all_matches)} potential transactions")
-                
-                # Deduplicate matches to avoid processing same transaction twice
-                seen_keys = set()
-                unique_matches = []
-                
-                for match in all_matches:
-                    if len(match) == 4:
-                        # Create a key to detect duplicates
-                        key = (match[0], match[1] if match[1].replace(',', '').replace('.', '').isdigit() else match[2])
-                        if key not in seen_keys:
-                            seen_keys.add(key)
-                            unique_matches.append(match)
-                
-                print(f"After deduplication: {len(unique_matches)} transactions")
-                
-                for match in unique_matches:
-                    try:
-                        if len(match) != 4:
-                            continue
-                            
-                        date_str = match[0]
-                        field1 = match[1]
-                        field2 = match[2]
-                        cr_dr_marker = match[3].upper() if match[3] else ""
-                        
-                        # Determine if field1 or field2 is the amount
-                        field1_is_amount = field1.replace(',', '').replace('+', '').replace('-', '').replace('.', '').replace('₹', '').isdigit()
-                        
-                        if field1_is_amount:
-                            amount_str = field1 + (' ' + cr_dr_marker if cr_dr_marker else '')
-                            description = field2
-                        else:
-                            amount_str = field2 + (' ' + cr_dr_marker if cr_dr_marker else '')
-                            description = field1
-                        
-                        # Parse date
-                        date = PDFParser._parse_date(date_str)
-                        if not date:
-                            continue
-                        
-                        # Parse amount
-                        amount, transaction_type = PDFParser._parse_amount(amount_str)
-                        if amount is None or amount <= 0:
-                            continue
-                        
-                        transactions.append({
-                            'date': date,
-                            'description': description.strip(),
-                            'amount': amount,
-                            'transaction_type': transaction_type
-                        })
-                        
-                    except Exception as e:
-                        print(f"Error processing match: {e}")
-                        continue
-                
+                full_text = "\n".join(
+                    page.extract_text() or "" for page in pdf.pages
+                )
+
+            # SBI Transaction Line Pattern
+            pattern = re.compile(
+                r'(\d{2}-\d{2}-\d{2})\s+'
+                r'(.+?)\s+-\s+-\s+'
+                r'([\d,]+\.\d{2})\s+'
+                r'([\d,]+\.\d{2})'
+            )
+
+            for match in pattern.finditer(full_text):
+                date_str, description, amount_str, _balance = match.groups()
+
+                # Parse date
+                try:
+                    date = datetime.strptime(date_str, '%d-%m-%y').date()
+                except ValueError:
+                    continue
+
+                description = description.strip()
+
+                # Detect transaction type from description
+                if '/DR/' in description:
+                    transaction_type = 'DEBIT'
+                elif '/CR/' in description or 'INTEREST CREDIT' in description.upper():
+                    transaction_type = 'CREDIT'
+                else:
+                    continue  # Ignore unknown lines
+
+                # Parse amount (IGNORE BALANCE COMPLETELY)
+                amount = float(amount_str.replace(',', ''))
+
+                transactions.append({
+                    'date': date,
+                    'description': description,
+                    'amount': amount,
+                    'transaction_type': transaction_type
+                })
+
         except Exception as e:
-            print(f"Error processing PDF: {e}")
-        
-        # If no transactions found, create sample data
+            print("PDF parsing error:", e)
+
+        # Fallback safety
         if not transactions:
-            print("No transactions found in PDF, creating sample data")
-            transactions = StatementParser._create_sample_transactions()
-        
+            return StatementParser._create_sample_transactions()
+
         return transactions
-    
-    @staticmethod
-    def _parse_date(date_str):
-        """Parse date string to date object"""
-        date_formats = [
-            '%d/%m/%Y', '%d-%m-%Y', '%Y-%m-%d',
-            '%d/%m/%y', '%d-%m-%y', '%m/%d/%Y',
-        ]
-        
-        for fmt in date_formats:
-            try:
-                return datetime.strptime(date_str, fmt).date()
-            except ValueError:
-                continue
-        
-        return None
-    
-    @staticmethod
-    def _parse_amount(amount_str):
-        """Parse amount string to float and determine transaction type"""
-        try:
-            # Store original for debit/credit detection
-            original_str = amount_str.lower()
-            
-            # Detect debit/credit from markers BEFORE any cleaning
-            is_debit = 'dr' in original_str or 'debit' in original_str
-            has_credit_marker = 'cr' in original_str or 'credit' in original_str
-            
-            # Check if amount starts with negative sign BEFORE cleaning
-            has_negative_sign = '-' in amount_str and amount_str.index('-') < amount_str.index(next((c for c in amount_str if c.isdigit()), '0'))
-            
-            # Clean the amount string - remove everything except digits and decimal point
-            amount_str_clean = ''.join(c for c in amount_str if c.isdigit() or c == '.')
-            
-            # Parse the numeric amount
-            if not amount_str_clean:
-                return None, None
-                
-            amount = float(amount_str_clean)
-            
-            # Determine transaction type
-            # Priority: explicit CR/DR markers > negative sign > default to CREDIT
-            if is_debit and not has_credit_marker:
-                transaction_type = 'DEBIT'
-            elif has_credit_marker and not is_debit:
-                transaction_type = 'CREDIT'
-            elif has_negative_sign:
-                transaction_type = 'DEBIT'
-            else:
-                transaction_type = 'CREDIT'
-            
-            return amount, transaction_type
-        except (ValueError, StopIteration):
-            return None, None
 
 class ExcelParser:
     """Parse transactions from Excel bank statements"""
