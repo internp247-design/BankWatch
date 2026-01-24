@@ -2,7 +2,12 @@ import re
 from datetime import datetime
 import os
 import warnings
+import logging
 warnings.filterwarnings('ignore')
+
+# Configure logging for PDF parsing
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 # Try to import optional dependencies
 try:
@@ -10,14 +15,24 @@ try:
     PANDAS_AVAILABLE = True
 except ImportError:
     PANDAS_AVAILABLE = False
-    print("Warning: pandas not installed. Excel/CSV support limited.")
+    logger.warning("pandas not installed. Excel/CSV support limited.")
 
 try:
     import pdfplumber
     PDFPLUMBER_AVAILABLE = True
 except ImportError:
     PDFPLUMBER_AVAILABLE = False
-    print("Warning: pdfplumber not installed. PDF support limited.")
+    logger.warning("pdfplumber not installed. PDF support limited.")
+
+# Try to import PyMuPDF for OCR fallback
+try:
+    import fitz
+    from PIL import Image
+    import pytesseract
+    OCR_AVAILABLE = True
+except ImportError:
+    OCR_AVAILABLE = False
+    logger.warning("PyMuPDF/Tesseract not available. Scanned PDF support limited.")
 
 # File type constants
 PDF = 'PDF'
@@ -29,15 +44,21 @@ class StatementParser:
     
     @staticmethod
     def parse_file(file_path, file_type):
-        """Parse file based on type"""
-        if file_type == PDF:
-            return PDFParser.extract_transactions(file_path)
-        elif file_type == EXCEL:
-            return ExcelParser.extract_transactions(file_path)
-        elif file_type == CSV:
-            return CSVParser.extract_transactions(file_path)
-        else:
-            raise ValueError(f"Unsupported file type: {file_type}")
+        """Parse file based on type with error handling"""
+        logger.info(f"Starting to parse file: {file_path} (type: {file_type})")
+        
+        try:
+            if file_type == PDF:
+                return PDFParser.extract_transactions(file_path)
+            elif file_type == EXCEL:
+                return ExcelParser.extract_transactions(file_path)
+            elif file_type == CSV:
+                return CSVParser.extract_transactions(file_path)
+            else:
+                raise ValueError(f"Unsupported file type: {file_type}")
+        except Exception as e:
+            logger.error(f"Parse file failed for {file_path}: {e}", exc_info=True)
+            raise
     
     @staticmethod
     def get_file_type(filename):
@@ -77,91 +98,367 @@ class StatementParser:
         ]
 
 class PDFParser:
-    """Parse transactions from SBI-style PDF bank statements"""
+    """Parse transactions from various PDF bank statements with fallback support"""
 
     @staticmethod
     def extract_transactions(pdf_path):
+        """Extract transactions from PDF, with bank detection and fallback strategies"""
         transactions = []
+        logger.info(f"Starting PDF parsing for: {os.path.basename(pdf_path)}")
 
         if not PDFPLUMBER_AVAILABLE:
-            return StatementParser._create_sample_transactions()
+            logger.error("pdfplumber not available, cannot parse PDF")
+            return []
 
         try:
+            # First try: Extract transactions from tables (table-based bank statements)
+            logger.info("Attempting to extract transactions from tables...")
+            transactions = PDFParser._extract_from_tables(pdf_path)
+            
+            if transactions:
+                logger.info(f"Successfully extracted {len(transactions)} transactions from tables")
+                transactions.sort(key=lambda x: x['date'] if x['date'] else datetime.now().date())
+                return transactions
+            
+            # Fallback: Extract with pdfplumber (embedded text)
+            logger.info("No tables found, attempting text extraction...")
             with pdfplumber.open(pdf_path) as pdf:
                 full_text = "\n".join(
                     page.extract_text() or "" for page in pdf.pages
                 )
-
-            # Pattern 1: DEBIT transactions (- - amount balance)
-            # Example: 01-12-25 UPI/DR/533524614417/JOS BAKERY/YESB/q588612696/UPI - - 48.00 287.30
-            debit_pattern = re.compile(
-                r'(\d{2}-\d{2}-\d{2})\s+'           # Date: DD-MM-YY
-                r'(.+?)\s+'                          # Description (any text)
-                r'-\s+-\s+'                          # Debit marker: - -
-                r'([\d,]+\.?\d+)\s+'                # Amount
-                r'([\d,]+\.?\d+)'                    # Balance (ignored)
-            )
-
-            # Pattern 2: CREDIT transactions (- amount - balance)
-            # Example: 01-12-25 UPI/CR/533534475414/SIJOY S/SBIN/sijoy1018@/UPI - 1500.00 - 1787.30
-            credit_pattern = re.compile(
-                r'(\d{2}-\d{2}-\d{2})\s+'           # Date: DD-MM-YY
-                r'(.+?)\s+'                          # Description (any text)
-                r'-\s+'                              # Credit marker: -
-                r'([\d,]+\.?\d+)\s+'                # Amount
-                r'-\s+'                              # Separator: -
-                r'([\d,]+\.?\d+)'                    # Balance (ignored)
-            )
-
-            # Extract DEBIT transactions
-            for match in debit_pattern.finditer(full_text):
-                date_str, description, amount_str, _balance = match.groups()
-                transaction = PDFParser._parse_transaction(
-                    date_str, description, amount_str, 'DEBIT'
-                )
-                if transaction:
-                    transactions.append(transaction)
-
-            # Extract CREDIT transactions
-            for match in credit_pattern.finditer(full_text):
-                date_str, description, amount_str, _balance = match.groups()
-                transaction = PDFParser._parse_transaction(
-                    date_str, description, amount_str, 'CREDIT'
-                )
-                if transaction:
-                    transactions.append(transaction)
-
+            
+            if not full_text.strip():
+                logger.warning(f"No embedded text found in PDF, attempting OCR fallback")
+                if OCR_AVAILABLE:
+                    transactions = PDFParser._extract_via_ocr(pdf_path)
+                else:
+                    logger.error("OCR not available for scanned PDF")
+                    return []
+            else:
+                logger.info(f"PDF has embedded text ({len(full_text)} chars), detecting bank format...")
+                # Detect bank format and use appropriate parser
+                bank_type = PDFParser._detect_bank_format(full_text)
+                logger.info(f"Detected bank format: {bank_type}")
+                
+                if bank_type == 'SBI':
+                    transactions = PDFParser._parse_sbi_format(full_text)
+                elif bank_type == 'GENERIC':
+                    transactions = PDFParser._parse_generic_format(full_text)
+                else:
+                    transactions = PDFParser._parse_generic_format(full_text)
+        
         except Exception as e:
-            print(f"PDF parsing error: {e}")
-
-        # Sort by date and return
+            logger.error(f"PDF parsing error: {e}", exc_info=True)
+            # Try OCR fallback on any error
+            if OCR_AVAILABLE:
+                try:
+                    logger.info("Attempting OCR fallback after parsing error...")
+                    transactions = PDFParser._extract_via_ocr(pdf_path)
+                except Exception as ocr_error:
+                    logger.error(f"OCR fallback failed: {ocr_error}")
+            return []
+        
+        # Sort by date and validate
         if transactions:
-            transactions.sort(key=lambda x: x['date'])
+            transactions.sort(key=lambda x: x['date'] if x['date'] else datetime.now().date())
+            logger.info(f"Successfully extracted {len(transactions)} transactions")
+            return transactions
+        else:
+            logger.warning("No transactions extracted from PDF")
+            return []
+
+    @staticmethod
+    def _extract_from_tables(pdf_path):
+        """Extract transactions from PDF tables (table-based bank statements)"""
+        transactions = []
+        
+        try:
+            with pdfplumber.open(pdf_path) as pdf:
+                for page_num, page in enumerate(pdf.pages):
+                    tables = page.extract_tables()
+                    
+                    if not tables:
+                        logger.debug(f"No tables found on page {page_num + 1}")
+                        continue
+                    
+                    logger.info(f"Found {len(tables)} table(s) on page {page_num + 1}")
+                    
+                    for table_idx, table in enumerate(tables):
+                        if not table or len(table) < 2:
+                            continue
+                        
+                        # Log header for debugging
+                        header = table[0]
+                        logger.debug(f"Table {table_idx} header: {header}")
+                        
+                        # Process data rows (skip header)
+                        for row_idx, row in enumerate(table[1:], 1):
+                            if not row or len(row) < 3:
+                                continue
+                            
+                            try:
+                                # Parse table row: DATE | DESCRIPTION | CATEGORY | AMOUNT
+                                date_str = row[0].strip() if row[0] else ""
+                                description = row[1].strip() if row[1] else ""
+                                amount_str = row[3].strip() if len(row) > 3 and row[3] else ""
+                                
+                                if not date_str or not amount_str or not description:
+                                    continue
+                                
+                                # Parse date from format like "24\nJAN" or "24 JAN"
+                                date_obj = PDFParser._parse_table_date(date_str)
+                                if not date_obj:
+                                    logger.debug(f"Could not parse date: {date_str}")
+                                    continue
+                                
+                                # Parse amount (handles "₹50000.00" or "-₹2500.50" format)
+                                amount, trans_type = PDFParser._parse_table_amount(amount_str)
+                                if amount is None:
+                                    logger.debug(f"Could not parse amount: {amount_str}")
+                                    continue
+                                
+                                transaction = {
+                                    'date': date_obj,
+                                    'description': description[:500],
+                                    'amount': amount,
+                                    'transaction_type': trans_type
+                                }
+                                transactions.append(transaction)
+                                logger.debug(f"Extracted table row: {date_obj} | {description[:30]}... | ₹{amount} ({trans_type})")
+                            
+                            except Exception as e:
+                                logger.debug(f"Error processing table row {row_idx}: {e}")
+                                continue
+            
+            logger.info(f"Total transactions extracted from tables: {len(transactions)}")
             return transactions
         
-        # Fallback safety
-        return StatementParser._create_sample_transactions()
+        except Exception as e:
+            logger.error(f"Table extraction failed: {e}", exc_info=True)
+            return []
+
+    @staticmethod
+    def _parse_table_amount(amount_str):
+        """Parse amount from string like '₹50000.00' or '-₹2500.50' or '+₹50000.00'"""
+        if not amount_str:
+            return None, None
+        
+        # Remove whitespace and newlines
+        amount_str = amount_str.replace('\n', '').strip()
+        
+        # Determine transaction type from + or - prefix
+        trans_type = 'CREDIT' if amount_str.startswith('+') else 'DEBIT'
+        
+        # Extract numeric value (remove currency symbol and commas)
+        match = re.search(r'[\d,]+\.?\d*', amount_str)
+        if not match:
+            return None, None
+        
+        try:
+            amount = float(match.group().replace(',', ''))
+            if amount <= 0:
+                return None, None
+            return amount, trans_type
+        except (ValueError, AttributeError):
+            return None, None
+
+    @staticmethod
+    def _parse_table_date(date_str):
+        """Parse date from string like '24\\nJAN' or '24 JAN' or '24-01-2025'"""
+        if not date_str:
+            return None
+        
+        # Clean up whitespace and newlines
+        date_str = date_str.replace('\n', ' ').strip()
+        
+        # Try multiple date formats
+        formats = [
+            '%d %b',        # "24 JAN"
+            '%d %B',        # "24 January"
+            '%d-%m-%Y',     # "24-01-2025"
+            '%d/%m/%Y',     # "24/01/2025"
+            '%d %b %Y',     # "24 JAN 2025"
+            '%d %B %Y',     # "24 January 2025"
+        ]
+        
+        for fmt in formats:
+            try:
+                parsed = datetime.strptime(date_str, fmt)
+                # If year not provided, use current year (2026)
+                if parsed.year == 1900:
+                    parsed = parsed.replace(year=2026)
+                return parsed.date()
+            except ValueError:
+                continue
+        
+        logger.warning(f"Could not parse table date with any format: {date_str}")
+        return None
+
+    @staticmethod
+    def _detect_bank_format(text):
+        """Detect which bank format the PDF contains"""
+        text_lower = text.lower()
+        
+        if 'sbi' in text_lower or 'state bank' in text_lower:
+            return 'SBI'
+        elif 'canara' in text_lower:
+            return 'CANARA'
+        elif 'icici' in text_lower:
+            return 'ICICI'
+        elif 'hdfc' in text_lower:
+            return 'HDFC'
+        elif 'axis' in text_lower:
+            return 'AXIS'
+        else:
+            return 'GENERIC'
+
+    @staticmethod
+    def _parse_sbi_format(text):
+        """Parse SBI-style statements with flexible regex patterns"""
+        transactions = []
+        logger.debug("Parsing with SBI format rules")
+        
+        # Pattern 1: DEBIT transactions (- - amount balance)
+        debit_pattern = re.compile(
+            r'(\d{2}-\d{2}-\d{2}|\d{1,2}/\d{1,2}/\d{2,4})\s+'     # Date: DD-MM-YY or DD/MM/YYYY
+            r'(.+?)\s+'
+            r'-\s+-\s+'
+            r'([\d,]+\.?\d+)\s+'
+            r'([\d,]+\.?\d+)'
+        )
+        
+        # Pattern 2: CREDIT transactions (- amount - balance)
+        credit_pattern = re.compile(
+            r'(\d{2}-\d{2}-\d{2}|\d{1,2}/\d{1,2}/\d{2,4})\s+'
+            r'(.+?)\s+'
+            r'-\s+'
+            r'([\d,]+\.?\d+)\s+'
+            r'-\s+'
+            r'([\d,]+\.?\d+)'
+        )
+        
+        # Extract DEBIT transactions
+        for match in debit_pattern.finditer(text):
+            date_str, description, amount_str, _balance = match.groups()
+            transaction = PDFParser._parse_transaction(date_str, description, amount_str, 'DEBIT')
+            if transaction:
+                transactions.append(transaction)
+        
+        # Extract CREDIT transactions
+        for match in credit_pattern.finditer(text):
+            date_str, description, amount_str, _balance = match.groups()
+            transaction = PDFParser._parse_transaction(date_str, description, amount_str, 'CREDIT')
+            if transaction:
+                transactions.append(transaction)
+        
+        logger.debug(f"SBI format: extracted {len(transactions)} transactions")
+        return transactions
+
+    @staticmethod
+    def _parse_generic_format(text):
+        """Parse generic bank statement formats"""
+        transactions = []
+        logger.debug("Parsing with generic format rules")
+        
+        # More flexible patterns for various bank formats
+        # Pattern: date description amount type balance
+        generic_pattern = re.compile(
+            r'(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})\s+'
+            r'([A-Za-z0-9\s/.,:-]+?)\s+'
+            r'(DR|CR|D|C|DEBIT|CREDIT)\s+'
+            r'([\d,]+\.?\d+)'
+        )
+        
+        for match in generic_pattern.finditer(text):
+            date_str, description, trans_type, amount_str = match.groups()
+            trans_type_mapped = 'DEBIT' if trans_type.upper() in ['DR', 'D', 'DEBIT'] else 'CREDIT'
+            transaction = PDFParser._parse_transaction(date_str, description, amount_str, trans_type_mapped)
+            if transaction:
+                transactions.append(transaction)
+        
+        logger.debug(f"Generic format: extracted {len(transactions)} transactions")
+        return transactions
+
+    @staticmethod
+    def _extract_via_ocr(pdf_path):
+        """Extract transactions from scanned PDF using OCR"""
+        logger.info("Extracting via OCR for scanned PDF...")
+        transactions = []
+        
+        try:
+            doc = fitz.open(pdf_path)
+            full_text = ""
+            
+            for page_num, page in enumerate(doc):
+                logger.debug(f"OCR processing page {page_num + 1}")
+                pix = page.get_pixmap(matrix=fitz.Matrix(200/72, 200/72))
+                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                ocr_text = pytesseract.image_to_string(img)
+                full_text += ocr_text + "\n"
+            
+            doc.close()
+            
+            if full_text.strip():
+                # Try to parse the OCR'd text
+                transactions = PDFParser._parse_generic_format(full_text)
+                logger.info(f"OCR extraction: {len(transactions)} transactions found")
+            else:
+                logger.warning("OCR produced no text")
+        
+        except Exception as e:
+            logger.error(f"OCR extraction failed: {e}", exc_info=True)
+        
+        return transactions
 
     @staticmethod
     def _parse_transaction(date_str, description, amount_str, trans_type):
-        """Helper method to parse individual transaction"""
+        """Helper method to parse individual transaction with flexible date parsing"""
         try:
-            # Parse date
-            date = datetime.strptime(date_str, '%d-%m-%y').date()
-            description = description.strip()
+            date = PDFParser._parse_date(date_str)
+            
+            if date is None:
+                logger.warning(f"Could not parse date: {date_str}")
+                return None
+            
+            description = description.strip()[:500]  # Limit description length
             
             # Parse amount
             amount = float(amount_str.replace(',', ''))
             if amount <= 0:
+                logger.debug(f"Skipping zero/negative amount: {amount}")
                 return None
-
-            return {
+            
+            transaction = {
                 'date': date,
                 'description': description,
                 'amount': amount,
                 'transaction_type': trans_type
             }
-        except (ValueError, AttributeError):
+            logger.debug(f"Parsed transaction: {date} {description[:30]}... {amount} {trans_type}")
+            return transaction
+        
+        except (ValueError, AttributeError) as e:
+            logger.warning(f"Failed to parse transaction - Date: {date_str}, Amount: {amount_str}, Error: {e}")
+            return None
+
+    @staticmethod
+    def _parse_date(date_str):
+        """Parse date string with multiple format support"""
+        try:
+            date = None
+            date_formats = ['%d-%m-%y', '%d-%m-%Y', '%d/%m/%y', '%d/%m/%Y', '%d-%m', '%m-%d', '%Y-%m-%d']
+            
+            for fmt in date_formats:
+                try:
+                    date = datetime.strptime(str(date_str).strip(), fmt).date()
+                    logger.debug(f"Parsed date '{date_str}' with format '{fmt}' -> {date}")
+                    return date
+                except ValueError:
+                    continue
+            
+            return None
+        except Exception as e:
+            logger.warning(f"Error parsing date: {date_str}, {e}")
             return None
 
 class ExcelParser:
