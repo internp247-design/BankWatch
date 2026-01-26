@@ -238,18 +238,25 @@ class PDFParser:
             return []
 
     @staticmethod
-    def _parse_table_amount(amount_str):
-        """Parse amount from string like '₹50000.00' or '-₹2500.50' or '+₹50000.00'"""
+    def _extract_amount_and_type(amount_str):
+        """Extract amount and transaction type from string, using minus sign as source of truth.
+        
+        Minus sign indicates DEBIT. No minus sign (or plus sign) indicates CREDIT.
+        Returns: (absolute_amount, transaction_type) or (None, None) on error
+        """
         if not amount_str:
             return None, None
         
         # Remove whitespace and newlines
         amount_str = amount_str.replace('\n', '').strip()
         
-        # Determine transaction type from + or - prefix
-        trans_type = 'CREDIT' if amount_str.startswith('+') else 'DEBIT'
+        # Check for minus sign as the primary indicator of DEBIT
+        has_minus = '-' in amount_str
         
-        # Extract numeric value (remove currency symbol and commas)
+        # Determine transaction type: minus = DEBIT, no minus = CREDIT
+        trans_type = 'DEBIT' if has_minus else 'CREDIT'
+        
+        # Extract numeric value (remove currency symbol, commas, +/- signs)
         match = re.search(r'[\d,]+\.?\d*', amount_str)
         if not match:
             return None, None
@@ -261,6 +268,14 @@ class PDFParser:
             return amount, trans_type
         except (ValueError, AttributeError):
             return None, None
+
+    @staticmethod
+    def _parse_table_amount(amount_str):
+        """Parse amount from string like '₹50000.00' or '-₹2500.50' or '+₹50000.00'
+        
+        Uses minus sign as the primary indicator for transaction type.
+        """
+        return PDFParser._extract_amount_and_type(amount_str)
 
     @staticmethod
     def _parse_table_date(date_str):
@@ -411,8 +426,11 @@ class PDFParser:
         return transactions
 
     @staticmethod
-    def _parse_transaction(date_str, description, amount_str, trans_type):
-        """Helper method to parse individual transaction with flexible date parsing"""
+    def _parse_transaction(date_str, description, amount_str, trans_type=None):
+        """Helper method to parse individual transaction with flexible date parsing.
+        
+        If trans_type is not provided, it will be extracted from the amount_str using minus sign detection.
+        """
         try:
             date = PDFParser._parse_date(date_str)
             
@@ -422,19 +440,27 @@ class PDFParser:
             
             description = description.strip()[:500]  # Limit description length
             
-            # Parse amount
-            amount = float(amount_str.replace(',', ''))
-            if amount <= 0:
-                logger.debug(f"Skipping zero/negative amount: {amount}")
-                return None
+            # If trans_type provided, use standard parsing; otherwise extract from amount
+            if trans_type:
+                amount = float(amount_str.replace(',', ''))
+                if amount <= 0:
+                    logger.debug(f"Skipping zero/negative amount: {amount}")
+                    return None
+                final_trans_type = trans_type
+            else:
+                # Use minus sign detection for automatic type determination
+                amount, final_trans_type = PDFParser._extract_amount_and_type(amount_str)
+                if amount is None:
+                    logger.debug(f"Could not parse amount: {amount_str}")
+                    return None
             
             transaction = {
                 'date': date,
                 'description': description,
                 'amount': amount,
-                'transaction_type': trans_type
+                'transaction_type': final_trans_type
             }
-            logger.debug(f"Parsed transaction: {date} {description[:30]}... {amount} {trans_type}")
+            logger.debug(f"Parsed transaction: {date} {description[:30]}... {amount} {final_trans_type}")
             return transaction
         
         except (ValueError, AttributeError) as e:
@@ -587,15 +613,23 @@ class ExcelParser:
                     else:
                         description = f"Transaction {index + 1}"
                     
-                    # Get amount
+                    # Get amount using minus sign detection
                     amount = 0
                     transaction_type = 'DEBIT'
                     
                     if amount_col:
                         if pd.notna(row[amount_col]):
-                            amount_val = float(row[amount_col])
-                            amount = abs(amount_val)
-                            transaction_type = 'DEBIT' if amount_val < 0 else 'CREDIT'
+                            # Convert value to string for processing with _extract_amount_and_type
+                            amount_str = str(row[amount_col])
+                            extracted_amount, extracted_type = PDFParser._extract_amount_and_type(amount_str)
+                            if extracted_amount is not None:
+                                amount = extracted_amount
+                                transaction_type = extracted_type
+                            else:
+                                # Fallback to numeric parsing for values without minus sign
+                                amount_val = float(row[amount_col])
+                                amount = abs(amount_val)
+                                transaction_type = 'DEBIT' if amount_val < 0 else 'CREDIT'
                     
                     if amount == 0:
                         continue
