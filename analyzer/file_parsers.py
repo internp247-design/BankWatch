@@ -169,7 +169,12 @@ class PDFParser:
 
     @staticmethod
     def _extract_from_tables(pdf_path):
-        """Extract transactions from PDF tables (table-based bank statements)"""
+        """Extract transactions from PDF tables (table-based bank statements).
+        
+        Supports both:
+        1. Separate DEBIT and CREDIT columns (reads from appropriate column)
+        2. Single AMOUNT column with +/- signs (uses minus sign detection)
+        """
         transactions = []
         
         try:
@@ -191,30 +196,77 @@ class PDFParser:
                         header = table[0]
                         logger.debug(f"Table {table_idx} header: {header}")
                         
+                        # Identify column indices
+                        date_col, desc_col, debit_col, credit_col, amount_col = PDFParser._identify_table_columns(header)
+                        logger.info(f"Table {table_idx} - Date:[{date_col}] Desc:[{desc_col}] Debit:[{debit_col}] Credit:[{credit_col}] Amount:[{amount_col}]")
+                        
                         # Process data rows (skip header)
                         for row_idx, row in enumerate(table[1:], 1):
                             if not row or len(row) < 3:
                                 continue
                             
                             try:
-                                # Parse table row: DATE | DESCRIPTION | CATEGORY | AMOUNT
-                                date_str = row[0].strip() if row[0] else ""
-                                description = row[1].strip() if row[1] else ""
-                                amount_str = row[3].strip() if len(row) > 3 and row[3] else ""
+                                # Parse table row
+                                date_str = row[date_col].strip() if date_col < len(row) and row[date_col] else ""
+                                description = row[desc_col].strip() if desc_col < len(row) and row[desc_col] else ""
                                 
-                                if not date_str or not amount_str or not description:
+                                if not date_str or not description:
+                                    logger.debug(f"Row {row_idx}: Skipping - missing date or description")
                                     continue
                                 
                                 # Parse date from format like "24\nJAN" or "24 JAN"
                                 date_obj = PDFParser._parse_table_date(date_str)
                                 if not date_obj:
-                                    logger.debug(f"Could not parse date: {date_str}")
+                                    logger.debug(f"Row {row_idx}: Could not parse date: {date_str}")
                                     continue
                                 
-                                # Parse amount (handles "₹50000.00" or "-₹2500.50" format)
-                                amount, trans_type = PDFParser._parse_table_amount(amount_str)
-                                if amount is None:
-                                    logger.debug(f"Could not parse amount: {amount_str}")
+                                # Determine transaction type and amount
+                                amount = None
+                                trans_type = None
+                                
+                                # Strategy 1: Try separate DEBIT and CREDIT columns first
+                                if debit_col is not None and credit_col is not None:
+                                    debit_str = row[debit_col].strip() if debit_col < len(row) and row[debit_col] else ""
+                                    credit_str = row[credit_col].strip() if credit_col < len(row) and row[credit_col] else ""
+                                    
+                                    # Remove common empty placeholders
+                                    debit_empty = not debit_str or debit_str.upper() in ['', 'NONE', '-', '0', '0.00']
+                                    credit_empty = not credit_str or credit_str.upper() in ['', 'NONE', '-', '0', '0.00']
+                                    
+                                    # Prefer non-empty column
+                                    if not debit_empty and credit_empty:
+                                        # Debit has value, credit is empty
+                                        amount, _ = PDFParser._parse_table_amount(debit_str)
+                                        trans_type = 'DEBIT'
+                                        logger.debug(f"Row {row_idx}: Found in DEBIT column[{debit_col}]: {debit_str}")
+                                    elif debit_empty and not credit_empty:
+                                        # Credit has value, debit is empty
+                                        amount, _ = PDFParser._parse_table_amount(credit_str)
+                                        trans_type = 'CREDIT'
+                                        logger.debug(f"Row {row_idx}: Found in CREDIT column[{credit_col}]: {credit_str}")
+                                    elif not debit_empty and not credit_empty:
+                                        # Both have values - use the one that's not zero
+                                        debit_amount, _ = PDFParser._parse_table_amount(debit_str)
+                                        credit_amount, _ = PDFParser._parse_table_amount(credit_str)
+                                        
+                                        if debit_amount and (not credit_amount or debit_amount > 0):
+                                            amount = debit_amount
+                                            trans_type = 'DEBIT'
+                                            logger.debug(f"Row {row_idx}: Both columns non-empty, using DEBIT: {debit_str}")
+                                        elif credit_amount:
+                                            amount = credit_amount
+                                            trans_type = 'CREDIT'
+                                            logger.debug(f"Row {row_idx}: Both columns non-empty, using CREDIT: {credit_str}")
+                                
+                                # Strategy 2: Fallback to single amount column if separate columns didn't work
+                                if amount is None and amount_col is not None:
+                                    amount_str = row[amount_col].strip() if amount_col < len(row) and row[amount_col] else ""
+                                    if amount_str:
+                                        amount, trans_type = PDFParser._parse_table_amount(amount_str)
+                                        logger.debug(f"Row {row_idx}: Using fallback AMOUNT column[{amount_col}]: {amount_str}")
+                                
+                                if amount is None or trans_type is None:
+                                    logger.debug(f"Row {row_idx}: Could not parse amount or determine transaction type")
                                     continue
                                 
                                 transaction = {
@@ -224,10 +276,10 @@ class PDFParser:
                                     'transaction_type': trans_type
                                 }
                                 transactions.append(transaction)
-                                logger.debug(f"Extracted table row: {date_obj} | {description[:30]}... | ₹{amount} ({trans_type})")
+                                logger.info(f"Row {row_idx}: Extracted | {date_obj} | {description[:30]}... | ₹{amount} ({trans_type})")
                             
                             except Exception as e:
-                                logger.debug(f"Error processing table row {row_idx}: {e}")
+                                logger.debug(f"Row {row_idx}: Error processing - {e}")
                                 continue
             
             logger.info(f"Total transactions extracted from tables: {len(transactions)}")
@@ -308,6 +360,59 @@ class PDFParser:
         
         logger.warning(f"Could not parse table date with any format: {date_str}")
         return None
+
+    @staticmethod
+    def _identify_table_columns(header):
+        """Identify column indices for date, description, debit, credit, and amount columns.
+        
+        Analyzes table header to find:
+        - Date column (transaction date, tran date, posted, etc.)
+        - Description column (description, narration, particulars, trans desc, etc.)
+        - Debit column (debit, withdrawal, dr, debit amt, etc.)
+        - Credit column (credit, deposit, cr, credit amt, etc.)
+        - Amount column (fallback for single amount column with +/- signs)
+        
+        Returns: (date_col, desc_col, debit_col, credit_col, amount_col)
+        """
+        if not header:
+            return 0, 1, None, None, 3
+        
+        date_col = None
+        desc_col = None
+        debit_col = None
+        credit_col = None
+        amount_col = None
+        
+        # Convert header to lowercase for comparison
+        header_lower = [str(h).lower() if h else "" for h in header]
+        
+        # Find columns by keyword matching
+        for idx, col_name in enumerate(header_lower):
+            if not col_name:
+                continue
+            
+            if any(kw in col_name for kw in ['date', 'transaction date', 'tran date', 'posted']):
+                date_col = idx
+            elif any(kw in col_name for kw in ['description', 'narration', 'particulars', 'details', 'trans desc']):
+                desc_col = idx
+            elif any(kw in col_name for kw in ['debit', 'withdrawal', 'dr', 'debit amt']):
+                debit_col = idx
+            elif any(kw in col_name for kw in ['credit', 'deposit', 'cr', 'credit amt']):
+                credit_col = idx
+            elif any(kw in col_name for kw in ['amount', 'value']):
+                amount_col = idx
+        
+        # Use defaults if not found
+        if date_col is None:
+            date_col = 0
+        if desc_col is None:
+            desc_col = 1
+        if amount_col is None:
+            amount_col = 3
+        
+        logger.debug(f"Table columns identified - Date: {date_col}, Desc: {desc_col}, Debit: {debit_col}, Credit: {credit_col}, Amount: {amount_col}")
+        
+        return date_col, desc_col, debit_col, credit_col, amount_col
 
     @staticmethod
     def _detect_bank_format(text):
