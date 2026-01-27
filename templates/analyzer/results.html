@@ -324,7 +324,21 @@
             </div>
         </div>
 
-        
+        <!-- Pagination Controls -->
+        <div class="pagination-controls">
+            <div class="pagination-info">
+                <span id="paginationInfo">Page 1</span>
+            </div>
+            <div class="pagination-buttons">
+                <button id="prevPageBtn" class="btn btn-sm btn-outline-primary" style="display: none;">
+                    <i class="fas fa-chevron-left"></i> Previous
+                </button>
+                <span id="pageNumbers" class="page-numbers"></span>
+                <button id="nextPageBtn" class="btn btn-sm btn-outline-primary" style="display: none;">
+                    Next <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -831,6 +845,41 @@
 
     .amount.expense {
         color: #e74c3c;
+    }
+
+    /* Pagination Styles */
+    .pagination-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
+    }
+
+    .pagination-info {
+        font-weight: 600;
+        color: #2c3e50;
+        font-size: 0.95rem;
+    }
+
+    .pagination-buttons {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .page-numbers {
+        display: flex;
+        gap: 5px;
+    }
+
+    .page-numbers .btn {
+        padding: 6px 12px;
+        font-size: 0.85rem;
+        min-width: 40px;
     }
 
     @media (max-width: 768px) {
@@ -1559,10 +1608,22 @@
             });
         }
         
-        // Function to apply time filter
-        function applyTimeFilter(period, startDate = null, endDate = null) {
+        // Global filter state to persist across pagination
+        let currentFilter = {
+            period: 'all',
+            startDate: null,
+            endDate: null
+        };
+        
+        // Function to apply time filter with pagination support
+        function applyTimeFilter(period, startDate = null, endDate = null, page = 1) {
+            // Store filter state
+            currentFilter.period = period;
+            currentFilter.startDate = startDate;
+            currentFilter.endDate = endDate;
+            
             const statementId = {{ statement.id }};
-            let url = `/analyzer/api/statements/${statementId}/transactions-filtered/?period=${period}`;
+            let url = `/analyzer/api/statements/${statementId}/transactions-filtered/?period=${period}&page=${page}`;
             
             if (period === 'custom' && startDate && endDate) {
                 url += `&start_date=${startDate}&end_date=${endDate}`;
@@ -1577,6 +1638,9 @@
                         
                         // Update transactions table
                         updateResultsTransactions(data.transactions);
+                        
+                        // Update pagination controls
+                        updatePaginationControls(data);
                         
                         // Update charts
                         updateResultsCharts(data.category_totals, data.income, data.expenses);
@@ -1613,29 +1677,102 @@
         
         // Update transactions table on results page
         function updateResultsTransactions(transactions) {
-            const tbody = document.querySelector('.transactions-table tbody');
-            if (!tbody) return;
+            const tableBody = document.querySelector('.table-body');
+            if (!tableBody) return;
             
-            let html = '';
+            // Clear existing transactions
+            tableBody.innerHTML = '';
+            
             if (transactions.length === 0) {
-                html = '<tr><td colspan="6" class="text-center">No transactions found for the selected period</td></tr>';
+                tableBody.innerHTML = '<div class="table-row empty"><div class="table-cell">No transactions found for the selected period</div></div>';
             } else {
                 transactions.forEach(tx => {
-                    html += `
-                        <tr>
-                            <td>${tx.date}</td>
-                            <td>${tx.description}</td>
-                            <td>${tx.category_display}</td>
-                            <td class="amount ${tx.transaction_type === 'CREDIT' ? 'income' : 'expense'}">
-                                ₹${parseFloat(tx.amount).toFixed(2)}
-                            </td>
-                            <td>${tx.transaction_type}</td>
-                            <td>${tx.user_label || '-'}</td>
-                        </tr>
+                    const transactionRow = document.createElement('div');
+                    transactionRow.className = 'table-row';
+                    transactionRow.setAttribute('data-transaction-id', tx.id);
+                    
+                    const amountClass = tx.transaction_type === 'CREDIT' ? 'income' : 'expense';
+                    const amountPrefix = tx.transaction_type === 'CREDIT' ? '+' : '-';
+                    
+                    // Parse date for display
+                    const dateObj = new Date(tx.date);
+                    const day = dateObj.getDate();
+                    const month = dateObj.toLocaleString('default', { month: 'short' }).toUpperCase();
+                    
+                    transactionRow.innerHTML = `
+                        <div class="table-cell date">
+                            <div class="date-day">${day}</div>
+                            <div class="date-month">${month}</div>
+                        </div>
+                        <div class="table-cell description">
+                            <div class="desc-main">${tx.description}</div>
+                            <div class="desc-sub">${new Date(tx.date).toLocaleDateString('default', { weekday: 'long' })}</div>
+                        </div>
+                        <div class="table-cell category">
+                            <span class="category-badge ${tx.category}">
+                                ${tx.category_display}
+                            </span>
+                        </div>
+                        <div class="table-cell amount ${amountClass}">
+                            ${amountPrefix}₹${parseFloat(tx.amount).toFixed(2)}
+                        </div>
                     `;
+                    
+                    tableBody.appendChild(transactionRow);
                 });
             }
-            tbody.innerHTML = html;
+            
+            // Update transaction count
+            const countBadge = document.querySelector('.count-badge');
+            if (countBadge) {
+                countBadge.textContent = `${transactions.length} transaction${transactions.length !== 1 ? 's' : ''} (Current Page)`;
+            }
+        }
+        
+        // Update pagination controls
+        function updatePaginationControls(data) {
+            const prevBtn = document.getElementById('prevPageBtn');
+            const nextBtn = document.getElementById('nextPageBtn');
+            const pageNumbers = document.getElementById('pageNumbers');
+            const paginationInfo = document.getElementById('paginationInfo');
+            
+            // Update pagination info
+            paginationInfo.textContent = `Page ${data.current_page} of ${data.total_pages}`;
+            
+            // Show/hide previous button
+            if (data.has_previous) {
+                prevBtn.style.display = 'inline-block';
+                prevBtn.onclick = () => applyTimeFilter(currentFilter.period, currentFilter.startDate, currentFilter.endDate, data.current_page - 1);
+            } else {
+                prevBtn.style.display = 'none';
+            }
+            
+            // Show/hide next button
+            if (data.has_next) {
+                nextBtn.style.display = 'inline-block';
+                nextBtn.onclick = () => applyTimeFilter(currentFilter.period, currentFilter.startDate, currentFilter.endDate, data.current_page + 1);
+            } else {
+                nextBtn.style.display = 'none';
+            }
+            
+            // Generate page numbers
+            pageNumbers.innerHTML = '';
+            if (data.page_range && data.page_range.length > 1) {
+                data.page_range.forEach(pageNum => {
+                    const pageBtn = document.createElement('button');
+                    pageBtn.className = `btn btn-sm ${pageNum === data.current_page ? 'btn-primary' : 'btn-outline-primary'}`;
+                    pageBtn.textContent = pageNum;
+                    pageBtn.style.marginLeft = '5px';
+                    
+                    if (pageNum !== data.current_page) {
+                        pageBtn.onclick = () => applyTimeFilter(currentFilter.period, currentFilter.startDate, currentFilter.endDate, pageNum);
+                    } else {
+                        pageBtn.disabled = true;
+                    }
+                    
+                    pageNumbers.appendChild(pageBtn);
+                });
+            }
         }
         
         // Update charts on results page

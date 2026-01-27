@@ -3573,12 +3573,16 @@ def get_account_summary_data(request, account_id):
 def get_results_transactions_filtered(request, statement_id):
     """
     API endpoint to get filtered transactions for results page with custom date range support
+    Supports pagination with page parameter and persistent date filters
     """
     try:
+        from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+        
         statement = get_object_or_404(BankStatement, id=statement_id, account__user=request.user)
         time_period = request.GET.get('period', 'all')
         start_date_str = request.GET.get('start_date')
         end_date_str = request.GET.get('end_date')
+        page = request.GET.get('page', 1)
         
         # Get all transactions for this statement
         all_transactions = Transaction.objects.filter(statement=statement).order_by('-date')
@@ -3649,9 +3653,16 @@ def get_results_transactions_filtered(request, statement_id):
             category = transaction.get_category_display()
             category_totals[category] = category_totals.get(category, 0) + float(transaction.amount)
         
-        # Build transaction list
+        # Implement pagination - 10 transactions per page
+        paginator = Paginator(transactions, 10)
+        try:
+            page_obj = paginator.page(page)
+        except (PageNotAnInteger, EmptyPage):
+            page_obj = paginator.page(1)
+        
+        # Build transaction list for the current page only
         transactions_data = []
-        for tx in transactions:
+        for tx in page_obj:
             transactions_data.append({
                 'id': tx.id,
                 'date': str(tx.date),
@@ -3671,11 +3682,18 @@ def get_results_transactions_filtered(request, statement_id):
             'category_totals': category_totals,
             'transactions': transactions_data,
             'transaction_count': transactions.count(),
-            'period': time_period
+            'period': time_period,
+            'current_page': page_obj.number,
+            'total_pages': paginator.num_pages,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous(),
+            'page_range': list(paginator.page_range)
         })
         
     except BankStatement.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Statement not found'}, status=404)
     except Exception as e:
         print(f"ERROR - Failed to get results transactions: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
