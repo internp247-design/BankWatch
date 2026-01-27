@@ -1,55 +1,121 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8 text-center">
-        <h1 class="display-4 mb-4">Welcome to BANKWATCH</h1>
-        <p class="lead mb-4">Smart Bank Statement Analyzer - Gain instant insights into your finances</p>
-        
-        <div class="row mb-5">
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <i class="fas fa-upload fa-3x text-primary mb-3"></i>
-                        <h5>Upload PDF</h5>
-                        <p>Simply upload your bank statement PDF</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <i class="fas fa-chart-pie fa-3x text-success mb-3"></i>
-                        <h5>Automatic Analysis</h5>
-                        <p>Get categorized spending insights</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <i class="fas fa-chart-line fa-3x text-warning mb-3"></i>
-                        <h5>Visual Reports</h5>
-                        <p>Beautiful charts and financial summaries</p>
-                    </div>
-                </div>
-            </div>
-        </div>
 
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="hero-content">
+        <h1 class="hero-headline">Advanced Bank Statement Analysis Made Simple</h1>
+        <p class="hero-subtext">
+            Leverage AI-powered intelligence to analyze your bank statements in PDF, Excel, and CSV formats. Gain deep financial insights with automated categorization and intelligent reporting.
+        </p>
         {% if not user.is_authenticated %}
-        <div class="d-grid gap-2 d-md-flex justify-content-md-center">
-            <a href="{% url 'register' %}" class="btn btn-primary btn-lg me-md-2">
-                <i class="fas fa-user-plus"></i> Join Now
-            </a>
-            <a href="{% url 'login' %}" class="btn btn-outline-primary btn-lg">
-                <i class="fas fa-sign-in-alt"></i> Login
-            </a>
-        </div>
+        <a href="{% url 'register' %}" class="btn-primary-cta">
+            <i class="fas fa-upload"></i> Upload Bank Statement
+        </a>
         {% else %}
-        <a href="{% url 'dashboard' %}" class="btn btn-primary btn-lg">
+        <a href="{% url 'dashboard' %}" class="btn-primary-cta">
             <i class="fas fa-tachometer-alt"></i> Go to Dashboard
         </a>
         {% endif %}
     </div>
-</div>
+</section>
+
+<!-- Features Section -->
+<section class="features-section">
+    <div class="container">
+        <h2 class="features-title">
+            Powerful Features
+            <small>Everything you need for comprehensive financial analysis</small>
+        </h2>
+        
+        <div class="row g-4">
+            <!-- Feature 1: Transaction Categorization -->
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-tags"></i>
+                    </div>
+                    <h3 class="feature-title">Transaction Categorization</h3>
+                    <p class="feature-description">
+                        Automatically categorize every transaction with intelligent rules engine. Organize spending by type, vendor, and amount for better financial clarity.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Feature 2: Spending Analytics -->
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-chart-pie"></i>
+                    </div>
+                    <h3 class="feature-title">Spending Analytics</h3>
+                    <p class="feature-description">
+                        Discover spending patterns with interactive charts and detailed analytics. Identify trends, compare periods, and make informed financial decisions.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Feature 3: Report Generation -->
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-file-pdf"></i>
+                    </div>
+                    <h3 class="feature-title">Report Generation</h3>
+                    <p class="feature-description">
+                        Generate professional financial reports instantly. Export detailed summaries in multiple formats for personal use or business purposes.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Contact Section -->
+<section class="contact-section">
+    <div class="container">
+        <h2 class="contact-title">Get in Touch</h2>
+        
+        <div class="row">
+            <div class="col-md-8 offset-md-2">
+                <div class="contact-card">
+                    <!-- Email -->
+                    <div class="contact-item">
+                        <div class="contact-icon">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                        <div class="contact-details">
+                            <h5>Email Address</h5>
+                            <p><a href="mailto:support@bankwatch.com" style="color: #0066ff; text-decoration: none;">support@bankwatch.com</a></p>
+                        </div>
+                    </div>
+
+                    <!-- Phone -->
+                    <div class="contact-item">
+                        <div class="contact-icon">
+                            <i class="fas fa-phone"></i>
+                        </div>
+                        <div class="contact-details">
+                            <h5>Phone Number</h5>
+                            <p><a href="tel:+1234567890" style="color: #0066ff; text-decoration: none;">+1 (234) 567-8900</a></p>
+                        </div>
+                    </div>
+
+                    <!-- Address -->
+                    <div class="contact-item">
+                        <div class="contact-icon">
+                            <i class="fas fa-map-marker-alt"></i>
+                        </div>
+                        <div class="contact-details">
+                            <h5>Office Address</h5>
+                            <p>123 Financial Street, Suite 100<br>New York, NY 10001<br>United States</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
 {% endblock %}
