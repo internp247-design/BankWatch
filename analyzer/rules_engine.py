@@ -289,12 +289,21 @@ class CustomCategoryRulesEngine:
         if not date:
             return False
         
-        if condition.date_start and date < condition.date_start:
-            return False
-        if condition.date_end and date > condition.date_end:
-            return False
+        # Ensure date is a date object
+        if isinstance(date, str):
+            from datetime import datetime
+            try:
+                date = datetime.strptime(date, '%Y-%m-%d').date()
+            except:
+                return False
         
-        return True
+        if condition.date_start and condition.date_end:
+            return condition.date_start <= date <= condition.date_end
+        elif condition.date_start:
+            return date >= condition.date_start
+        elif condition.date_end:
+            return date <= condition.date_end
+        return False
     
     @staticmethod
     def _matches_rule_static(transaction_data, rule):
@@ -375,9 +384,18 @@ class CustomCategoryRulesEngine:
         if not date:
             return False
         
-        if condition.date_start and date < condition.date_start:
-            return False
-        if condition.date_end and date > condition.date_end:
-            return False
+        # Ensure date is a date object
+        if isinstance(date, str):
+            from datetime import datetime
+            try:
+                date = datetime.strptime(date, '%Y-%m-%d').date()
+            except:
+                return False
         
-        return True
+        if condition.date_start and condition.date_end:
+            return condition.date_start <= date <= condition.date_end
+        elif condition.date_start:
+            return date >= condition.date_start
+        elif condition.date_end:
+            return date <= condition.date_end
+        return False

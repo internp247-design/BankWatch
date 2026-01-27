@@ -143,7 +143,7 @@
                 <select id="transactionTimeFilter" class="time-filter-select">
                     <option value="all">All Time</option>
                     <option value="5days">Last 5 Days</option>
-                    <option value="1week">Last 1 Week</option>
+                    <option value="7days">Last 7 Days</option>
                     <option value="15days">Last 15 Days</option>
                     <option value="30days">Last 30 Days</option>
                     <option value="90days">Last 90 Days</option>
@@ -1568,6 +1568,9 @@
                 tableBody.innerHTML = '<tr><td colspan="6" class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
             }
             
+            // Update summary cards with filtered data
+            updateAccountSummaryCards(accountId, period);
+            
             // Fetch filtered transactions (always start at page 1 when filter changes)
             fetch(`/analyzer/api/accounts/${accountId}/transactions-filtered/?period=${period}&page=1`)
                 .then(response => {
@@ -1589,6 +1592,38 @@
                     tableBody.innerHTML = '<tr><td colspan="6" class="text-center">Error loading transactions. Please try again.</td></tr>';
                 });
         });
+    }
+    
+    // Function to update summary cards (income, expenses, savings)
+    function updateAccountSummaryCards(accountId, period) {
+        fetch(`/analyzer/api/accounts/${accountId}/summary/?period=${period}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update income card
+                    const incomeCard = document.querySelector('.summary-card.income .amount');
+                    if (incomeCard) {
+                        incomeCard.textContent = '₹' + parseFloat(data.income).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                    }
+                    
+                    // Update expenses card
+                    const expensesCard = document.querySelector('.summary-card.expenses .amount');
+                    if (expensesCard) {
+                        expensesCard.textContent = '₹' + parseFloat(data.expenses).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                    }
+                    
+                    // Update savings card
+                    const savingsCard = document.querySelector('.summary-card.savings .amount');
+                    if (savingsCard) {
+                        savingsCard.textContent = '₹' + parseFloat(data.savings).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                    }
+                } else {
+                    console.error('Failed to update summary cards:', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error updating summary cards:', error);
+            });
     }
 </script>
 {% endblock %}

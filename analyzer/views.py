@@ -1509,7 +1509,16 @@ def get_financial_overview_data(request):
     
     # Filter by time period
     now = timezone.now().date()
-    if time_period == '30days':
+    if time_period == '5days':
+        start_date = now - timedelta(days=5)
+        transactions = all_transactions.filter(date__gte=start_date)
+    elif time_period == '7days':
+        start_date = now - timedelta(days=7)
+        transactions = all_transactions.filter(date__gte=start_date)
+    elif time_period == '15days':
+        start_date = now - timedelta(days=15)
+        transactions = all_transactions.filter(date__gte=start_date)
+    elif time_period == '30days':
         start_date = now - timedelta(days=30)
         transactions = all_transactions.filter(date__gte=start_date)
     elif time_period == '90days':
@@ -3357,7 +3366,7 @@ def get_account_transactions_filtered(request, account_id):
     if time_period == '5days':
         start_date = now - timedelta(days=5)
         account_transactions = account_transactions.filter(date__gte=start_date)
-    elif time_period == '1week':
+    elif time_period == '7days':
         start_date = now - timedelta(days=7)
         account_transactions = account_transactions.filter(date__gte=start_date)
     elif time_period == '15days':
@@ -3454,4 +3463,161 @@ def update_transaction_category(request):
         return JsonResponse({'success': False, 'error': 'Transaction not found'}, status=404)
     except Exception as e:
         print(f"ERROR - Failed to update transaction: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def get_account_summary_data(request, account_id):
+    """
+    API endpoint to get account summary (income, expenses, savings) with time period filtering
+    Used by account details page to update summary cards when time period changes
+    """
+    try:
+        account = get_object_or_404(BankAccount, id=account_id, user=request.user)
+        time_period = request.GET.get('period', 'all')
+        
+        # Get all transactions for this account
+        all_transactions = Transaction.objects.filter(
+            statement__account=account
+        )
+        
+        # Apply time period filter
+        now = timezone.now().date()
+        if time_period == '5days':
+            start_date = now - timedelta(days=5)
+            transactions = all_transactions.filter(date__gte=start_date)
+        elif time_period == '7days':
+            start_date = now - timedelta(days=7)
+            transactions = all_transactions.filter(date__gte=start_date)
+        elif time_period == '15days':
+            start_date = now - timedelta(days=15)
+            transactions = all_transactions.filter(date__gte=start_date)
+        elif time_period == '30days':
+            start_date = now - timedelta(days=30)
+            transactions = all_transactions.filter(date__gte=start_date)
+        elif time_period == '90days':
+            start_date = now - timedelta(days=90)
+            transactions = all_transactions.filter(date__gte=start_date)
+        else:  # all time
+            transactions = all_transactions
+        
+        # Calculate income and expenses
+        total_income = transactions.filter(transaction_type='CREDIT').aggregate(
+            total=models.Sum('amount')
+        )['total'] or 0
+        
+        total_expenses = transactions.filter(transaction_type='DEBIT').aggregate(
+            total=models.Sum('amount')
+        )['total'] or 0
+        
+        net_savings = total_income - total_expenses
+        
+        return JsonResponse({
+            'success': True,
+            'income': float(total_income),
+            'expenses': float(total_expenses),
+            'savings': float(net_savings),
+            'transaction_count': transactions.count(),
+            'period': time_period
+        })
+        
+    except BankAccount.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Account not found'}, status=404)
+    except Exception as e:
+        print(f"ERROR - Failed to get account summary: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def get_results_transactions_filtered(request, statement_id):
+    """
+    API endpoint to get filtered transactions for results page with custom date range support
+    """
+    try:
+        statement = get_object_or_404(BankStatement, id=statement_id, account__user=request.user)
+        time_period = request.GET.get('period', 'all')
+        start_date_str = request.GET.get('start_date')
+        end_date_str = request.GET.get('end_date')
+        
+        # Get all transactions for this statement
+        all_transactions = Transaction.objects.filter(statement=statement).order_by('-date')
+        
+        # Apply time period filter
+        now = timezone.now().date()
+        if time_period == '5days':
+            start_date = now - timedelta(days=5)
+            transactions = all_transactions.filter(date__gte=start_date)
+        elif time_period == '7days':
+            start_date = now - timedelta(days=7)
+            transactions = all_transactions.filter(date__gte=start_date)
+        elif time_period == '15days':
+            start_date = now - timedelta(days=15)
+            transactions = all_transactions.filter(date__gte=start_date)
+        elif time_period == '30days':
+            start_date = now - timedelta(days=30)
+            transactions = all_transactions.filter(date__gte=start_date)
+        elif time_period == '90days':
+            start_date = now - timedelta(days=90)
+            transactions = all_transactions.filter(date__gte=start_date)
+        elif time_period == 'custom':
+            # Custom date range
+            if start_date_str and end_date_str:
+                try:
+                    from datetime import datetime as dt
+                    start_date = dt.strptime(start_date_str, '%Y-%m-%d').date()
+                    end_date = dt.strptime(end_date_str, '%Y-%m-%d').date()
+                    transactions = all_transactions.filter(date__gte=start_date, date__lte=end_date)
+                except ValueError:
+                    return JsonResponse({'success': False, 'error': 'Invalid date format'}, status=400)
+            else:
+                return JsonResponse({'success': False, 'error': 'Custom range requires start_date and end_date'}, status=400)
+        else:  # all time
+            transactions = all_transactions
+        
+        # Calculate summary data for filtered transactions
+        total_income = transactions.filter(transaction_type='CREDIT').aggregate(
+            total=models.Sum('amount')
+        )['total'] or 0
+        
+        total_expenses = transactions.filter(transaction_type='DEBIT').aggregate(
+            total=models.Sum('amount')
+        )['total'] or 0
+        
+        net_savings = total_income - total_expenses
+        
+        # Calculate category totals
+        category_totals = {}
+        for transaction in transactions.filter(transaction_type='DEBIT'):
+            category = transaction.get_category_display()
+            category_totals[category] = category_totals.get(category, 0) + float(transaction.amount)
+        
+        # Build transaction list
+        transactions_data = []
+        for tx in transactions:
+            transactions_data.append({
+                'id': tx.id,
+                'date': str(tx.date),
+                'description': tx.description,
+                'amount': float(tx.amount),
+                'category': tx.category,
+                'category_display': tx.get_category_display(),
+                'transaction_type': tx.transaction_type,
+                'user_label': tx.user_label or ''
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'income': float(total_income),
+            'expenses': float(total_expenses),
+            'savings': float(net_savings),
+            'category_totals': category_totals,
+            'transactions': transactions_data,
+            'transaction_count': transactions.count(),
+            'period': time_period
+        })
+        
+    except BankStatement.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Statement not found'}, status=404)
+    except Exception as e:
+        print(f"ERROR - Failed to get results transactions: {str(e)}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)

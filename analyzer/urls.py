@@ -47,5 +47,7 @@ urlpatterns = [
     
     # Transaction filtering and editing
     path('api/accounts/<int:account_id>/transactions-filtered/', views.get_account_transactions_filtered, name='get_account_transactions_filtered'),
+    path('api/accounts/<int:account_id>/summary/', views.get_account_summary_data, name='get_account_summary_data'),
+    path('api/statements/<int:statement_id>/transactions-filtered/', views.get_results_transactions_filtered, name='get_results_transactions_filtered'),
     path('api/transactions/update-category/', views.update_transaction_category, name='update_transaction_category'),
 ]

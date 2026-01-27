@@ -14,12 +14,23 @@
                 <div class="filter-group">
                     <select id="timeFilter" class="time-filter">
                         <option value="all">All Time</option>
+                        <option value="5days">Last 5 Days</option>
                         <option value="7days">Last 7 Days</option>
+                        <option value="15days">Last 15 Days</option>
                         <option value="30days">Last 30 Days</option>
                         <option value="90days">Last 90 Days</option>
                         <option value="custom">Custom Range</option>
                     </select>
                 </div>
+                
+                <!-- Custom Date Range Inputs (hidden by default) -->
+                <div class="filter-group" id="customDateRange" style="display: none;">
+                    <input type="date" id="customStartDate" class="date-input" placeholder="Start Date">
+                    <input type="date" id="customEndDate" class="date-input" placeholder="End Date">
+                    <button id="applyCustomRange" class="btn btn-sm btn-primary">Apply</button>
+                    <button id="cancelCustomRange" class="btn btn-sm btn-secondary">Cancel</button>
+                </div>
+                
                 <a href="{% url 'dashboard' %}" class="back-btn">
                     <i class="fas fa-arrow-left"></i> Back to Dashboard
                 </a>
@@ -1497,11 +1508,154 @@
 
         // Time Filter Functionality
         const timeFilter = document.getElementById('timeFilter');
+        const customDateRange = document.getElementById('customDateRange');
+        const customStartDate = document.getElementById('customStartDate');
+        const customEndDate = document.getElementById('customEndDate');
+        const applyCustomRange = document.getElementById('applyCustomRange');
+        const cancelCustomRange = document.getElementById('cancelCustomRange');
+        
         timeFilter.addEventListener('change', function() {
             const selectedValue = this.value;
-            // Here you would typically make an AJAX call to filter data
-            console.log('Filtering for:', selectedValue);
+            
+            if (selectedValue === 'custom') {
+                // Show custom date range inputs
+                customDateRange.style.display = 'flex';
+                customStartDate.value = '';
+                customEndDate.value = '';
+            } else {
+                // Hide custom date range inputs
+                customDateRange.style.display = 'none';
+                
+                // Apply time period filter
+                applyTimeFilter(selectedValue);
+            }
         });
+        
+        // Custom date range apply button
+        if (applyCustomRange) {
+            applyCustomRange.addEventListener('click', function() {
+                const startDate = customStartDate.value;
+                const endDate = customEndDate.value;
+                
+                if (!startDate || !endDate) {
+                    alert('Please select both start and end dates');
+                    return;
+                }
+                
+                if (startDate > endDate) {
+                    alert('Start date must be before end date');
+                    return;
+                }
+                
+                applyTimeFilter('custom', startDate, endDate);
+            });
+        }
+        
+        // Custom date range cancel button
+        if (cancelCustomRange) {
+            cancelCustomRange.addEventListener('click', function() {
+                customDateRange.style.display = 'none';
+                timeFilter.value = 'all';
+            });
+        }
+        
+        // Function to apply time filter
+        function applyTimeFilter(period, startDate = null, endDate = null) {
+            const statementId = {{ statement.id }};
+            let url = `/analyzer/api/statements/${statementId}/transactions-filtered/?period=${period}`;
+            
+            if (period === 'custom' && startDate && endDate) {
+                url += `&start_date=${startDate}&end_date=${endDate}`;
+            }
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update summary cards
+                        updateResultsSummary(data);
+                        
+                        // Update transactions table
+                        updateResultsTransactions(data.transactions);
+                        
+                        // Update charts
+                        updateResultsCharts(data.category_totals, data.income, data.expenses);
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error applying time filter:', error);
+                    alert('Failed to apply filter. Please try again.');
+                });
+        }
+        
+        // Update summary cards on results page
+        function updateResultsSummary(data) {
+            // Update income
+            const incomeCard = document.querySelector('.summary-card.income .amount');
+            if (incomeCard) {
+                incomeCard.textContent = '₹' + parseFloat(data.income).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            }
+            
+            // Update expenses
+            const expensesCard = document.querySelector('.summary-card.expenses .amount');
+            if (expensesCard) {
+                expensesCard.textContent = '₹' + parseFloat(data.expenses).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            }
+            
+            // Update savings
+            const savingsCard = document.querySelector('.summary-card.savings .amount');
+            if (savingsCard) {
+                savingsCard.textContent = '₹' + parseFloat(data.savings).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            }
+        }
+        
+        // Update transactions table on results page
+        function updateResultsTransactions(transactions) {
+            const tbody = document.querySelector('.transactions-table tbody');
+            if (!tbody) return;
+            
+            let html = '';
+            if (transactions.length === 0) {
+                html = '<tr><td colspan="6" class="text-center">No transactions found for the selected period</td></tr>';
+            } else {
+                transactions.forEach(tx => {
+                    html += `
+                        <tr>
+                            <td>${tx.date}</td>
+                            <td>${tx.description}</td>
+                            <td>${tx.category_display}</td>
+                            <td class="amount ${tx.transaction_type === 'CREDIT' ? 'income' : 'expense'}">
+                                ₹${parseFloat(tx.amount).toFixed(2)}
+                            </td>
+                            <td>${tx.transaction_type}</td>
+                            <td>${tx.user_label || '-'}</td>
+                        </tr>
+                    `;
+                });
+            }
+            tbody.innerHTML = html;
+        }
+        
+        // Update charts on results page
+        function updateResultsCharts(categoryTotals, income, expenses) {
+            // This is a simplified version - you may need to update Chart.js instances
+            // based on your actual chart implementation
+            if (window.spendingChart) {
+                window.spendingChart.data.datasets[0].data = [income];
+                window.spendingChart.data.datasets[1].data = [expenses];
+                window.spendingChart.update();
+            }
+            
+            if (window.categoryChart && categoryTotals) {
+                const labels = Object.keys(categoryTotals);
+                const data = Object.values(categoryTotals);
+                window.categoryChart.data.labels = labels;
+                window.categoryChart.data.datasets[0].data = data;
+                window.categoryChart.update();
+            }
+        }
 
         // Handle rule status toggle
         document.querySelectorAll('.rule-status-toggle').forEach(toggle => {
