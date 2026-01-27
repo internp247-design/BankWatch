@@ -1507,23 +1507,40 @@ def get_financial_overview_data(request):
         statement__account__user=request.user
     )
     
-    # Filter by time period
-    now = timezone.now().date()
+    # Get maximum transaction date to use as reference point (not system date)
+    max_date_obj = all_transactions.aggregate(max_date=models.Max('date'))['max_date']
+    
+    # Filter by time period relative to max transaction date
     if time_period == '5days':
-        start_date = now - timedelta(days=5)
-        transactions = all_transactions.filter(date__gte=start_date)
+        if max_date_obj:
+            start_date = max_date_obj - timedelta(days=5)
+            transactions = all_transactions.filter(date__gte=start_date)
+        else:
+            transactions = all_transactions
     elif time_period == '7days':
-        start_date = now - timedelta(days=7)
-        transactions = all_transactions.filter(date__gte=start_date)
+        if max_date_obj:
+            start_date = max_date_obj - timedelta(days=7)
+            transactions = all_transactions.filter(date__gte=start_date)
+        else:
+            transactions = all_transactions
     elif time_period == '15days':
-        start_date = now - timedelta(days=15)
-        transactions = all_transactions.filter(date__gte=start_date)
+        if max_date_obj:
+            start_date = max_date_obj - timedelta(days=15)
+            transactions = all_transactions.filter(date__gte=start_date)
+        else:
+            transactions = all_transactions
     elif time_period == '30days':
-        start_date = now - timedelta(days=30)
-        transactions = all_transactions.filter(date__gte=start_date)
+        if max_date_obj:
+            start_date = max_date_obj - timedelta(days=30)
+            transactions = all_transactions.filter(date__gte=start_date)
+        else:
+            transactions = all_transactions
     elif time_period == '90days':
-        start_date = now - timedelta(days=90)
-        transactions = all_transactions.filter(date__gte=start_date)
+        if max_date_obj:
+            start_date = max_date_obj - timedelta(days=90)
+            transactions = all_transactions.filter(date__gte=start_date)
+        else:
+            transactions = all_transactions
     else:  # all time
         transactions = all_transactions
     
@@ -3361,23 +3378,30 @@ def get_account_transactions_filtered(request, account_id):
         statement__account=account
     ).select_related('statement', 'edited_by').order_by('-date')
     
-    # Apply time period filter
-    now = timezone.now().date()
+    # Get maximum transaction date to use as reference point (not system date)
+    max_date_obj = account_transactions.aggregate(max_date=models.Max('date'))['max_date']
+    
+    # Apply time period filter relative to max transaction date
     if time_period == '5days':
-        start_date = now - timedelta(days=5)
-        account_transactions = account_transactions.filter(date__gte=start_date)
+        if max_date_obj:
+            start_date = max_date_obj - timedelta(days=5)
+            account_transactions = account_transactions.filter(date__gte=start_date)
     elif time_period == '7days':
-        start_date = now - timedelta(days=7)
-        account_transactions = account_transactions.filter(date__gte=start_date)
+        if max_date_obj:
+            start_date = max_date_obj - timedelta(days=7)
+            account_transactions = account_transactions.filter(date__gte=start_date)
     elif time_period == '15days':
-        start_date = now - timedelta(days=15)
-        account_transactions = account_transactions.filter(date__gte=start_date)
+        if max_date_obj:
+            start_date = max_date_obj - timedelta(days=15)
+            account_transactions = account_transactions.filter(date__gte=start_date)
     elif time_period == '30days':
-        start_date = now - timedelta(days=30)
-        account_transactions = account_transactions.filter(date__gte=start_date)
+        if max_date_obj:
+            start_date = max_date_obj - timedelta(days=30)
+            account_transactions = account_transactions.filter(date__gte=start_date)
     elif time_period == '90days':
-        start_date = now - timedelta(days=90)
-        account_transactions = account_transactions.filter(date__gte=start_date)
+        if max_date_obj:
+            start_date = max_date_obj - timedelta(days=90)
+            account_transactions = account_transactions.filter(date__gte=start_date)
     # else: all time (no filter)
     
     # Pagination
@@ -3481,23 +3505,40 @@ def get_account_summary_data(request, account_id):
             statement__account=account
         )
         
-        # Apply time period filter
-        now = timezone.now().date()
+        # Get maximum transaction date to use as reference point (not system date)
+        max_date_obj = all_transactions.aggregate(max_date=models.Max('date'))['max_date']
+        
+        # Apply time period filter relative to max transaction date
         if time_period == '5days':
-            start_date = now - timedelta(days=5)
-            transactions = all_transactions.filter(date__gte=start_date)
+            if max_date_obj:
+                start_date = max_date_obj - timedelta(days=5)
+                transactions = all_transactions.filter(date__gte=start_date)
+            else:
+                transactions = all_transactions
         elif time_period == '7days':
-            start_date = now - timedelta(days=7)
-            transactions = all_transactions.filter(date__gte=start_date)
+            if max_date_obj:
+                start_date = max_date_obj - timedelta(days=7)
+                transactions = all_transactions.filter(date__gte=start_date)
+            else:
+                transactions = all_transactions
         elif time_period == '15days':
-            start_date = now - timedelta(days=15)
-            transactions = all_transactions.filter(date__gte=start_date)
+            if max_date_obj:
+                start_date = max_date_obj - timedelta(days=15)
+                transactions = all_transactions.filter(date__gte=start_date)
+            else:
+                transactions = all_transactions
         elif time_period == '30days':
-            start_date = now - timedelta(days=30)
-            transactions = all_transactions.filter(date__gte=start_date)
+            if max_date_obj:
+                start_date = max_date_obj - timedelta(days=30)
+                transactions = all_transactions.filter(date__gte=start_date)
+            else:
+                transactions = all_transactions
         elif time_period == '90days':
-            start_date = now - timedelta(days=90)
-            transactions = all_transactions.filter(date__gte=start_date)
+            if max_date_obj:
+                start_date = max_date_obj - timedelta(days=90)
+                transactions = all_transactions.filter(date__gte=start_date)
+            else:
+                transactions = all_transactions
         else:  # all time
             transactions = all_transactions
         
@@ -3542,25 +3583,42 @@ def get_results_transactions_filtered(request, statement_id):
         # Get all transactions for this statement
         all_transactions = Transaction.objects.filter(statement=statement).order_by('-date')
         
-        # Apply time period filter
-        now = timezone.now().date()
+        # Get maximum transaction date to use as reference point (not system date)
+        max_date_obj = all_transactions.aggregate(max_date=models.Max('date'))['max_date']
+        
+        # Apply time period filter relative to max transaction date
         if time_period == '5days':
-            start_date = now - timedelta(days=5)
-            transactions = all_transactions.filter(date__gte=start_date)
+            if max_date_obj:
+                start_date = max_date_obj - timedelta(days=5)
+                transactions = all_transactions.filter(date__gte=start_date)
+            else:
+                transactions = all_transactions
         elif time_period == '7days':
-            start_date = now - timedelta(days=7)
-            transactions = all_transactions.filter(date__gte=start_date)
+            if max_date_obj:
+                start_date = max_date_obj - timedelta(days=7)
+                transactions = all_transactions.filter(date__gte=start_date)
+            else:
+                transactions = all_transactions
         elif time_period == '15days':
-            start_date = now - timedelta(days=15)
-            transactions = all_transactions.filter(date__gte=start_date)
+            if max_date_obj:
+                start_date = max_date_obj - timedelta(days=15)
+                transactions = all_transactions.filter(date__gte=start_date)
+            else:
+                transactions = all_transactions
         elif time_period == '30days':
-            start_date = now - timedelta(days=30)
-            transactions = all_transactions.filter(date__gte=start_date)
+            if max_date_obj:
+                start_date = max_date_obj - timedelta(days=30)
+                transactions = all_transactions.filter(date__gte=start_date)
+            else:
+                transactions = all_transactions
         elif time_period == '90days':
-            start_date = now - timedelta(days=90)
-            transactions = all_transactions.filter(date__gte=start_date)
+            if max_date_obj:
+                start_date = max_date_obj - timedelta(days=90)
+                transactions = all_transactions.filter(date__gte=start_date)
+            else:
+                transactions = all_transactions
         elif time_period == 'custom':
-            # Custom date range
+            # Custom date range (user-specified, not relative to max date)
             if start_date_str and end_date_str:
                 try:
                     from datetime import datetime as dt
