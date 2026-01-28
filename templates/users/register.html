@@ -1,86 +1,771 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="auth-card">
-                <div class="auth-header">
-                    <i class="fas fa-user-plus"></i>
-                    <h2>Create Account</h2>
-                    <p>Join BANKWATCH to analyze your finances</p>
-                </div>
-                
-                <form method="post" class="auth-form">
-                    {% csrf_token %}
-                    
-                    {% if form.errors %}
-                    <div class="alert alert-error">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        Please correct the errors below.
-                    </div>
-                    {% endif %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BankWatch - Create Account</title>
+</head>
+<body>
 
-                    <div class="form-group">
-                        <label for="id_username">
-                            <i class="fas fa-user"></i>
-                            Username
-                        </label>
+<!-- Fixed Navigation Header -->
+<nav class="bankwatch-navbar">
+    <div class="nav-container">
+        <div class="nav-logo">
+            <i class="fas fa-university"></i>
+            <span>BankWatch</span>
+        </div>
+        <a href="{% url 'home' %}" class="nav-link">
+            <i class="fas fa-arrow-left"></i>
+            Back to Home
+        </a>
+    </div>
+</nav>
+
+<!-- Main Split-Screen Container -->
+<div class="register-container">
+    <!-- Left Panel - Onboarding Content -->
+    <div class="register-left-panel">
+        <div class="onboarding-content">
+            <h1 class="onboarding-headline">Join BankWatch Today</h1>
+            <p class="onboarding-description">
+                Take control of your finances with advanced bank statement analysis and intelligent spending insights. Secure, fast, and easy.
+            </p>
+            
+            <div class="features-list">
+                <div class="feature-item">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Advanced spending analytics</span>
+                </div>
+                <div class="feature-item">
+                    <i class="fas fa-crystal-ball"></i>
+                    <span>Financial forecasting tools</span>
+                </div>
+                <div class="feature-item">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Secure bank statement processing</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Panel - Registration Form -->
+    <div class="register-right-panel">
+        <div class="form-card">
+            <div class="form-header">
+                <h2>Create Your Account</h2>
+                <p>Start analyzing your finances in minutes</p>
+            </div>
+
+            <form method="post" class="modern-form">
+                {% csrf_token %}
+
+                {% if form.errors %}
+                <div class="alert alert-error">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <div>
+                        <strong>Please correct the errors below</strong>
+                        <p>{{ form.non_field_errors }}</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Username Field -->
+                <div class="form-group">
+                    <label for="id_username">
+                        <i class="fas fa-user"></i>
+                        Username
+                    </label>
+                    <div class="input-wrapper">
                         {{ form.username }}
                         {% if form.username.errors %}
-                        <div class="error-text">{{ form.username.errors.0 }}</div>
+                        <span class="error-icon"><i class="fas fa-times-circle"></i></span>
                         {% endif %}
                     </div>
+                    {% if form.username.errors %}
+                    <div class="error-text">
+                        <i class="fas fa-info-circle"></i>
+                        {{ form.username.errors.0 }}
+                    </div>
+                    {% endif %}
+                </div>
 
-                    <div class="form-group">
-                        <label for="id_email">
-                            <i class="fas fa-envelope"></i>
-                            Email Address
-                        </label>
+                <!-- Email Field -->
+                <div class="form-group">
+                    <label for="id_email">
+                        <i class="fas fa-envelope"></i>
+                        Email Address
+                    </label>
+                    <div class="input-wrapper">
                         {{ form.email }}
                         {% if form.email.errors %}
-                        <div class="error-text">{{ form.email.errors.0 }}</div>
+                        <span class="error-icon"><i class="fas fa-times-circle"></i></span>
                         {% endif %}
                     </div>
-
-
-                    <div class="form-group">
-                        <label for="id_password1">
-                            <i class="fas fa-lock"></i>
-                            Password
-                        </label>
-                        {{ form.password1 }}
-                        {% if form.password1.errors %}
-                        <div class="error-text">{{ form.password1.errors.0 }}</div>
-                        {% endif %}
+                    {% if form.email.errors %}
+                    <div class="error-text">
+                        <i class="fas fa-info-circle"></i>
+                        {{ form.email.errors.0 }}
                     </div>
-
-                    <div class="form-group">
-                        <label for="id_password2">
-                            <i class="fas fa-lock"></i>
-                            Confirm Password
-                        </label>
-                        {{ form.password2 }}
-                        {% if form.password2.errors %}
-                        <div class="error-text">{{ form.password2.errors.0 }}</div>
-                        {% endif %}
-                    </div>
-
-                    <button type="submit" class="auth-button">
-                        <i class="fas fa-user-plus"></i>
-                        Create Account
-                    </button>
-                </form>
-
-                <div class="auth-footer">
-                    <p>Already have an account? <a href="{% url 'login' %}">Sign In</a></p>
+                    {% endif %}
                 </div>
+
+                <!-- Password Field -->
+                <div class="form-group">
+                    <label for="id_password1">
+                        <i class="fas fa-lock"></i>
+                        Password
+                    </label>
+                    <div class="input-wrapper">
+                        {{ form.password1 }}
+                        <span class="password-toggle" onclick="togglePassword('id_password1')">
+                            <i class="fas fa-eye"></i>
+                        </span>
+                    </div>
+                    {% if form.password1.errors %}
+                    <div class="error-text">
+                        <i class="fas fa-info-circle"></i>
+                        {{ form.password1.errors.0 }}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Confirm Password Field -->
+                <div class="form-group">
+                    <label for="id_password2">
+                        <i class="fas fa-lock"></i>
+                        Confirm Password
+                    </label>
+                    <div class="input-wrapper">
+                        {{ form.password2 }}
+                        <span class="password-toggle" onclick="togglePassword('id_password2')">
+                            <i class="fas fa-eye"></i>
+                        </span>
+                    </div>
+                    {% if form.password2.errors %}
+                    <div class="error-text">
+                        <i class="fas fa-info-circle"></i>
+                        {{ form.password2.errors.0 }}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="submit-btn">
+                    <i class="fas fa-user-plus"></i>
+                    Create Account
+                </button>
+            </form>
+
+            <!-- Login Link -->
+            <div class="form-footer">
+                <p>Already have an account? <a href="{% url 'login' %}">Sign In</a></p>
             </div>
         </div>
     </div>
 </div>
 
+<!-- Footer -->
+<footer class="bankwatch-footer">
+    <div class="footer-container">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>BankWatch</h4>
+                <ul>
+                    <li><a href="{% url 'home' %}">Home</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Legal</h4>
+                <ul>
+                    <li><a href="#">Privacy Policy</a></li>
+                    <li><a href="#">Terms of Service</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Support</h4>
+                <ul>
+                    <li><a href="#">Contact Us</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 BankWatch. All rights reserved. Secure financial analysis platform.</p>
+        </div>
+    </div>
+</footer>
+
 <style>
+    /* Global Styles */
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    html, body {
+        height: 100%;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Poppins', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        background: #f5f7fa;
+        color: #2c3e50;
+    }
+
+    /* Navigation Header */
+    .bankwatch-navbar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        background: white;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        z-index: 1000;
+        padding: 0 20px;
+        height: 70px;
+    }
+
+    .nav-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        height: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .nav-logo {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #2980b9;
+        text-decoration: none;
+    }
+
+    .nav-logo i {
+        font-size: 1.8rem;
+    }
+
+    .nav-link {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #3498db;
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        padding: 8px 16px;
+        border-radius: 6px;
+    }
+
+    .nav-link:hover {
+        background: #ecf0f1;
+        color: #2980b9;
+    }
+
+    /* Main Register Container */
+    .register-container {
+        display: flex;
+        min-height: 100vh;
+        margin-top: 70px;
+        margin-bottom: 200px;
+    }
+
+    /* Left Panel */
+    .register-left-panel {
+        flex: 1;
+        background: linear-gradient(135deg, #3498db 0%, #2980b9 50%, #1e5f8c 100%);
+        color: white;
+        padding: 60px 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: calc(100vh - 70px);
+    }
+
+    .onboarding-content {
+        max-width: 420px;
+    }
+
+    .onboarding-headline {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 20px;
+        line-height: 1.2;
+    }
+
+    .onboarding-description {
+        font-size: 1.1rem;
+        opacity: 0.95;
+        margin-bottom: 50px;
+        line-height: 1.6;
+    }
+
+    .features-list {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    .feature-item {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-size: 1.05rem;
+    }
+
+    .feature-item i {
+        font-size: 1.5rem;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        flex-shrink: 0;
+    }
+
+    /* Right Panel */
+    .register-right-panel {
+        flex: 1;
+        padding: 60px 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: white;
+        min-height: calc(100vh - 70px);
+    }
+
+    .form-card {
+        width: 100%;
+        max-width: 420px;
+    }
+
+    .form-header {
+        text-align: center;
+        margin-bottom: 40px;
+    }
+
+    .form-header h2 {
+        font-size: 1.8rem;
+        color: #2c3e50;
+        margin-bottom: 10px;
+        font-weight: 700;
+    }
+
+    .form-header p {
+        color: #7f8c8d;
+        font-size: 1rem;
+    }
+
+    /* Modern Form */
+    .modern-form {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .form-group label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        color: #2c3e50;
+        font-size: 0.95rem;
+    }
+
+    .form-group label i {
+        color: #3498db;
+        font-size: 1rem;
+    }
+
+    .input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .form-group input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid #e1e5e9;
+        border-radius: 8px;
+        font-size: 1rem;
+        background: #f8f9fa;
+        transition: all 0.3s ease;
+        font-family: inherit;
+    }
+
+    .form-group input:focus {
+        outline: none;
+        border-color: #3498db;
+        background: white;
+        box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.1);
+    }
+
+    .form-group input:valid {
+        border-color: #27ae60;
+    }
+
+    .password-toggle {
+        position: absolute;
+        right: 12px;
+        color: #7f8c8d;
+        cursor: pointer;
+        font-size: 1.1rem;
+        transition: all 0.3s ease;
+        padding: 4px 8px;
+    }
+
+    .password-toggle:hover {
+        color: #3498db;
+    }
+
+    .error-icon {
+        position: absolute;
+        right: 12px;
+        color: #e74c3c;
+        font-size: 1.1rem;
+    }
+
+    /* Error Handling */
+    .error-text {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: #e74c3c;
+        font-size: 0.85rem;
+        margin-top: 4px;
+    }
+
+    .error-text i {
+        font-size: 0.9rem;
+    }
+
+    .alert-error {
+        background: #fadbd8;
+        border: 1px solid #f5b7b1;
+        border-left: 4px solid #e74c3c;
+        border-radius: 8px;
+        padding: 16px;
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        margin-bottom: 20px;
+    }
+
+    .alert-error i {
+        color: #e74c3c;
+        font-size: 1.2rem;
+        margin-top: 2px;
+        flex-shrink: 0;
+    }
+
+    .alert-error div {
+        flex: 1;
+    }
+
+    .alert-error strong {
+        color: #c0392b;
+        display: block;
+        margin-bottom: 4px;
+    }
+
+    .alert-error p {
+        color: #a93226;
+        margin: 0;
+        font-size: 0.9rem;
+    }
+
+    /* Submit Button */
+    .submit-btn {
+        width: 100%;
+        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        color: white;
+        border: none;
+        padding: 14px 16px;
+        border-radius: 8px;
+        font-size: 1.05rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 10px;
+        box-shadow: 0 4px 12px rgba(52, 152, 219, 0.25);
+    }
+
+    .submit-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(52, 152, 219, 0.35);
+    }
+
+    .submit-btn:active {
+        transform: translateY(0);
+    }
+
+    /* Form Footer */
+    .form-footer {
+        text-align: center;
+        margin-top: 24px;
+        padding-top: 24px;
+        border-top: 1px solid #e1e5e9;
+    }
+
+    .form-footer p {
+        color: #7f8c8d;
+        font-size: 0.95rem;
+    }
+
+    .form-footer a {
+        color: #3498db;
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .form-footer a:hover {
+        color: #2980b9;
+        text-decoration: underline;
+    }
+
+    /* Footer */
+    .bankwatch-footer {
+        background: #2c3e50;
+        color: white;
+        padding: 50px 20px 30px;
+        margin-top: 0;
+    }
+
+    .footer-container {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .footer-content {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 40px;
+        margin-bottom: 40px;
+    }
+
+    .footer-section h4 {
+        font-size: 1.1rem;
+        margin-bottom: 16px;
+        font-weight: 600;
+        color: #3498db;
+    }
+
+    .footer-section ul {
+        list-style: none;
+    }
+
+    .footer-section li {
+        margin-bottom: 10px;
+    }
+
+    .footer-section a {
+        color: #bdc3c7;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        font-size: 0.95rem;
+    }
+
+    .footer-section a:hover {
+        color: #3498db;
+    }
+
+    .footer-bottom {
+        text-align: center;
+        padding-top: 30px;
+        border-top: 1px solid #34495e;
+        color: #95a5a6;
+        font-size: 0.9rem;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 1024px) {
+        .register-container {
+            flex-direction: column;
+        }
+
+        .register-left-panel {
+            min-height: auto;
+            padding: 50px 30px;
+        }
+
+        .register-right-panel {
+            min-height: auto;
+            padding: 50px 30px;
+        }
+
+        .onboarding-headline {
+            font-size: 2rem;
+        }
+
+        .form-header h2 {
+            font-size: 1.5rem;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .register-container {
+            margin-bottom: 100px;
+        }
+
+        .register-left-panel {
+            padding: 40px 20px;
+        }
+
+        .register-right-panel {
+            padding: 40px 20px;
+        }
+
+        .onboarding-content {
+            text-align: center;
+        }
+
+        .onboarding-headline {
+            font-size: 1.5rem;
+        }
+
+        .onboarding-description {
+            font-size: 0.95rem;
+        }
+
+        .features-list {
+            gap: 16px;
+        }
+
+        .feature-item {
+            justify-content: center;
+            font-size: 0.95rem;
+        }
+
+        .form-card {
+            padding: 0;
+        }
+
+        .form-header h2 {
+            font-size: 1.3rem;
+        }
+
+        .nav-link {
+            font-size: 0.9rem;
+            padding: 6px 12px;
+        }
+
+        .footer-content {
+            grid-template-columns: 1fr;
+            gap: 24px;
+            text-align: center;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .bankwatch-navbar {
+            padding: 0 12px;
+            height: 60px;
+        }
+
+        .nav-logo {
+            gap: 8px;
+            font-size: 1.2rem;
+        }
+
+        .nav-logo i {
+            font-size: 1.4rem;
+        }
+
+        .register-container {
+            margin-top: 60px;
+            margin-bottom: 80px;
+        }
+
+        .register-left-panel,
+        .register-right-panel {
+            padding: 30px 16px;
+        }
+
+        .onboarding-headline {
+            font-size: 1.3rem;
+            margin-bottom: 16px;
+        }
+
+        .form-header h2 {
+            font-size: 1.1rem;
+        }
+
+        .form-group input {
+            font-size: 16px;
+            padding: 11px 14px;
+        }
+
+        .submit-btn {
+            font-size: 0.95rem;
+            padding: 12px 14px;
+        }
+    }
+</style>
+
+<script>
+    // Password Toggle Functionality
+    function togglePassword(fieldId) {
+        const field = document.getElementById(fieldId);
+        const icon = event.target.closest('.password-toggle').querySelector('i');
+
+        if (field.type === 'password') {
+            field.type = 'text';
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        } else {
+            field.type = 'password';
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+    }
+
+    // Enhanced Form Interactions
+    document.addEventListener('DOMContentLoaded', function() {
+        const inputs = document.querySelectorAll('input[type="text"], input[type="email"], input[type="password"]');
+        
+        inputs.forEach(input => {
+            // Add smooth transitions
+            input.addEventListener('focus', function() {
+                this.closest('.form-group').classList.add('focused');
+            });
+
+            input.addEventListener('blur', function() {
+                this.closest('.form-group').classList.remove('focused');
+            });
+
+            // Real-time validation feedback
+            input.addEventListener('input', function() {
+                const wrapper = this.closest('.input-wrapper');
+                if (wrapper && this.value.trim()) {
+                    this.style.background = '#f0f7ff';
+                } else if (wrapper) {
+                    this.style.background = '#f8f9fa';
+                }
+            });
+        });
+    });
+</script>
+
+</body>
+</html>
+{% endblock %}
     .auth-card {
         background: white;
         border-radius: 15px;
