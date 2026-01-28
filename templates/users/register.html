@@ -198,6 +198,18 @@
 
         .form-group {
             margin-bottom: 22px;
+            position: relative;
+        }
+
+        .form-group.has-value .form-label::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            bottom: -8px;
+            height: 2px;
+            width: 0;
+            background: linear-gradient(90deg, #1e40af, #0c4a6e);
+            border-radius: 2px;
         }
 
         .form-label {
@@ -208,12 +220,23 @@
             font-weight: 600;
             font-size: 14px;
             margin-bottom: 8px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .form-group.focused .form-label {
+            color: #1e40af;
         }
 
         .form-label i {
             color: #1e40af;
             font-size: 16px;
             width: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .form-group.focused .form-label i {
+            transform: scale(1.15);
         }
 
         .password-wrapper {
@@ -224,20 +247,27 @@
 
         .form-input {
             width: 100%;
-            padding: 12px 15px;
-            border: 2px solid #e5e7eb;
-            border-radius: 8px;
+            padding: 13px 15px;
+            border: 2px solid #d1d5db;
+            border-radius: 10px;
             font-size: 15px;
             transition: all 0.3s ease;
-            background: #f9fafb;
+            background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
             font-family: inherit;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
+        }
+
+        .form-input:hover {
+            border-color: #9ca3af;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.06);
         }
 
         .form-input:focus {
             outline: none;
             border-color: #1e40af;
-            background: #ffffff;
-            box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.1);
+            background: linear-gradient(135deg, #ffffff 0%, #f0f4ff 100%);
+            box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.15), 0 4px 12px rgba(30, 64, 175, 0.2);
+            transform: translateY(-2px);
         }
 
         .password-toggle {
@@ -726,15 +756,42 @@
                 // Add focus effects
                 input.addEventListener('focus', function() {
                     this.style.transition = 'all 0.3s ease';
+                    const parent = this.closest('.form-group');
+                    if (parent) {
+                        parent.classList.add('focused');
+                    }
+                });
+                
+                input.addEventListener('blur', function() {
+                    const parent = this.closest('.form-group');
+                    if (parent) {
+                        parent.classList.remove('focused');
+                    }
                 });
                 
                 // Remove error styling when user starts typing
                 input.addEventListener('input', function() {
                     const errorMsg = this.parentElement.querySelector('.error-message');
                     if (errorMsg) {
-                        this.style.borderColor = '#e5e7eb';
+                        this.style.borderColor = '';
+                    }
+                    
+                    // Add has-value class for styling
+                    const parent = this.closest('.form-group');
+                    if (parent && this.value) {
+                        parent.classList.add('has-value');
+                    } else if (parent && !this.value) {
+                        parent.classList.remove('has-value');
                     }
                 });
+                
+                // Check on load if field has value
+                if (input.value) {
+                    const parent = input.closest('.form-group');
+                    if (parent) {
+                        parent.classList.add('has-value');
+                    }
+                }
             });
 
             // Password field specific styling
