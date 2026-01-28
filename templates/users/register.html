@@ -269,6 +269,40 @@
             transform: translateY(-2px);
         }
 
+        /* Specific targeting for Django form username and email fields */
+        #id_username,
+        #id_email {
+            width: 100% !important;
+            padding: 14px 16px !important;
+            border: 2px solid #d1d5db !important;
+            border-radius: 10px !important;
+            font-size: 15px !important;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%) !important;
+            font-family: 'Segoe UI', 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif !important;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+            position: relative !important;
+            z-index: 1 !important;
+        }
+
+        #id_username:hover,
+        #id_email:hover {
+            border-color: #9ca3af !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+            background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%) !important;
+        }
+
+        #id_username:focus,
+        #id_email:focus {
+            outline: none !important;
+            border-color: #1e40af !important;
+            background: linear-gradient(135deg, #ffffff 0%, #f0f4ff 100%) !important;
+            box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.12), 
+                        0 8px 24px rgba(30, 64, 175, 0.18),
+                        inset 0 1px 2px rgba(255, 255, 255, 0.8) !important;
+            transform: translateY(-2px) !important;
+        }
+
         .password-toggle {
             position: absolute;
             right: 12px;
@@ -744,33 +778,52 @@
 
         // Form input styling and validation
         document.addEventListener('DOMContentLoaded', function() {
-            const inputs = document.querySelectorAll('.form-input');
+            // Add form-input class to all inputs
+            const inputs = document.querySelectorAll(
+                'input[type="text"], input[type="email"], input[type="password"]'
+            );
             
             inputs.forEach(input => {
-                // Add bootstrap class for styling
-                if (!input.classList.contains('form-input')) {
-                    input.classList.add('form-input');
-                }
+                input.classList.add('form-input');
                 
                 // Add focus effects
                 input.addEventListener('focus', function() {
-                    this.style.transition = 'all 0.3s ease';
+                    const parent = this.closest('.form-group');
+                    if (parent) {
+                        parent.classList.add('focused');
+                    }
+                });
+                
+                input.addEventListener('blur', function() {
+                    const parent = this.closest('.form-group');
+                    if (parent) {
+                        parent.classList.remove('focused');
+                    }
                 });
                 
                 // Remove error styling when user starts typing
                 input.addEventListener('input', function() {
-                    const errorMsg = this.parentElement.querySelector('.error-message');
+                    const errorMsg = this.closest('.form-group').querySelector('.error-message');
                     if (errorMsg) {
-                        this.style.borderColor = '#e5e7eb';
+                        this.style.borderColor = '';
+                    }
+                    
+                    // Add has-value class for styling
+                    const parent = this.closest('.form-group');
+                    if (parent && this.value) {
+                        parent.classList.add('has-value');
+                    } else if (parent && !this.value) {
+                        parent.classList.remove('has-value');
                     }
                 });
-            });
-
-            // Password field specific styling
-            const passwordFields = document.querySelectorAll('input[type="password"]');
-            passwordFields.forEach(field => {
-                field.classList.add('form-input');
-                field.style.paddingRight = '40px';
+                
+                // Check on load if field has value
+                if (input.value) {
+                    const parent = input.closest('.form-group');
+                    if (parent) {
+                        parent.classList.add('has-value');
+                    }
+                }
             });
         });
 
