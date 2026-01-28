@@ -198,18 +198,6 @@
 
         .form-group {
             margin-bottom: 22px;
-            position: relative;
-        }
-
-        .form-group.has-value .form-label::after {
-            content: '';
-            position: absolute;
-            left: 0;
-            bottom: -8px;
-            height: 2px;
-            width: 0;
-            background: linear-gradient(90deg, #1e40af, #0c4a6e);
-            border-radius: 2px;
         }
 
         .form-label {
@@ -220,23 +208,12 @@
             font-weight: 600;
             font-size: 14px;
             margin-bottom: 8px;
-            position: relative;
-            transition: all 0.3s ease;
-        }
-
-        .form-group.focused .form-label {
-            color: #1e40af;
         }
 
         .form-label i {
             color: #1e40af;
             font-size: 16px;
             width: 16px;
-            transition: all 0.3s ease;
-        }
-
-        .form-group.focused .form-label i {
-            transform: scale(1.15);
         }
 
         .password-wrapper {
@@ -247,27 +224,20 @@
 
         .form-input {
             width: 100%;
-            padding: 13px 15px;
-            border: 2px solid #d1d5db;
-            border-radius: 10px;
+            padding: 12px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
             font-size: 15px;
             transition: all 0.3s ease;
-            background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+            background: #f9fafb;
             font-family: inherit;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
-        }
-
-        .form-input:hover {
-            border-color: #9ca3af;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.06);
         }
 
         .form-input:focus {
             outline: none;
             border-color: #1e40af;
-            background: linear-gradient(135deg, #ffffff 0%, #f0f4ff 100%);
-            box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.15), 0 4px 12px rgba(30, 64, 175, 0.2);
-            transform: translateY(-2px);
+            background: #ffffff;
+            box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.1);
         }
 
         .password-toggle {
@@ -361,79 +331,6 @@
 
         .form-footer a:hover {
             opacity: 0.8;
-        }
-
-        /* === MODERN INPUT UPGRADE - FLOATING LABELS === */
-        .input-wrapper {
-            position: relative;
-            width: 100%;
-        }
-
-        .input-icon {
-            position: absolute;
-            left: 14px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #1e40af;
-            font-size: 15px;
-            opacity: 0.85;
-            transition: all 0.3s ease;
-            pointer-events: none;
-        }
-
-        .floating .form-input {
-            padding-left: 44px;
-            padding-top: 18px;
-            padding-bottom: 8px;
-        }
-
-        /* Floating label */
-        .floating label {
-            position: absolute;
-            left: 44px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #6b7280;
-            font-size: 14px;
-            pointer-events: none;
-            background: white;
-            padding: 0 6px;
-            transition: all 0.3s ease;
-        }
-
-        /* When focused or has value */
-        .floating .form-input:focus + label,
-        .floating.has-value label {
-            top: -6px;
-            font-size: 12px;
-            color: #1e40af;
-            font-weight: 600;
-        }
-
-        /* Icon animation */
-        .floating .form-input:focus ~ .input-icon,
-        .floating.has-value .input-icon {
-            color: #1e40af;
-            transform: translateY(-50%) scale(1.1);
-            opacity: 1;
-        }
-
-        /* Left accent bar */
-        .floating::before {
-            content: "";
-            position: absolute;
-            left: -6px;
-            top: 10%;
-            height: 80%;
-            width: 3px;
-            background: linear-gradient(#1e40af, #0c4a6e);
-            border-radius: 4px;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .floating:focus-within::before {
-            opacity: 1;
         }
 
         /* FOOTER */
@@ -681,36 +578,34 @@
                     {% endif %}
 
                     <!-- Username Field -->
-                    <div class="form-group floating">
-    <div class="input-wrapper">
-        <i class="fas fa-user input-icon"></i>
-        {{ form.username }}
-        <label for="id_username">Username</label>
-    </div>
-    {% if form.username.errors %}
-    <div class="error-message">
-        <i class="fas fa-circle-xmark"></i>
-        {{ form.username.errors.0 }}
-    </div>
-    {% endif %}
-</div>
-
+                    <div class="form-group">
+                        <label class="form-label" for="id_username">
+                            <i class="fas fa-user"></i>
+                            Username
+                        </label>
+                        {{ form.username }}
+                        {% if form.username.errors %}
+                        <div class="error-message">
+                            <i class="fas fa-circle-xmark"></i>
+                            {{ form.username.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
 
                     <!-- Email Field -->
-                    <div class="form-group floating">
-    <div class="input-wrapper">
-        <i class="fas fa-envelope input-icon"></i>
-        {{ form.email }}
-        <label for="id_email">Email Address</label>
-    </div>
-    {% if form.email.errors %}
-    <div class="error-message">
-        <i class="fas fa-circle-xmark"></i>
-        {{ form.email.errors.0 }}
-    </div>
-    {% endif %}
-</div>
-
+                    <div class="form-group">
+                        <label class="form-label" for="id_email">
+                            <i class="fas fa-envelope"></i>
+                            Email Address
+                        </label>
+                        {{ form.email }}
+                        {% if form.email.errors %}
+                        <div class="error-message">
+                            <i class="fas fa-circle-xmark"></i>
+                            {{ form.email.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
 
                     <!-- Password Field -->
                     <div class="form-group">
@@ -802,19 +697,6 @@
     </footer>
 
     <script>
-
-        document.querySelectorAll('.floating .form-input').forEach(input => {
-    input.addEventListener('input', () => {
-        const group = input.closest('.floating');
-        input.value ? group.classList.add('has-value') : group.classList.remove('has-value');
-    });
-
-    if (input.value) {
-        input.closest('.floating').classList.add('has-value');
-    }
-});
-
-
         // Password visibility toggle
         function togglePassword(fieldId, button) {
             const field = document.getElementById(fieldId);
@@ -844,42 +726,15 @@
                 // Add focus effects
                 input.addEventListener('focus', function() {
                     this.style.transition = 'all 0.3s ease';
-                    const parent = this.closest('.form-group');
-                    if (parent) {
-                        parent.classList.add('focused');
-                    }
-                });
-                
-                input.addEventListener('blur', function() {
-                    const parent = this.closest('.form-group');
-                    if (parent) {
-                        parent.classList.remove('focused');
-                    }
                 });
                 
                 // Remove error styling when user starts typing
                 input.addEventListener('input', function() {
                     const errorMsg = this.parentElement.querySelector('.error-message');
                     if (errorMsg) {
-                        this.style.borderColor = '';
-                    }
-                    
-                    // Add has-value class for styling
-                    const parent = this.closest('.form-group');
-                    if (parent && this.value) {
-                        parent.classList.add('has-value');
-                    } else if (parent && !this.value) {
-                        parent.classList.remove('has-value');
+                        this.style.borderColor = '#e5e7eb';
                     }
                 });
-                
-                // Check on load if field has value
-                if (input.value) {
-                    const parent = input.closest('.form-group');
-                    if (parent) {
-                        parent.classList.add('has-value');
-                    }
-                }
             });
 
             // Password field specific styling
