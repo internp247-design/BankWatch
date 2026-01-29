@@ -143,9 +143,9 @@ LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'home'
 LOGIN_URL = 'login'
 
-# Session configuration: Expire session when browser closes
+# Auto-logout when browser/tab closes
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
-SESSION_COOKIE_AGE = 3600  # Fallback timeout: 1 hour in seconds
+SESSION_COOKIE_AGE = 3600  # 1 hour fallback timeout in seconds
 
 CSRF_TRUSTED_ORIGINS = [
     "https://*.railway.app",
