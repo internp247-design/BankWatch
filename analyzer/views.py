@@ -16,6 +16,7 @@ from .models import BankAccount, BankStatement, Transaction, AnalysisSummary, Ru
 from .forms import BankStatementForm
 from .rules_forms import RuleForm, RuleConditionFormSet, CustomCategoryForm, CustomCategoryRuleForm, CustomCategoryRuleConditionFormSet
 from .rules_engine import RulesEngine, categorize_with_rules
+from .audit_utils import get_audit_report_data
 from collections import defaultdict
 
 # Import file parsers with error handling
@@ -3697,3 +3698,50 @@ def get_results_transactions_filtered(request, statement_id):
         import traceback
         traceback.print_exc()
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def auditing_report(request, account_id=None):
+    """
+    Display forensic audit report for a specific account.
+    Calculates real-time metrics: data integrity, financial overview,
+    risk analysis, transaction channels, high-value transactions, and counterparties.
+    """
+    # Get all user's accounts
+    accounts = BankAccount.objects.filter(user=request.user).order_by('bank_name')
+    
+    if not accounts.exists():
+        messages.warning(request, 'No accounts found. Please create an account first.')
+        return redirect('create_first_account')
+    
+    # Determine which account to view
+    if account_id:
+        # Validate that account belongs to user
+        account = get_object_or_404(BankAccount, id=account_id, user=request.user)
+    else:
+        # Use first account by default
+        account = accounts.first()
+    
+    # Get audit report data for the account
+    audit_data = get_audit_report_data(account)
+    
+    # Build context
+    context = {
+        'account': account,
+        'accounts': accounts,
+        'now': timezone.now(),
+        'no_data': audit_data['no_data'],
+    }
+    
+    # Add audit metrics to context if data exists
+    if not audit_data['no_data']:
+        context.update({
+            'data_integrity': audit_data['data_integrity'],
+            'financial_summary': audit_data['financial_summary'],
+            'high_value_transactions': audit_data['high_value_transactions'],
+            'transaction_mix': audit_data['transaction_mix'],
+            'monthly_risks': audit_data['monthly_risks'],
+            'counterparties': audit_data['counterparties'],
+        })
+    
+    return render(request, 'analyzer/auditing_report.html', context)

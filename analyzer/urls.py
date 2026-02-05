@@ -15,6 +15,10 @@ urlpatterns = [
     path('accounts/<int:account_id>/view/', views.view_account_details, name='view_account_details'),
     path('accounts/<int:account_id>/delete/', views.delete_account, name='delete_account'),
     
+    # Auditing Report
+    path('auditing-report/', views.auditing_report, name='auditing_report'),
+    path('auditing-report/<int:account_id>/', views.auditing_report, name='audit_report_account'),
+    
     # Rules Engine URLs
     path('rules/', views.rules_list, name='rules_list'),
     path('rules/create/', views.create_rule, name='create_rule'),
