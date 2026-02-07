@@ -173,12 +173,16 @@ def identify_high_value_transactions(transactions):
     result = []
     for txn in high_value_txns[:50]:  # Limit to top 50
         result.append({
+            'id': txn.id,
             'date': txn.date,
             'description': txn.description,
+            'category': txn.category,
             'category_label': txn.get_category_display(),
+            'user_label': txn.user_label or '',
             'amount': txn.amount,
             'type': txn.transaction_type,
-            'action': 'Review' if txn.transaction_type == 'DEBIT' else 'Confirm'
+            'action': 'Review' if txn.transaction_type == 'DEBIT' else 'Confirm',
+            'is_manually_edited': txn.is_manually_edited
         })
     
     return result

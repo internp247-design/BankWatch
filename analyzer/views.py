@@ -3731,6 +3731,7 @@ def auditing_report(request, account_id=None):
         'accounts': accounts,
         'now': timezone.now(),
         'no_data': audit_data['no_data'],
+        'category_choices': Transaction.CATEGORY_CHOICES,
     }
     
     # Add audit metrics to context if data exists
