@@ -360,12 +360,13 @@
 
     /* Dashboard Layout */
     .dashboard {
-        display: grid;
-        grid-template-columns: 350px 1fr;
-        gap: 30px;
-        min-height: 80vh;
-        padding: 20px;
-    }
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+    gap: 20px;
+    min-height: 80vh;
+    padding: 20px;
+    width: 100%;
+}
 
     /* Sidebar Styles */
     .sidebar {
@@ -660,20 +661,22 @@
 
     /* Main Content */
     .main-content {
-        display: flex;
-        flex-direction: column;
-        gap: 25px;
-    }
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+    min-width: 0;   /* 👈 THIS FIXES THE CUT ISSUE */
+}
 
     /* Welcome Section */
     .welcome-section {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         border-radius: 20px;
-        padding: 40px;
+        padding: 30px;
         color: white;
         display: flex;
         justify-content: space-between;
         align-items: center;
+        overflow: hidden;
     }
 
     .welcome-content h1 {
