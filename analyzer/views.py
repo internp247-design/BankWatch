@@ -3746,3 +3746,349 @@ def auditing_report(request, account_id=None):
         })
     
     return render(request, 'analyzer/auditing_report.html', context)
+
+
+@login_required
+def export_audit_report_pdf(request, account_id):
+    """Export forensic audit report to PDF file"""
+    
+    try:
+        from reportlab.lib.pagesizes import letter, landscape
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch, cm
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+        from reportlab.lib.colors import HexColor, black, white, lightgrey, green, yellow, red
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+        from io import BytesIO
+        from datetime import datetime
+        
+        print("DEBUG - Starting Audit Report PDF export process")
+        
+        # Get account and validate ownership
+        account = get_object_or_404(BankAccount, id=account_id, user=request.user)
+        
+        # Get audit report data
+        audit_data = get_audit_report_data(account)
+        
+        if audit_data['no_data']:
+            messages.warning(request, 'No audit data available for this account. Upload statements first.')
+            return redirect('auditing_report')
+        
+        # Create PDF document in memory using landscape orientation
+        pdf_buffer = BytesIO()
+        doc = SimpleDocTemplate(
+            pdf_buffer,
+            pagesize=landscape(letter),
+            rightMargin=0.5*inch,
+            leftMargin=0.5*inch,
+            topMargin=0.5*inch,
+            bottomMargin=0.5*inch
+        )
+        
+        # Container for PDF elements
+        elements = []
+        
+        # Define styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=16,
+            textColor=white,
+            backColor=HexColor('#0D47A1'),
+            spaceAfter=12,
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold'
+        )
+        
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=11,
+            textColor=HexColor('#0D47A1'),
+            spaceAfter=6,
+            fontName='Helvetica-Bold'
+        )
+        
+        subheading_style = ParagraphStyle(
+            'CustomSubHeading',
+            parent=styles['Heading3'],
+            fontSize=10,
+            textColor=HexColor('#1565C0'),
+            spaceAfter=4,
+            fontName='Helvetica-Bold'
+        )
+        
+        normal_style = styles['Normal']
+        
+        # ==== HEADER SECTION ====
+        elements.append(Paragraph("BANKWATCH - Forensic Audit Report", title_style))
+        elements.append(Spacer(1, 0.1*inch))
+        
+        # Account and Report Info
+        current_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        elements.append(Paragraph(f"<b>Account:</b> {account.account_name} ({account.bank_name})", normal_style))
+        elements.append(Paragraph(f"<b>Report Generated:</b> {current_date}", normal_style))
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # ==== DATA INTEGRITY SECTION ====
+        elements.append(Paragraph("1. DATA INTEGRITY", heading_style))
+        
+        data_integrity = audit_data['data_integrity']
+        di_data = [
+            ['Metric', 'Value'],
+            ['Quality Score', f"{data_integrity['quality_score']}%"],
+            ['Total Transactions', str(data_integrity['total_transactions'])],
+            ['Date Range (Days)', str(data_integrity['date_range_days'])],
+            ['Statements Count', str(data_integrity['statements_count'])],
+            ['Duplicate Count', str(data_integrity['duplicate_count'])],
+            ['Validation Status', data_integrity['validation_status']],
+            ['Period', f"{data_integrity['earliest_date'].strftime('%Y-%m-%d')} to {data_integrity['latest_date'].strftime('%Y-%m-%d')}"],
+        ]
+        
+        di_table = Table(di_data, colWidths=[2.5*inch, 2*inch])
+        di_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), HexColor('#0D47A1')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), white),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('GRID', (0, 0), (-1, -1), 1, lightgrey),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [white, HexColor('#F5F5F5')]),
+            ('ALIGN', (1, 1), (1, -1), 'RIGHT'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        
+        elements.append(di_table)
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # ==== FINANCIAL OVERVIEW SECTION ====
+        elements.append(Paragraph("2. FINANCIAL OVERVIEW", heading_style))
+        
+        financial = audit_data['financial_summary']
+        fin_data = [
+            ['Metric', 'Amount'],
+            ['Total Income (Credits)', f"₹{financial['total_credits']:,.2f}"],
+            ['Total Expenses (Debits)', f"₹{financial['total_debits']:,.2f}"],
+            ['Net Balance Change', f"₹{financial['net_change']:,.2f}"],
+            ['Savings Rate', f"{financial['savings_rate']:.2f}%"],
+        ]
+        
+        fin_table = Table(fin_data, colWidths=[2.5*inch, 2*inch])
+        fin_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), HexColor('#0D47A1')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), white),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('GRID', (0, 0), (-1, -1), 1, lightgrey),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [white, HexColor('#F5F5F5')]),
+            ('ALIGN', (1, 1), (1, -1), 'RIGHT'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        
+        elements.append(fin_table)
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # ==== TRANSACTION CHANNELS SECTION ====
+        elements.append(Paragraph("3. TRANSACTION CHANNELS ANALYSIS", heading_style))
+        
+        mix = audit_data['transaction_mix']
+        channels_data = [
+            ['Channel', 'Count', 'Percentage', 'Amount', 'Risk Level'],
+        ]
+        
+        for channel, data in mix.items():
+            channels_data.append([
+                channel,
+                str(data['count']),
+                f"{data['percentage']:.1f}%",
+                f"₹{data['amount']:,.2f}",
+                data['risk_level'].upper()
+            ])
+        
+        channels_table = Table(channels_data, colWidths=[1.2*inch, 1*inch, 1.2*inch, 1.5*inch, 1*inch])
+        channels_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), HexColor('#0D47A1')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), white),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('GRID', (0, 0), (-1, -1), 1, lightgrey),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [white, HexColor('#F5F5F5')]),
+            ('ALIGN', (1, 1), (3, -1), 'RIGHT'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        
+        elements.append(channels_table)
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # ==== MONTHLY RISKS SECTION ====
+        elements.append(Paragraph("4. MONTHLY RISK ANALYSIS", heading_style))
+        
+        monthly_risks = audit_data['monthly_risks']
+        if monthly_risks:
+            monthly_data = [
+                ['Month', 'Credits', 'Debits', 'Net Flow', 'Risk Level', 'Risk Flags'],
+            ]
+            
+            for month_info in monthly_risks:
+                flags = ', '.join(month_info.get('risk_flags', [])) if month_info.get('risk_flags') else 'None'
+                monthly_data.append([
+                    month_info['month'],
+                    f"₹{month_info['credits']:,.2f}",
+                    f"₹{month_info['debits']:,.2f}",
+                    f"₹{month_info['net_flow']:,.2f}",
+                    month_info['risk_level'].upper(),
+                    flags[:50] + ('...' if len(flags) > 50 else '')
+                ])
+            
+            monthly_table = Table(monthly_data, colWidths=[1*inch, 1.2*inch, 1.2*inch, 1.2*inch, 0.9*inch, 1.8*inch])
+            monthly_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), HexColor('#0D47A1')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), white),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 8),
+                ('GRID', (0, 0), (-1, -1), 1, lightgrey),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [white, HexColor('#F5F5F5')]),
+                ('ALIGN', (1, 1), (4, -1), 'RIGHT'),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('FONTSIZE', (0, 1), (-1, -1), 7),
+                ('LEFTPADDING', (0, 0), (-1, -1), 3),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+            ]))
+            
+            elements.append(monthly_table)
+        else:
+            elements.append(Paragraph("No monthly data available", normal_style))
+        
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # PAGE BREAK: High-Value Transactions on new page
+        elements.append(PageBreak())
+        elements.append(Paragraph("BANKWATCH - Forensic Audit Report (Continued)", title_style))
+        elements.append(Spacer(1, 0.1*inch))
+        
+        # ==== HIGH-VALUE TRANSACTIONS SECTION ====
+        elements.append(Paragraph("5. HIGH-VALUE TRANSACTIONS (Top 50)", heading_style))
+        
+        high_value = audit_data['high_value_transactions']
+        if high_value:
+            hv_data = [
+                ['Date', 'Description', 'Category', 'Amount', 'Type'],
+            ]
+            
+            for tx in high_value[:50]:  # Limit to top 50
+                desc = (tx['description'][:35] + '...') if len(tx['description']) > 35 else tx['description']
+                hv_data.append([
+                    tx['date'].strftime('%Y-%m-%d'),
+                    desc,
+                    tx.get('category_label', tx.get('category', 'N/A'))[:15],
+                    f"₹{tx['amount']:,.2f}",
+                    tx['type']
+                ])
+            
+            hv_table = Table(hv_data, colWidths=[1*inch, 2*inch, 1.2*inch, 1*inch, 0.7*inch])
+            hv_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), HexColor('#0D47A1')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), white),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 9),
+                ('GRID', (0, 0), (-1, -1), 1, lightgrey),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [white, HexColor('#F5F5F5')]),
+                ('ALIGN', (3, 1), (3, -1), 'RIGHT'),
+                ('FONTSIZE', (0, 1), (-1, -1), 7),
+                ('LEFTPADDING', (0, 0), (-1, -1), 3),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+            ]))
+            
+            elements.append(hv_table)
+        else:
+            elements.append(Paragraph("No high-value transactions available", normal_style))
+        
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # ==== COUNTERPARTY NETWORK SECTION ====
+        elements.append(Paragraph("6. COUNTERPARTY NETWORK ANALYSIS", heading_style))
+        
+        counterparties = audit_data['counterparties']
+        if counterparties:
+            cp_data = [
+                ['Counterparty', 'Count', 'Credit %', 'Debit %', 'Total Amount', 'Risk Level'],
+            ]
+            
+            for cp in counterparties[:30]:  # Limit to top 30 counterparties
+                cp_data.append([
+                    (cp['name'][:30] + '...') if len(cp['name']) > 30 else cp['name'],
+                    str(cp['count']),
+                    f"{cp['credit_concentration']:.1f}%",
+                    f"{cp['debit_concentration']:.1f}%",
+                    f"₹{cp['total_amount']:,.2f}",
+                    cp['risk_level'].upper()
+                ])
+            
+            cp_table = Table(cp_data, colWidths=[1.8*inch, 0.7*inch, 0.8*inch, 0.8*inch, 1.2*inch, 0.9*inch])
+            cp_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), HexColor('#0D47A1')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), white),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 8),
+                ('GRID', (0, 0), (-1, -1), 1, lightgrey),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [white, HexColor('#F5F5F5')]),
+                ('ALIGN', (1, 1), (4, -1), 'RIGHT'),
+                ('FONTSIZE', (0, 1), (-1, -1), 7),
+                ('LEFTPADDING', (0, 0), (-1, -1), 3),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+            ]))
+            
+            elements.append(cp_table)
+        else:
+            elements.append(Paragraph("No counterparty data available", normal_style))
+        
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # ==== FOOTER ====
+        elements.append(Spacer(1, 0.1*inch))
+        elements.append(Paragraph(
+            f"Report generated on {current_date} | Account ID: {account.id}",
+            ParagraphStyle('Footer', parent=normal_style, fontSize=8, textColor=HexColor('#666666'), alignment=TA_CENTER)
+        ))
+        
+        # Build PDF
+        try:
+            print("DEBUG - Building Audit Report PDF with reportlab...")
+            doc.build(elements)
+            print("DEBUG - PDF build complete")
+        except Exception as build_error:
+            print(f"ERROR - PDF build failed: {build_error}")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
+            raise
+        
+        # Prepare response
+        pdf_data = pdf_buffer.getvalue()
+        print(f"DEBUG - PDF buffer size: {len(pdf_data)} bytes")
+        
+        if not pdf_data:
+            print("ERROR - PDF buffer is empty!")
+            messages.error(request, 'Error generating PDF: Output is empty')
+            return redirect('auditing_report')
+        
+        response = HttpResponse(pdf_data, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="audit_report_{account.id}_{current_date[:10]}.pdf"'
+        
+        return response
+        
+    except Exception as e:
+        import traceback
+        error_msg = str(e)
+        print(f"ERROR - Exception in export_audit_report_pdf: {error_msg}")
+        print(f"ERROR - Traceback: {traceback.format_exc()}")
+        messages.error(request, f'Error exporting audit report: {error_msg}')
+        return redirect('auditing_report')

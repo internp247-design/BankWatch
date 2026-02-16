@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block content %}
-<div class="bankwatch-audit-report">
+<div class="bankwatch-audit-report" data-account-id="{{ account.id }}">
     <!-- Audit Report Header with Breadcrumb -->
     <div class="audit-header">
         <div class="container-fluid">
@@ -2398,8 +2398,38 @@
         const exportBtn = document.querySelector('.export-btn');
         if (exportBtn) {
             exportBtn.addEventListener('click', function() {
-                // Show export modal or generate PDF
-                alert('Export functionality would generate a PDF report here.');
+                // Get account ID from the page context
+                const accountId = document.querySelector('[data-account-id]')?.dataset.accountId || 
+                                   '{{ account.id }}';
+                
+                if (!accountId) {
+                    alert('Error: Account ID not found');
+                    return;
+                }
+                
+                // Show loading state
+                exportBtn.disabled = true;
+                const originalText = exportBtn.innerHTML;
+                exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
+                
+                // Trigger export by navigating to the export URL
+                const exportUrl = `/analyzer/export/audit-report/${accountId}/`;
+                
+                // Create a hidden form and submit it to trigger download
+                const form = document.createElement('form');
+                form.method = 'GET';
+                form.action = exportUrl;
+                document.body.appendChild(form);
+                
+                // Submit form and clean up after download initiates
+                setTimeout(() => {
+                    form.submit();
+                    document.body.removeChild(form);
+                    
+                    // Restore button state
+                    exportBtn.disabled = false;
+                    exportBtn.innerHTML = originalText;
+                }, 500);
             });
         }
 

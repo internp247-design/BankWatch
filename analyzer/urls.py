@@ -18,6 +18,7 @@ urlpatterns = [
     # Auditing Report
     path('auditing-report/', views.auditing_report, name='auditing_report'),
     path('auditing-report/<int:account_id>/', views.auditing_report, name='audit_report_account'),
+    path('export/audit-report/<int:account_id>/', views.export_audit_report_pdf, name='export_audit_report'),
     
     # Rules Engine URLs
     path('rules/', views.rules_list, name='rules_list'),
