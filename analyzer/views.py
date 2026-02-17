@@ -2321,6 +2321,11 @@ def export_rules_results_to_excel(request):
         messages.error(request, f'Error exporting results: {error_msg}')
         return redirect('rules_application_results')
 
+def format_currency_safe(amount):
+    """Format amount as currency with safe font handling to avoid black rectangles in PDFs.
+    Uses 'Rs ' prefix instead of ₹ symbol to ensure compatibility with ReportLab's default fonts."""
+    return f"Rs {amount:,.2f}"
+
 @login_required
 def export_rules_results_to_pdf(request):
     """Export filtered rule application results to PDF file"""
@@ -2502,7 +2507,7 @@ def export_rules_results_to_pdf(request):
                     date_str,
                     result.get('account_name', 'Unknown'),
                     description_para,  # Wrapped text stays within column
-                    f"₹{amount:,.2f}",
+                    format_currency_safe(amount),
                     matched_rule,
                     matched_category
                 ])
@@ -2519,7 +2524,7 @@ def export_rules_results_to_pdf(request):
         # Add summary row
         table_data.append([
             '', '', Paragraph('<b>TOTAL</b>', desc_style),
-            Paragraph(f'<b>₹{total_amount:,.2f}</b>', desc_style),
+            Paragraph(f'<b>{format_currency_safe(total_amount)}</b>', desc_style),
             '', ''
         ])
         
@@ -2581,7 +2586,7 @@ def export_rules_results_to_pdf(request):
         summary_data = [
             ['Metric', 'Value'],
             ['Total Filtered Transactions', str(transaction_count)],
-            ['Total Filtered Amount', f'₹{total_amount:,.2f}'],
+            ['Total Filtered Amount', format_currency_safe(total_amount)],
             ['Rules Selected', str(len(selected_rule_ids))],
             ['Categories Selected', str(len(selected_category_ids))],
         ]
@@ -3869,9 +3874,9 @@ def export_audit_report_pdf(request, account_id):
         financial = audit_data['financial_summary']
         fin_data = [
             ['Metric', 'Amount'],
-            ['Total Income (Credits)', f"₹{financial['total_credits']:,.2f}"],
-            ['Total Expenses (Debits)', f"₹{financial['total_debits']:,.2f}"],
-            ['Net Balance Change', f"₹{financial['net_change']:,.2f}"],
+            ['Total Income (Credits)', format_currency_safe(financial['total_credits'])],
+            ['Total Expenses (Debits)', format_currency_safe(financial['total_debits'])],
+            ['Net Balance Change', format_currency_safe(financial['net_change'])],
             ['Savings Rate', f"{financial['savings_rate']:.2f}%"],
         ]
         
@@ -3905,7 +3910,7 @@ def export_audit_report_pdf(request, account_id):
                 channel,
                 str(data['count']),
                 f"{data['percentage']:.1f}%",
-                f"₹{data['amount']:,.2f}",
+                format_currency_safe(data['amount']),
                 data['risk_level'].upper()
             ])
         
@@ -3939,9 +3944,9 @@ def export_audit_report_pdf(request, account_id):
                 flags = ', '.join(month_info.get('risk_flags', [])) if month_info.get('risk_flags') else 'None'
                 monthly_data.append([
                     month_info['month'],
-                    f"₹{month_info['credits']:,.2f}",
-                    f"₹{month_info['debits']:,.2f}",
-                    f"₹{month_info['net_flow']:,.2f}",
+                    format_currency_safe(month_info['credits']),
+                    format_currency_safe(month_info['debits']),
+                    format_currency_safe(month_info['net_flow']),
                     month_info['risk_level'].upper(),
                     flags[:50] + ('...' if len(flags) > 50 else '')
                 ])
@@ -3988,7 +3993,7 @@ def export_audit_report_pdf(request, account_id):
                     tx['date'].strftime('%Y-%m-%d'),
                     desc,
                     tx.get('category_label', tx.get('category', 'N/A'))[:15],
-                    f"₹{tx['amount']:,.2f}",
+                    format_currency_safe(tx['amount']),
                     tx['type']
                 ])
             
@@ -4028,7 +4033,7 @@ def export_audit_report_pdf(request, account_id):
                     str(cp['count']),
                     f"{cp['credit_concentration']:.1f}%",
                     f"{cp['debit_concentration']:.1f}%",
-                    f"₹{cp['total_amount']:,.2f}",
+                    format_currency_safe(cp['total_amount']),
                     cp['risk_level'].upper()
                 ])
             
