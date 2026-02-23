@@ -1796,18 +1796,30 @@
         function updateResultsCharts(categoryTotals, income, expenses) {
             // This is a simplified version - you may need to update Chart.js instances
             // based on your actual chart implementation
-            if (window.spendingChart) {
-                window.spendingChart.data.datasets[0].data = [income];
-                window.spendingChart.data.datasets[1].data = [expenses];
-                window.spendingChart.update();
+            try {
+                if (window.spendingChart && window.spendingChart.data && 
+                    window.spendingChart.data.datasets && 
+                    window.spendingChart.data.datasets.length >= 2) {
+                    window.spendingChart.data.datasets[0].data = [income];
+                    window.spendingChart.data.datasets[1].data = [expenses];
+                    window.spendingChart.update();
+                }
+            } catch (error) {
+                console.warn('Warning: Failed to update spending chart:', error);
             }
             
-            if (window.categoryChart && categoryTotals) {
-                const labels = Object.keys(categoryTotals);
-                const data = Object.values(categoryTotals);
-                window.categoryChart.data.labels = labels;
-                window.categoryChart.data.datasets[0].data = data;
-                window.categoryChart.update();
+            try {
+                if (window.categoryChart && window.categoryChart.data && 
+                    window.categoryChart.data.datasets && 
+                    window.categoryChart.data.datasets.length > 0 && categoryTotals) {
+                    const labels = Object.keys(categoryTotals);
+                    const data = Object.values(categoryTotals);
+                    window.categoryChart.data.labels = labels;
+                    window.categoryChart.data.datasets[0].data = data;
+                    window.categoryChart.update();
+                }
+            } catch (error) {
+                console.warn('Warning: Failed to update category chart:', error);
             }
         }
 
