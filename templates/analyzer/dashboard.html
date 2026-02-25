@@ -116,8 +116,7 @@
                     </div>
                     <div class="stat-info">
                         <h4>Net Savings</h4>
-                        <p>₹{{ monthly_savings|floatformat:2 }}</p>
-                        <span class="stat-change positive">+15%</span>
+                        <p>₹{{ monthly_savings|abs|floatformat:2 }}</p>
                     </div>
                 </div>
             </div>
