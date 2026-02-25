@@ -120,7 +120,7 @@ def dashboard(request):
         'recent_transactions': recent_transactions,
         'monthly_income': total_income,
         'monthly_expenses': total_expenses,
-        'monthly_savings': net_savings,
+        'monthly_savings': abs(net_savings),
         'category_totals': category_totals,
         'financial_health': financial_health,
         'recent_statements': recent_statements,
@@ -307,7 +307,7 @@ def analysis_results(request, statement_id):
     # Calculate summary data
     total_income = sum(t.amount for t in transactions if t.transaction_type == 'CREDIT')
     total_expenses = sum(t.amount for t in transactions if t.transaction_type == 'DEBIT')
-    net_savings = total_income - total_expenses
+    net_savings = abs(total_income - total_expenses)
     
     # Calculate category totals for the chart
     category_totals = {}
@@ -353,7 +353,7 @@ def analysis_results(request, statement_id):
         'transactions': transactions,
         'total_income': total_income,
         'total_expenses': total_expenses,
-        'net_savings': net_savings,
+        'net_savings': abs(net_savings),
         'category_totals': category_totals,
         'chart_labels': chart_labels,
         'chart_data': chart_data,
@@ -1074,7 +1074,7 @@ def view_account_details(request, account_id):
         'all_transactions': all_transactions,   # All transactions for chart data
         'monthly_income': total_income,
         'monthly_expenses': total_expenses,
-        'monthly_savings': net_savings,
+        'monthly_savings': abs(net_savings),
         'category_totals': category_totals,
         'financial_health': financial_health,
         'category_choices': Transaction.CATEGORY_CHOICES,
@@ -1563,15 +1563,8 @@ def get_financial_overview_data(request):
     else:
         savings_rate = 0 if net_savings == 0 else -100  # All expenses with no income = -100%
     
-    # Calculate financial health based on savings rate
-    if total_income > 0:
-        if savings_rate >= 20:
-            health_status = 'Excellent'
-            health_score = 85
-        elif savings_rate >= 10:
-            health_status = 'Good'
-            health_score = 70
-        elif savings_rate >= 0:
+    # Display value without +/- symbols
+    display_net_savings = abs(net_savings)
             health_status = 'Needs Attention'
             health_score = 50
         elif savings_rate >= -20:
@@ -3563,7 +3556,7 @@ def get_account_summary_data(request, account_id):
             'success': True,
             'income': float(total_income),
             'expenses': float(total_expenses),
-            'savings': float(net_savings),
+            'savings': float(abs(net_savings)),
             'transaction_count': transactions.count(),
             'period': time_period
         })
