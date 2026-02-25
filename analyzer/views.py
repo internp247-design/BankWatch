@@ -1563,8 +1563,15 @@ def get_financial_overview_data(request):
     else:
         savings_rate = 0 if net_savings == 0 else -100  # All expenses with no income = -100%
     
-    # Display value without +/- symbols
-    display_net_savings = abs(net_savings)
+    # Calculate financial health based on savings rate
+    if total_income > 0:
+        if savings_rate >= 20:
+            health_status = 'Excellent'
+            health_score = 85
+        elif savings_rate >= 10:
+            health_status = 'Good'
+            health_score = 70
+        elif savings_rate >= 0:
             health_status = 'Needs Attention'
             health_score = 50
         elif savings_rate >= -20:
@@ -1586,7 +1593,7 @@ def get_financial_overview_data(request):
         'success': True,
         'income': float(total_income),
         'expenses': float(total_expenses),
-        'savings': float(net_savings),
+        'savings': float(abs(net_savings)),
         'income_percentage': round(income_percentage, 1),
         'expense_percentage': round(expense_percentage, 1),
         'health_status': health_status,
@@ -1596,7 +1603,6 @@ def get_financial_overview_data(request):
     })
 
 
-@login_required
 @login_required
 def export_rules_results_to_excel(request):
     """Export rule application results to Excel file with filtered transactions only"""
@@ -3677,7 +3683,7 @@ def get_results_transactions_filtered(request, statement_id):
             'success': True,
             'income': float(total_income),
             'expenses': float(total_expenses),
-            'savings': float(net_savings),
+            'savings': float(abs(net_savings)),
             'category_totals': category_totals,
             'transactions': transactions_data,
             'transaction_count': transactions.count(),
