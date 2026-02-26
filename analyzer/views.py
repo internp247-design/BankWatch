@@ -651,6 +651,23 @@ def rules_application_results(request):
         selected_rule_ids = [int(rid) for rid in selected_rule_ids if rid.isdigit()]
         selected_category_ids = [int(cid) for cid in selected_category_ids if cid.isdigit()]
         
+        # AUTO-APPLY DEFAULT RULES if no filters specified
+        user_defaults_enabled = True
+        try:
+            from .models import UserDefaultRulePreference
+            user_pref = UserDefaultRulePreference.objects.get(user=request.user)
+            user_defaults_enabled = user_pref.defaults_enabled
+        except:
+            # If preference doesn't exist, defaults are enabled by default
+            user_defaults_enabled = True
+        
+        # If no rule/category filters specified and defaults are enabled, auto-apply default rules
+        if not selected_rule_ids and not selected_category_ids and user_defaults_enabled:
+            from .models import Rule
+            default_rules = Rule.objects.filter(is_default=True, is_active=True)
+            selected_rule_ids = [rule.id for rule in default_rules]
+            print(f"DEBUG: Auto-applying {len(selected_rule_ids)} default rules")
+        
         print(f"DEBUG: selected_rule_ids={selected_rule_ids}, selected_category_ids={selected_category_ids}")
         
         engine = RulesEngine(request.user)
@@ -852,6 +869,9 @@ def rules_application_results(request):
         # compute colspan for template (base 7 columns + previous column if show_changed)
         colspan = 7 + (1 if show_changed else 0)
 
+        # Get all default rules for display in template
+        all_default_rules = Rule.objects.filter(is_default=True, is_active=True).order_by('name')
+
         return render(request, 'analyzer/apply_rules_results.html', {
             'results': filtered_results,
             'all_results': results,
@@ -866,6 +886,8 @@ def rules_application_results(request):
             'rules': all_rules,
             'selected_rule_ids': selected_rule_ids,
             'selected_category_ids': selected_category_ids,
+            'default_rules': all_default_rules,
+            'user_defaults_enabled': user_defaults_enabled,
         })
         
     except Exception as e:
@@ -1116,6 +1138,27 @@ def change_rule_status_on_results(request):
             })
         except Rule.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Rule not found.'}, status=404)
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request.'}, status=400)
+
+
+@login_required
+def toggle_user_default_rules_preference(request):
+    """Toggle whether user defaults are enabled for auto-apply on results page (AJAX endpoint)"""
+    if request.method == 'POST' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        try:
+            from .models import UserDefaultRulePreference
+            pref, created = UserDefaultRulePreference.objects.get_or_create(user=request.user)
+            pref.defaults_enabled = not pref.defaults_enabled
+            pref.save()
+            
+            return JsonResponse({
+                'success': True,
+                'defaults_enabled': pref.defaults_enabled,
+                'message': f'Default rules are now {"enabled" if pref.defaults_enabled else "disabled"}.'
+            })
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=400)
     
     return JsonResponse({'success': False, 'error': 'Invalid request.'}, status=400)
 

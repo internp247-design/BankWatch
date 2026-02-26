@@ -109,6 +109,57 @@
         font-weight: 600;
     }
 
+    .badge-default {
+        background-color: #ffc107;
+        color: #1e3c72;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.65rem;
+        font-weight: 700;
+        margin-left: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .default-rule-item {
+        background-color: #fffbf0;
+        border: 2px solid #ffc107;
+    }
+
+    .default-rule-item:hover {
+        background-color: #fff8e1;
+        border-color: #ffb300;
+    }
+
+    .default-rule-item.active {
+        background-color: #fff3cd;
+        border-color: #ffc107;
+        box-shadow: 0 2px 6px rgba(255, 193, 7, 0.25);
+    }
+
+    .default-rule-label {
+        font-weight: 500;
+        color: #1e3c72;
+    }
+
+    .master-toggle-btn {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: #1e3c72;
+        padding: 0;
+        transition: color 0.3s;
+    }
+
+    .master-toggle-btn:hover {
+        color: #2a5298;
+    }
+
+    .default-rules-list {
+        border-left: 4px solid #ffc107;
+    }
+
     .add-btn {
         background-color: #1e3c72;
         color: white;
@@ -633,6 +684,33 @@
 <div class="main-content">
     <!-- Sidebar -->
     <div class="sidebar">
+        <!-- Default Rules Section -->
+        <div class="filter-section">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                <h3 style="margin: 0; border: none; padding: 0;"><i class="fas fa-star"></i> Default Filters</h3>
+                <button id="masterToggleBtn" class="master-toggle-btn" title="Enable/Disable auto-apply of default filters">
+                    <i class="fas fa-{{ user_defaults_enabled|yesno:'toggle-on,toggle-off' }}"></i>
+                </button>
+            </div>
+            {% if default_rules %}
+                <ul class="rule-list default-rules-list" id="defaultRuleList">
+                    {% for rule in default_rules %}
+                    <li class="rule-item default-rule-item" data-id="{{ rule.id }}" data-is-default="true">
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" class="filter-checkbox rule-checkbox default-rule-checkbox" data-id="{{ rule.id }}" {% if user_defaults_enabled %}checked{% endif %}>
+                            <span class="default-rule-label">{{ rule.name }}</span>
+                            <span class="badge badge-default" title="Auto-applied default rule">DEFAULT</span>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <div style="padding: 1rem; color: #6c757d; text-align: center;">
+                    <p>No default filters available</p>
+                </div>
+            {% endif %}
+        </div>
+
         <div class="filter-section">
             <h3><i class="fas fa-filter"></i> Filter Rules</h3>
             {% if rules %}
@@ -656,8 +734,6 @@
                 <i class="fas fa-plus"></i> Create New Rule
             </a>
         </div>
-
-        <div class="filter-section">
             <h3><i class="fas fa-layer-group"></i> Custom Categories</h3>
             {% if custom_categories %}
                 <ul class="category-list" id="categoryList">
@@ -913,6 +989,18 @@
     // Initialize filters
     let selectedRules = [];
     let selectedCategories = [];
+    let defaultRuleIds = [];
+    let userDefaultsEnabled = {{ user_defaults_enabled|yesno:'true,false' }};
+
+    // Collect all default rule IDs on page load
+    document.querySelectorAll('.default-rule-checkbox').forEach(checkbox => {
+        defaultRuleIds.push(checkbox.dataset.id);
+        // Pre-check if defaults are enabled
+        if (userDefaultsEnabled) {
+            checkbox.checked = true;
+            checkbox.closest('.rule-item').classList.add('active');
+        }
+    });
 
     // Handle checkbox changes for rules
     document.querySelectorAll('.rule-checkbox').forEach(checkbox => {
@@ -955,6 +1043,61 @@
             applyFilters();
         });
     });
+
+    // Master toggle button for default rules
+    document.getElementById('masterToggleBtn')?.addEventListener('click', function() {
+        toggleDefaultRules();
+    });
+
+    function toggleDefaultRules() {
+        // Send AJAX request to toggle server-side preference
+        fetch('{% url "toggle_user_default_rules_preference" %}', {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '',
+            },
+            body: ''
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                userDefaultsEnabled = data.defaults_enabled;
+                updateDefaultRulesUI();
+                // Reapply filters after toggling
+                applyFilters();
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    }
+
+    function updateDefaultRulesUI() {
+        // Update master toggle button icon
+        const toggleBtn = document.getElementById('masterToggleBtn');
+        if (toggleBtn) {
+            toggleBtn.innerHTML = userDefaultsEnabled ? '<i class="fas fa-toggle-on"></i>' : '<i class="fas fa-toggle-off"></i>';
+        }
+
+        // Update all default rule checkboxes
+        if (userDefaultsEnabled) {
+            // Enable all default rules
+            document.querySelectorAll('.default-rule-checkbox').forEach(checkbox => {
+                checkbox.checked = true;
+                checkbox.closest('.rule-item').classList.add('active');
+                if (!selectedRules.includes(checkbox.dataset.id)) {
+                    selectedRules.push(checkbox.dataset.id);
+                }
+            });
+        } else {
+            // Disable all default rules (but keep other selected rules)
+            document.querySelectorAll('.default-rule-checkbox').forEach(checkbox => {
+                const ruleId = checkbox.dataset.id;
+                checkbox.checked = false;
+                checkbox.closest('.rule-item').classList.remove('active');
+                selectedRules = selectedRules.filter(id => id !== ruleId);
+            });
+        }
+    }
 
     // Handle item clicks to toggle checkbox
     document.querySelectorAll('.rule-item, .category-item').forEach(item => {

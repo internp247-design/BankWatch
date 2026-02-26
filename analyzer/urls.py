@@ -31,6 +31,7 @@ urlpatterns = [
     path('rules/test/', views.test_rules, name='test_rules'),
     path('rules/toggle-active/', views.toggle_rule_active, name='toggle_rule_active'),
     path('rules/change-status/', views.change_rule_status_on_results, name='change_rule_status_on_results'),
+    path('rules/toggle-defaults/', views.toggle_user_default_rules_preference, name='toggle_user_default_rules_preference'),
     
     # Statement-specific rules
     path('statements/<int:statement_id>/rules-prompt/', views.statement_rules_prompt, name='statement_rules_prompt'),

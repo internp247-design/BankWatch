@@ -153,6 +153,10 @@ class Rule(models.Model):
     ]
     rule_type = models.CharField(max_length=3, choices=RULE_TYPE_CHOICES, default='AND')
     
+    # Default rules feature
+    is_default = models.BooleanField(default=False, help_text="Mark as default rule to auto-apply on results page")
+    is_summary_rule = models.BooleanField(default=False, help_text="Marks aggregation rules (Total Credit/Debit/etc)")
+    
     def __str__(self):
         return f"{self.name} → {self.get_category_display()}"
     
@@ -311,3 +315,18 @@ class CustomCategoryRuleCondition(models.Model):
         elif self.condition_type == 'DATE':
             return f"Date: {self.date_start} to {self.date_end}"
         return f"Condition #{self.id}"
+
+
+class UserDefaultRulePreference(models.Model):
+    """Store user's preference for auto-applying default rules"""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='default_rule_preference')
+    defaults_enabled = models.BooleanField(default=True, help_text="Enable auto-apply of default rules on results page")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"Default Rules Preference for {self.user.username}"
+    
+    class Meta:
+        verbose_name = "User Default Rule Preference"
+        verbose_name_plural = "User Default Rule Preferences"

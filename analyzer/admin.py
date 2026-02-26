@@ -1,7 +1,8 @@
 from django.contrib import admin
 from .models import (
     BankAccount, BankStatement, Transaction, AnalysisSummary, 
-    Rule, RuleCondition, CustomCategory, CustomCategoryRule, CustomCategoryRuleCondition
+    Rule, RuleCondition, CustomCategory, CustomCategoryRule, CustomCategoryRuleCondition,
+    UserDefaultRulePreference
 )
 
 # Register your models here.
@@ -29,8 +30,8 @@ class AnalysisSummaryAdmin(admin.ModelAdmin):
 
 @admin.register(Rule)
 class RuleAdmin(admin.ModelAdmin):
-    list_display = ('name', 'category', 'user', 'is_active', 'created_at')
-    list_filter = ('category', 'is_active', 'created_at')
+    list_display = ('name', 'category', 'user', 'is_active', 'is_default', 'is_summary_rule', 'created_at')
+    list_filter = ('category', 'is_active', 'is_default', 'is_summary_rule', 'created_at')
     search_fields = ('name',)
 
 @admin.register(RuleCondition)
@@ -54,3 +55,9 @@ class CustomCategoryRuleAdmin(admin.ModelAdmin):
 class CustomCategoryRuleConditionAdmin(admin.ModelAdmin):
     list_display = ('rule', 'condition_type')
     list_filter = ('condition_type',)
+
+@admin.register(UserDefaultRulePreference)
+class UserDefaultRulePreferenceAdmin(admin.ModelAdmin):
+    list_display = ('user', 'defaults_enabled', 'updated_at')
+    list_filter = ('defaults_enabled', 'updated_at')
+    search_fields = ('user__username',)
