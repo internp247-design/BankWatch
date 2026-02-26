@@ -570,10 +570,15 @@ def apply_rules(request):
                     'redirect_url': redirect_url,
                 })
 
+            # For non-AJAX requests, redirect to results page with show_changed=1 to show the applied changes
+            redirect_url = reverse('rules_application_results') + '?show_changed=1'
+            if account_id:
+                redirect_url += f'&account_id={account_id}'
+            
             messages.success(request,
                 f'Rules applied successfully! Updated {updated_count} out of {transactions.count()} transactions.'
             )
-            return redirect('rules_list')
+            return redirect(redirect_url)
         
         # Provide accounts for the selector
         accounts = BankAccount.objects.filter(user=request.user)
@@ -593,7 +598,7 @@ def apply_rules(request):
                 'message': f'Error applying rules: {str(e)}'
             }, status=500)
         messages.error(request, f"Error applying rules: {str(e)}")
-        return redirect('rules_list')
+        return redirect('apply_rules')
 
 @login_required
 def test_rules(request):
