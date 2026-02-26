@@ -109,16 +109,29 @@
         font-weight: 600;
     }
 
+    .default-filters-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .default-filters-header h3 {
+        margin: 0;
+        border: none;
+        padding: 0;
+        flex: 1;
+    }
+
     .badge-default {
         background-color: #ffc107;
         color: #1e3c72;
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
-        font-size: 0.65rem;
+        padding: 0.2rem 0.4rem;
+        border-radius: 3px;
+        font-size: 0.6rem;
         font-weight: 700;
-        margin-left: 0.5rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        white-space: nowrap;
     }
 
     .default-rule-item {
@@ -134,22 +147,23 @@
     .default-rule-item.active {
         background-color: #fff3cd;
         border-color: #ffc107;
-        box-shadow: 0 2px 6px rgba(255, 193, 7, 0.25);
+        box-shadow: 0 2px 6px rgba(255, 193, 7, 0.15);
     }
 
     .default-rule-label {
         font-weight: 500;
-        color: #1e3c72;
     }
 
     .master-toggle-btn {
         background: none;
         border: none;
-        font-size: 1.5rem;
+        font-size: 1.3rem;
         cursor: pointer;
         color: #1e3c72;
         padding: 0;
         transition: color 0.3s;
+        display: flex;
+        align-items: center;
     }
 
     .master-toggle-btn:hover {
@@ -686,10 +700,10 @@
     <div class="sidebar">
         <!-- Default Rules Section -->
         <div class="filter-section">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
-                <h3 style="margin: 0; border: none; padding: 0;"><i class="fas fa-star"></i> Default Filters</h3>
+            <div class="default-filters-header">
+                <h3><i class="fas fa-star"></i> Default Filters</h3>
                 <button id="masterToggleBtn" class="master-toggle-btn" title="Enable/Disable auto-apply of default filters">
-                    <i class="fas fa-{{ user_defaults_enabled|yesno:'toggle-on,toggle-off' }}"></i>
+                    <i class="toggle-icon fas fa-{{ user_defaults_enabled|yesno:'toggle-on,toggle-off' }}"></i>
                 </button>
             </div>
             {% if default_rules %}
@@ -699,7 +713,7 @@
                         <div class="checkbox-wrapper">
                             <input type="checkbox" class="filter-checkbox rule-checkbox default-rule-checkbox" data-id="{{ rule.id }}" {% if user_defaults_enabled %}checked{% endif %}>
                             <span class="default-rule-label">{{ rule.name }}</span>
-                            <span class="badge badge-default" title="Auto-applied default rule">DEFAULT</span>
+                            <span class="badge-default">DEFAULT</span>
                         </div>
                     </li>
                     {% endfor %}
@@ -734,6 +748,8 @@
                 <i class="fas fa-plus"></i> Create New Rule
             </a>
         </div>
+
+        <div class="filter-section">
             <h3><i class="fas fa-layer-group"></i> Custom Categories</h3>
             {% if custom_categories %}
                 <ul class="category-list" id="categoryList">
@@ -992,13 +1008,14 @@
     let defaultRuleIds = [];
     let userDefaultsEnabled = {{ user_defaults_enabled|yesno:'true,false' }};
 
-    // Collect all default rule IDs on page load
+    // Collect all default rule IDs on page load and pre-check if defaults are enabled
     document.querySelectorAll('.default-rule-checkbox').forEach(checkbox => {
         defaultRuleIds.push(checkbox.dataset.id);
-        // Pre-check if defaults are enabled
+        // Pre-check if defaults are enabled and add to selectedRules
         if (userDefaultsEnabled) {
             checkbox.checked = true;
             checkbox.closest('.rule-item').classList.add('active');
+            selectedRules.push(checkbox.dataset.id);
         }
     });
 
@@ -1073,9 +1090,15 @@
 
     function updateDefaultRulesUI() {
         // Update master toggle button icon
-        const toggleBtn = document.getElementById('masterToggleBtn');
-        if (toggleBtn) {
-            toggleBtn.innerHTML = userDefaultsEnabled ? '<i class="fas fa-toggle-on"></i>' : '<i class="fas fa-toggle-off"></i>';
+        const toggleIcon = document.querySelector('.toggle-icon');
+        if (toggleIcon) {
+            if (userDefaultsEnabled) {
+                toggleIcon.classList.remove('fa-toggle-off');
+                toggleIcon.classList.add('fa-toggle-on');
+            } else {
+                toggleIcon.classList.remove('fa-toggle-on');
+                toggleIcon.classList.add('fa-toggle-off');
+            }
         }
 
         // Update all default rule checkboxes
