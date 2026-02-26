@@ -1125,14 +1125,24 @@
     // Handle item clicks to toggle checkbox
     document.querySelectorAll('.rule-item, .category-item').forEach(item => {
         item.addEventListener('click', function(e) {
-            // Don't trigger if clicking the checkbox directly
+            // Prevent page navigation and event propagation
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Don't trigger if clicking the checkbox directly (it has its own listener)
             if (e.target.classList.contains('filter-checkbox')) {
                 return;
             }
+            
+            // Don't trigger if clicking elements inside the checkbox wrapper
+            if (e.target.closest('.filter-checkbox')) {
+                return;
+            }
+            
             const checkbox = this.querySelector('.filter-checkbox');
             if (checkbox) {
                 checkbox.checked = !checkbox.checked;
-                checkbox.dispatchEvent(new Event('change'));
+                checkbox.dispatchEvent(new Event('change', { bubbles: true }));
             }
         });
     });
