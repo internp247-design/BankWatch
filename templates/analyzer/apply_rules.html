@@ -144,6 +144,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('applyRulesForm');
     const applyBtn = document.getElementById('applyBtn');
 
+    // Get CSRF token from the form
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    const csrfValue = csrfToken ? csrfToken.value : '';
+
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
 
@@ -154,23 +158,34 @@ document.addEventListener('DOMContentLoaded', function() {
 
         try {
             const formData = new FormData(form);
+            
+            console.log('Submitting form with account_id:', formData.get('account_id'));
+            
             const response = await fetch(window.location.href, {
                 method: 'POST',
                 headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrfValue
                 },
-                body: formData
+                body: formData,
+                credentials: 'same-origin'
             });
+
+            console.log('Response status:', response.status, response.statusText);
 
             if (!response.ok) {
                 const errorText = await response.text();
+                console.error('Server error response:', errorText.substring(0, 500));
                 throw new Error(`Server error (${response.status}): ${errorText.substring(0, 200)}`);
             }
 
             const data = await response.json();
+            console.log('Response data:', data);
+            
             if (data.status === 'ok') {
                 // Redirect to results page
                 if (data.redirect_url) {
+                    console.log('Redirecting to:', data.redirect_url);
                     window.location.href = data.redirect_url;
                 } else {
                     window.location.href = '{% url "rules_list" %}';
@@ -179,7 +194,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error(data.message || 'Unknown error');
             }
         } catch (err) {
-            console.error(err);
+            console.error('Error details:', err);
             alert('Error applying rules: ' + err.message);
             applyBtn.innerHTML = originalHtml;
             applyBtn.disabled = false;
