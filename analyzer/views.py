@@ -900,7 +900,7 @@ def rules_application_results(request):
         error_msg = f"ERROR in rules_application_results: {str(e)}\n{traceback.format_exc()}"
         print(error_msg)
         messages.error(request, f"Error loading results: {str(e)}")
-        return redirect('rules_list')
+        return redirect('apply_rules')
 
 
 
