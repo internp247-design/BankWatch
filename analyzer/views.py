@@ -12,7 +12,7 @@ from django.urls import reverse
 from datetime import timedelta
 from django.utils import timezone
 
-from .models import BankAccount, BankStatement, Transaction, AnalysisSummary, Rule, CustomCategory, CustomCategoryRule, CustomCategoryRuleCondition
+from .models import BankAccount, BankStatement, Transaction, AnalysisSummary, Rule, CustomCategory, CustomCategoryRule, CustomCategoryRuleCondition, UserDefaultRulePreference
 from .forms import BankStatementForm
 from .rules_forms import RuleForm, RuleConditionFormSet, CustomCategoryForm, CustomCategoryRuleForm, CustomCategoryRuleConditionFormSet
 from .rules_engine import RulesEngine, categorize_with_rules
@@ -659,7 +659,6 @@ def rules_application_results(request):
         # AUTO-APPLY DEFAULT RULES if no filters specified
         user_defaults_enabled = True
         try:
-            from .models import UserDefaultRulePreference
             user_pref = UserDefaultRulePreference.objects.get(user=request.user)
             user_defaults_enabled = user_pref.defaults_enabled
         except:
@@ -668,7 +667,6 @@ def rules_application_results(request):
         
         # If no rule/category filters specified and defaults are enabled, auto-apply default rules
         if not selected_rule_ids and not selected_category_ids and user_defaults_enabled:
-            from .models import Rule
             default_rules = Rule.objects.filter(is_default=True, is_active=True)
             selected_rule_ids = [rule.id for rule in default_rules]
             print(f"DEBUG: Auto-applying {len(selected_rule_ids)} default rules")
@@ -1152,7 +1150,6 @@ def toggle_user_default_rules_preference(request):
     """Toggle whether user defaults are enabled for auto-apply on results page (AJAX endpoint)"""
     if request.method == 'POST' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         try:
-            from .models import UserDefaultRulePreference
             pref, created = UserDefaultRulePreference.objects.get_or_create(user=request.user)
             pref.defaults_enabled = not pref.defaults_enabled
             pref.save()
