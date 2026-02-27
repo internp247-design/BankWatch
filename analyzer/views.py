@@ -675,6 +675,26 @@ def rules_application_results(request):
         
         engine = RulesEngine(request.user)
         
+        # Helper function to check if transaction matches selected rules (including default rules)
+        def check_selected_rules_match(transaction_data, selected_rule_ids):
+            """
+            Check if transaction matches any of the selected rule IDs.
+            Includes support for default rules (owned by system_rules user).
+            Returns the matching Rule object or None.
+            """
+            if not selected_rule_ids:
+                return None
+            
+            # Fetch Rule objects for the selected IDs (all rules, not just user's)
+            selected_rules = Rule.objects.filter(id__in=selected_rule_ids, is_active=True).prefetch_related('conditions')
+            
+            for rule in selected_rules:
+                # Use the engine's rule matching logic
+                if engine._matches_rule(transaction_data, rule):
+                    return rule
+            
+            return None
+        
         # Import custom category engine
         from .rules_engine import CustomCategoryRulesEngine
         custom_category_engine = CustomCategoryRulesEngine(request.user)
@@ -719,7 +739,13 @@ def rules_application_results(request):
                 }
                 
                 # Check for rule match
-                matched_rule = engine.find_matching_rule(tx_data)
+                # If selected_rule_ids specified, check against those (includes default rules)
+                # Otherwise use default user rules engine
+                if selected_rule_ids:
+                    matched_rule = check_selected_rules_match(tx_data, selected_rule_ids)
+                else:
+                    matched_rule = engine.find_matching_rule(tx_data)
+                
                 matched_rule_id = matched_rule.id if matched_rule else None
                 matched_rule_category = matched_rule.category if matched_rule else None
                 matched_rule_name = matched_rule.name if matched_rule else None
@@ -794,7 +820,8 @@ def rules_application_results(request):
             custom_categories = CustomCategory.objects.none()
         
         if selected_rule_ids:
-            rules = all_rules.filter(id__in=selected_rule_ids)
+            # Fetch selected rules which may include both user rules and default rules
+            rules = Rule.objects.filter(id__in=selected_rule_ids, is_active=True).order_by('name')
         else:
             rules = Rule.objects.none()
 
