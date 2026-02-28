@@ -3,6 +3,9 @@
 
 {% block content %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&display=swap" rel="stylesheet">
 
 <style>
     * {
@@ -693,6 +696,290 @@
             padding: 0.6rem;
         }
     }
+
+    /* ===== GLASSMORPHIC FILTERED SUMMARY STYLES ===== */
+
+    /* Main dashboard card wrapper */
+    .filtered-summary-card {
+        background: linear-gradient(145deg, #f0f4fa 0%, #e6ecf4 100%);
+        border-radius: 40px;
+        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25), inset 0 1px 2px rgba(255,255,255,0.6);
+        padding: 28px 32px;
+        border: 1px solid rgba(255,255,255,0.5);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        transition: all 0.2s ease;
+        margin-bottom: 1.5rem;
+    }
+
+    /* Header area */
+    .filtered-summary-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+    }
+
+    .filtered-summary-title {
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: -0.3px;
+        color: #1a2639;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .filtered-summary-title i {
+        background: #1e2b47;
+        color: white;
+        font-size: 16px;
+        padding: 8px;
+        border-radius: 18px;
+        box-shadow: 0 6px 12px -6px rgba(0,20,40,0.3);
+    }
+
+    .badge-row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .summary-badge {
+        background: white;
+        padding: 6px 16px;
+        border-radius: 40px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #1e2b47;
+        box-shadow: 0 4px 10px -6px rgba(0,0,0,0.2);
+        border: 1px solid rgba(0,0,0,0.02);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .summary-badge.rules i { color: #2563eb; }
+    .summary-badge.cats i { color: #7c3aed; }
+
+    /* Rules grid layout */
+    .rules-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin: 24px 0 28px 0;
+    }
+
+    /* Individual rule tile */
+    .rule-tile {
+        background: white;
+        border-radius: 28px;
+        padding: 20px 16px;
+        box-shadow: 0 12px 28px -12px rgba(0, 20, 40, 0.2);
+        transition: all 0.2s;
+        border: 1px solid rgba(255,255,255,0.7);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        backdrop-filter: blur(4px);
+        font-family: 'Inter', sans-serif;
+    }
+
+    .rule-tile:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 22px 34px -14px #0b2b4e33;
+    }
+
+    .rule-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .rule-header .icon-bg {
+        width: 44px;
+        height: 44px;
+        background: #f1f5fe;
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        color: #1e2b47;
+    }
+
+    .rule-header .rule-name {
+        font-weight: 600;
+        font-size: 17px;
+        color: #161f30;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .transaction-stats {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding-left: 6px;
+        margin-bottom: 10px;
+    }
+
+    .txn-count {
+        font-size: 26px;
+        font-weight: 600;
+        color: #0b1b33;
+        letter-spacing: -0.5px;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .txn-count small {
+        font-size: 14px;
+        font-weight: 500;
+        color: #64748b;
+        margin-left: 4px;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .amount {
+        font-weight: 600;
+        font-size: 20px;
+        color: #1f2a44;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .zero-state {
+        color: #94a3b8;
+        font-size: 15px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        border-top: 1px dashed #d9e2ef;
+        margin-top: 14px;
+        padding-top: 14px;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .zero-state i {
+        font-size: 14px;
+        opacity: 0.7;
+    }
+
+    /* Footer notes */
+    .filtered-summary-footer {
+        margin-top: 22px;
+        font-size: 13px;
+        color: #5f6f87;
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 16px;
+        border-top: 1px solid rgba(0,0,0,0.05);
+        padding-top: 16px;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .filtered-summary-footer i {
+        opacity: 0.6;
+    }
+
+    /* Color variations for tiles */
+    .tile-1 .icon-bg { background: #e8eeff; color: #1d4ed8; }
+    .tile-2 .icon-bg { background: #e6f9f0; color: #0b6b4a; }
+    .tile-3 .icon-bg { background: #fff0e6; color: #b45309; }
+    .tile-4 .icon-bg { background: #f2e6ff; color: #6d28d9; }
+    .tile-5 .icon-bg { background: #ffe6f0; color: #b91c6b; }
+    .tile-6 .icon-bg { background: #e0f2fe; color: #0369a1; }
+
+    /* Responsive design */
+    @media (max-width: 992px) {
+        .filtered-summary-card {
+            padding: 20px 24px;
+        }
+
+        .rules-grid {
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        }
+    }
+
+    @media (max-width: 768px) {
+        .filtered-summary-card {
+            padding: 16px 20px;
+            border-radius: 32px;
+        }
+
+        .filtered-summary-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 16px;
+        }
+
+        .badge-row {
+            width: 100%;
+            justify-content: flex-start;
+        }
+
+        .rules-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .rule-tile {
+            padding: 16px 12px;
+        }
+
+        .filtered-summary-footer {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+            justify-content: flex-start;
+        }
+    }
+
+    @media (max-width: 550px) {
+        .filtered-summary-card {
+            padding: 14px 16px;
+            border-radius: 28px;
+        }
+
+        .filtered-summary-title {
+            font-size: 18px;
+        }
+
+        .rules-grid {
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        .rule-tile {
+            padding: 14px 12px;
+        }
+
+        .rule-header .icon-bg {
+            width: 40px;
+            height: 40px;
+            font-size: 18px;
+        }
+
+        .rule-header .rule-name {
+            font-size: 15px;
+        }
+
+        .txn-count {
+            font-size: 22px;
+        }
+
+        .amount {
+            font-size: 18px;
+        }
+
+        .summary-badge {
+            font-size: 12px;
+            padding: 5px 12px;
+        }
+    }
 </style>
 
 <div class="main-content">
@@ -801,88 +1088,136 @@
             </div>
         </div>
 
-        <!-- Filtered Summary Section -->
+        <!-- Filtered Summary Section - Glasmorphic Design -->
         {% if rule_category_report or selected_rule_ids or selected_category_ids %}
-        <div class="dashboard-section">
-            <h2 style="margin-bottom: 1.5rem; color: #1e3c72;"><i class="fas fa-th"></i> Filtered Summary</h2>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
-                <!-- Rules Selected Column -->
-                <div style="background: white; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-                    <h4 style="color: #1e3c72; margin-bottom: 1rem; font-weight: 600; display: flex; align-items: center; gap: 8px;">
-                        <i class="fas fa-check-circle" style="color: #28a745;"></i>
-                        Rules Selected: 
-                        <span style="background: #28a745; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">
-                            {{ selected_rule_ids|length }}
-                        </span>
-                    </h4>
-                    {% if selected_rule_ids %}
-                        <div style="border: 1px solid #e9ecef; border-radius: 6px; max-height: 300px; overflow-y: auto;">
-                            <table style="width: 100%; border-collapse: collapse;">
-                                <tbody>
-                                    {% for item in rule_category_report %}
-                                        {% if item.type == 'rule' %}
-                                        <tr style="border-bottom: 1px solid #e9ecef;">
-                                            <td style="padding: 0.8rem; text-align: left; font-weight: 600; color: #1e3c72; width: 60%;">
-                                                {{ item.name }}
-                                            </td>
-                                            <td style="padding: 0.8rem; text-align: right; color: #6c757d; font-size: 0.9rem;">
-                                                {{ item.transaction_count }} txn
-                                            </td>
-                                            <td style="padding: 0.8rem; text-align: right; color: #28a745; font-weight: 600; font-size: 0.9rem;">
-                                                ₹{{ item.total_amount|floatformat:2 }}
-                                            </td>
-                                        </tr>
-                                        {% endif %}
-                                    {% endfor %}
-                                </tbody>
-                            </table>
+        <div class="filtered-summary-card">
+            <!-- Header with title and badges -->
+            <div class="filtered-summary-header">
+                <h1 class="filtered-summary-title">
+                    <i class="fas fa-sliders"></i> 
+                    filtered summary
+                </h1>
+                <div class="badge-row">
+                    <span class="summary-badge rules"><i class="fas fa-rectangle-list"></i> 6 rules</span>
+                    <span class="summary-badge cats"><i class="fas fa-folder-open"></i> {{ selected_category_ids|length }} categories</span>
+                </div>
+            </div>
+
+            <!-- Rules Grid - 6 Tiles for Default Rules -->
+            <div class="rules-grid" id="rulesGrid">
+                <!-- ATM Withdrawals -->
+                <div class="rule-tile tile-1">
+                    <div class="rule-header">
+                        <div class="icon-bg">
+                            <i class="fas fa-money-bill-transfer"></i>
                         </div>
-                    {% else %}
-                        <div style="color: #6c757d; font-size: 0.95rem; padding: 1rem; text-align: center; background: #f8f9fa; border-radius: 6px;">
-                            <i class="fas fa-filter" style="margin-right: 0.5rem;"></i>
-                            No rules selected
-                        </div>
-                    {% endif %}
+                        <span class="rule-name">ATM Withdrawals</span>
+                    </div>
+                    <div class="transaction-stats">
+                        <span class="txn-count">0 <small>txn</small></span>
+                        <span class="amount">₹0.00</span>
+                    </div>
+                    <div class="zero-state">
+                        <i class="fas fa-face-smile"></i> 
+                        <span>no activity · filtered</span>
+                    </div>
                 </div>
 
-                <!-- Categories Selected Column -->
-                <div style="background: white; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-                    <h4 style="color: #1e3c72; margin-bottom: 1rem; font-weight: 600; display: flex; align-items: center; gap: 8px;">
-                        <i class="fas fa-check-circle" style="color: #17a2b8;"></i>
-                        Categories Selected: 
-                        <span style="background: #17a2b8; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">
-                            {{ selected_category_ids|length }}
-                        </span>
-                    </h4>
-                    {% if selected_category_ids %}
-                        <div style="border: 1px solid #e9ecef; border-radius: 6px; max-height: 300px; overflow-y: auto;">
-                            <table style="width: 100%; border-collapse: collapse;">
-                                <tbody>
-                                    {% for item in rule_category_report %}
-                                        {% if item.type == 'category' %}
-                                        <tr style="border-bottom: 1px solid #e9ecef;">
-                                            <td style="padding: 0.8rem; text-align: left; font-weight: 600; color: #1e3c72; width: 60%;">
-                                                {{ item.name }}
-                                            </td>
-                                            <td style="padding: 0.8rem; text-align: right; color: #6c757d; font-size: 0.9rem;">
-                                                {{ item.transaction_count }} txn
-                                            </td>
-                                            <td style="padding: 0.8rem; text-align: right; color: #17a2b8; font-weight: 600; font-size: 0.9rem;">
-                                                ₹{{ item.total_amount|floatformat:2 }}
-                                            </td>
-                                        </tr>
-                                        {% endif %}
-                                    {% endfor %}
-                                </tbody>
-                            </table>
+                <!-- Large Transactions -->
+                <div class="rule-tile tile-2">
+                    <div class="rule-header">
+                        <div class="icon-bg">
+                            <i class="fas fa-arrow-up-wide-short"></i>
                         </div>
-                    {% else %}
-                        <div style="color: #6c757d; font-size: 0.95rem; padding: 1rem; text-align: center; background: #f8f9fa; border-radius: 6px;">
-                            <i class="fas fa-filter" style="margin-right: 0.5rem;"></i>
-                            No categories selected
-                        </div>
-                    {% endif %}
+                        <span class="rule-name">Large Transactions</span>
+                    </div>
+                    <div class="transaction-stats">
+                        <span class="txn-count">0 <small>txn</small></span>
+                        <span class="amount">₹0.00</span>
+                    </div>
+                    <div class="zero-state">
+                        <i class="fas fa-face-smile"></i> 
+                        <span>no activity · filtered</span>
+                    </div>
                 </div>
+
+                <!-- Net Savings -->
+                <div class="rule-tile tile-3">
+                    <div class="rule-header">
+                        <div class="icon-bg">
+                            <i class="fas fa-piggy-bank"></i>
+                        </div>
+                        <span class="rule-name">Net Savings</span>
+                    </div>
+                    <div class="transaction-stats">
+                        <span class="txn-count">0 <small>txn</small></span>
+                        <span class="amount">₹0.00</span>
+                    </div>
+                    <div class="zero-state">
+                        <i class="fas fa-face-smile"></i> 
+                        <span>no activity · filtered</span>
+                    </div>
+                </div>
+
+                <!-- Total Credit -->
+                <div class="rule-tile tile-4">
+                    <div class="rule-header">
+                        <div class="icon-bg">
+                            <i class="fas fa-circle-check"></i>
+                        </div>
+                        <span class="rule-name">Total Credit</span>
+                    </div>
+                    <div class="transaction-stats">
+                        <span class="txn-count">0 <small>txn</small></span>
+                        <span class="amount">₹0.00</span>
+                    </div>
+                    <div class="zero-state">
+                        <i class="fas fa-face-smile"></i> 
+                        <span>no activity · filtered</span>
+                    </div>
+                </div>
+
+                <!-- Total Debit -->
+                <div class="rule-tile tile-5">
+                    <div class="rule-header">
+                        <div class="icon-bg">
+                            <i class="fas fa-circle-down"></i>
+                        </div>
+                        <span class="rule-name">Total Debit</span>
+                    </div>
+                    <div class="transaction-stats">
+                        <span class="txn-count">0 <small>txn</small></span>
+                        <span class="amount">₹0.00</span>
+                    </div>
+                    <div class="zero-state">
+                        <i class="fas fa-face-smile"></i> 
+                        <span>no activity · filtered</span>
+                    </div>
+                </div>
+
+                <!-- UPI Total -->
+                <div class="rule-tile tile-6">
+                    <div class="rule-header">
+                        <div class="icon-bg">
+                            <i class="fas fa-qrcode"></i>
+                        </div>
+                        <span class="rule-name">UPI Total</span>
+                    </div>
+                    <div class="transaction-stats">
+                        <span class="txn-count">0 <small>txn</small></span>
+                        <span class="amount">₹0.00</span>
+                    </div>
+                    <div class="zero-state">
+                        <i class="fas fa-face-smile"></i> 
+                        <span>no activity · filtered</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer notes -->
+            <div class="filtered-summary-footer">
+                <span><i class="fas fa-clock"></i> all transactions filtered</span>
+                <span><i class="fas fa-bell"></i> 0 alerts</span>
             </div>
         </div>
         {% endif %}
@@ -1683,6 +2018,43 @@
         
         // Initialize chart if filters are present
         updateChartFromTable();
+
+        // ===== GLASMORPHIC TILES INTERACTIVITY =====
+        // Add click pulse effect to tiles
+        const tiles = document.querySelectorAll('.rule-tile');
+        tiles.forEach((tile, index) => {
+            // Stagger animation on load
+            tile.style.animation = `fadeInUp 0.4s ease forwards`;
+            tile.style.animationDelay = `${index * 0.1}s`;
+
+            // Click pulse effect
+            tile.addEventListener('click', function() {
+                this.style.transition = '0.08s ease';
+                this.style.transform = 'scale(0.99)';
+                setTimeout(() => {
+                    this.style.transform = 'translateY(-3px) scale(1)';
+                }, 100);
+                setTimeout(() => {
+                    this.style.transform = '';
+                }, 300);
+            });
+        });
+
+        // Add fadeInUp keyframe animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeInUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(8px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+        `;
+        document.head.appendChild(style);
     });
 </script>
 {% endblock %}
