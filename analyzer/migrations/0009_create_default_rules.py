@@ -41,6 +41,12 @@ def create_default_rules(apps, schema_editor):
             keyword='cr',
             keyword_match_type='CONTAINS',
         )
+        RuleCondition.objects.create(
+            rule=rule1,
+            condition_type='KEYWORD',
+            keyword='CR',
+            keyword_match_type='CONTAINS',
+        )
     
     # Rule 2: Total Debit — matches amount < 0 OR 'dr' OR 'debit'
     rule2, created = Rule.objects.get_or_create(
@@ -65,6 +71,12 @@ def create_default_rules(apps, schema_editor):
             rule=rule2,
             condition_type='KEYWORD',
             keyword='dr',
+            keyword_match_type='CONTAINS',
+        )
+        RuleCondition.objects.create(
+            rule=rule2,
+            condition_type='KEYWORD',
+            keyword='DR',
             keyword_match_type='CONTAINS',
         )
         RuleCondition.objects.create(
