@@ -1103,115 +1103,46 @@
                 </div>
             </div>
 
-            <!-- Rules Grid - 6 Tiles for Default Rules -->
+            <!-- Rules Grid - Dynamic tiles from rule_category_report -->
             <div class="rules-grid" id="rulesGrid">
-                <!-- ATM Withdrawals -->
-                <div class="rule-tile tile-1">
+                {% for item in rule_category_report %}
+                <div class="rule-tile">
                     <div class="rule-header">
                         <div class="icon-bg">
-                            <i class="fas fa-money-bill-transfer"></i>
+                            {% if item.name == 'ATM Withdrawals' %}
+                                <i class="fas fa-money-bill-transfer"></i>
+                            {% elif item.name == 'Large Transactions' %}
+                                <i class="fas fa-arrow-up-wide-short"></i>
+                            {% elif item.name == 'Net Savings' %}
+                                <i class="fas fa-piggy-bank"></i>
+                            {% elif item.name == 'Total Credit' %}
+                                <i class="fas fa-circle-check"></i>
+                            {% elif item.name == 'Total Debit' %}
+                                <i class="fas fa-circle-down"></i>
+                            {% elif item.name == 'UPI Total' %}
+                                <i class="fas fa-qrcode"></i>
+                            {% else %}
+                                <i class="fas fa-rectangle-list"></i>
+                            {% endif %}
                         </div>
-                        <span class="rule-name">ATM Withdrawals</span>
+                        <span class="rule-name">{{ item.name }}</span>
                     </div>
                     <div class="transaction-stats">
-                        <span class="txn-count">0 <small>txn</small></span>
-                        <span class="amount">₹0.00</span>
+                        <span class="txn-count">{{ item.transaction_count }} <small>txn</small></span>
+                        <span class="amount">₹{{ item.total_amount|floatformat:2 }}</span>
                     </div>
+                    {% if item.transaction_count == 0 %}
                     <div class="zero-state">
                         <i class="fas fa-face-smile"></i> 
                         <span>no activity · filtered</span>
                     </div>
+                    {% endif %}
                 </div>
-
-                <!-- Large Transactions -->
-                <div class="rule-tile tile-2">
-                    <div class="rule-header">
-                        <div class="icon-bg">
-                            <i class="fas fa-arrow-up-wide-short"></i>
-                        </div>
-                        <span class="rule-name">Large Transactions</span>
-                    </div>
-                    <div class="transaction-stats">
-                        <span class="txn-count">0 <small>txn</small></span>
-                        <span class="amount">₹0.00</span>
-                    </div>
-                    <div class="zero-state">
-                        <i class="fas fa-face-smile"></i> 
-                        <span>no activity · filtered</span>
-                    </div>
+                {% empty %}
+                <div style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: #999;">
+                    <p>Select rules or categories to view filtered summary</p>
                 </div>
-
-                <!-- Net Savings -->
-                <div class="rule-tile tile-3">
-                    <div class="rule-header">
-                        <div class="icon-bg">
-                            <i class="fas fa-piggy-bank"></i>
-                        </div>
-                        <span class="rule-name">Net Savings</span>
-                    </div>
-                    <div class="transaction-stats">
-                        <span class="txn-count">0 <small>txn</small></span>
-                        <span class="amount">₹0.00</span>
-                    </div>
-                    <div class="zero-state">
-                        <i class="fas fa-face-smile"></i> 
-                        <span>no activity · filtered</span>
-                    </div>
-                </div>
-
-                <!-- Total Credit -->
-                <div class="rule-tile tile-4">
-                    <div class="rule-header">
-                        <div class="icon-bg">
-                            <i class="fas fa-circle-check"></i>
-                        </div>
-                        <span class="rule-name">Total Credit</span>
-                    </div>
-                    <div class="transaction-stats">
-                        <span class="txn-count">0 <small>txn</small></span>
-                        <span class="amount">₹0.00</span>
-                    </div>
-                    <div class="zero-state">
-                        <i class="fas fa-face-smile"></i> 
-                        <span>no activity · filtered</span>
-                    </div>
-                </div>
-
-                <!-- Total Debit -->
-                <div class="rule-tile tile-5">
-                    <div class="rule-header">
-                        <div class="icon-bg">
-                            <i class="fas fa-circle-down"></i>
-                        </div>
-                        <span class="rule-name">Total Debit</span>
-                    </div>
-                    <div class="transaction-stats">
-                        <span class="txn-count">0 <small>txn</small></span>
-                        <span class="amount">₹0.00</span>
-                    </div>
-                    <div class="zero-state">
-                        <i class="fas fa-face-smile"></i> 
-                        <span>no activity · filtered</span>
-                    </div>
-                </div>
-
-                <!-- UPI Total -->
-                <div class="rule-tile tile-6">
-                    <div class="rule-header">
-                        <div class="icon-bg">
-                            <i class="fas fa-qrcode"></i>
-                        </div>
-                        <span class="rule-name">UPI Total</span>
-                    </div>
-                    <div class="transaction-stats">
-                        <span class="txn-count">0 <small>txn</small></span>
-                        <span class="amount">₹0.00</span>
-                    </div>
-                    <div class="zero-state">
-                        <i class="fas fa-face-smile"></i> 
-                        <span>no activity · filtered</span>
-                    </div>
-                </div>
+                {% endfor %}
             </div>
 
             <!-- Footer notes -->

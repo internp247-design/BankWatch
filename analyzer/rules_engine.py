@@ -26,6 +26,10 @@ class RulesEngine:
         """Check if transaction matches a specific rule"""
         conditions = rule.conditions.all()
         
+        # Summary rules with no conditions match all transactions
+        if rule.is_summary_rule and not conditions.exists():
+            return True
+        
         if not conditions.exists():
             return False
         
