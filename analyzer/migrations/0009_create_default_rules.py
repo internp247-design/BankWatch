@@ -16,105 +16,137 @@ def create_default_rules(apps, schema_editor):
         defaults={'email': 'system@bankwatch.local', 'is_staff': False}
     )
     
-    default_rules_config = [
-        {
-            'name': 'Total Credit',
-            'description': 'All credit/income transactions',
+    # Rule 1: Total Credit — matches 'credit' OR 'cr'
+    rule1, created = Rule.objects.get_or_create(
+        user=system_user,
+        name='Total Credit',
+        defaults={
             'category': 'INCOME',
-            'is_summary': False,
-            'conditions': [
-                {
-                    'condition_type': 'KEYWORD',
-                    'keyword': ['credit', 'cr'],
-                    'keyword_match_type': 'CONTAINS',
-                }
-            ]
-        },
-        {
-            'name': 'Total Debit',
-            'description': 'All debit/expense transactions',
-            'category': 'OTHER',
-            'is_summary': False,
-            'conditions': [
-                {
-                    'condition_type': 'AMOUNT',
-                    'amount_operator': 'LESS_THAN',
-                    'amount_value': Decimal('0'),
-                     'condition_type': 'KEYWORD',
-                    'keyword': ['dr','debit'],
-                    'keyword_match_type': 'CONTAINS',
-                }
-            ]
-        },
-        {
-            'name': 'UPI Total',
-            'description': 'All UPI transactions',
-            'category': 'OTHER',
-            'is_summary': False,
-            'conditions': [
-                {
-                    'condition_type': 'KEYWORD',
-                    'keyword': 'UPI',
-                    'keyword_match_type': 'CONTAINS',
-                }
-            ]
-        },
-        {
-            'name': 'ATM Withdrawals',
-            'description': 'All ATM withdrawals',
-            'category': 'OTHER',
-            'is_summary': False,
-            'conditions': [
-                {
-                    'condition_type': 'KEYWORD',
-                    'keyword': 'ATM',
-                    'keyword_match_type': 'CONTAINS',
-                }
-            ]
-        },
-        {
-            'name': 'Large Transactions',
-            'description': 'Transactions over 10,000',
-            'category': 'OTHER',
-            'is_summary': False,
-            'conditions': [
-                {
-                    'condition_type': 'AMOUNT',
-                    'amount_operator': 'GREATER_THAN',
-                    'amount_value': Decimal('10000'),
-                }
-            ]
-        },
-        {
-            'name': 'Net Savings',
-            'description': 'Summary of net savings',
-            'category': 'INCOME',
-            'is_summary': True,
-            'conditions': []
-        },
-    ]
-    
-    for rule_config in default_rules_config:
-        # Check if rule already exists
-        rule, created = Rule.objects.get_or_create(
-            user=system_user,
-            name=rule_config['name'],
-            defaults={
-                'category': rule_config['category'],
-                'is_active': True,
-                'rule_type': 'OR',
-                'is_default': True,
-                'is_summary_rule': rule_config['is_summary'],
-            }
+            'is_active': True,
+            'rule_type': 'OR',  # ANY condition matches
+            'is_default': True,
+            'is_summary_rule': False,
+        }
+    )
+    if created:
+        RuleCondition.objects.create(
+            rule=rule1,
+            condition_type='KEYWORD',
+            keyword='credit',
+            keyword_match_type='CONTAINS',
         )
-        
-        # Only add conditions if rule was just created (not existing)
-        if created and rule_config['conditions']:
-            for cond_config in rule_config['conditions']:
-                RuleCondition.objects.create(
-                    rule=rule,
-                    **cond_config
-                )
+        RuleCondition.objects.create(
+            rule=rule1,
+            condition_type='KEYWORD',
+            keyword='cr',
+            keyword_match_type='CONTAINS',
+        )
+    
+    # Rule 2: Total Debit — matches amount < 0 OR 'dr' OR 'debit'
+    rule2, created = Rule.objects.get_or_create(
+        user=system_user,
+        name='Total Debit',
+        defaults={
+            'category': 'OTHER',
+            'is_active': True,
+            'rule_type': 'OR',  # ANY condition matches
+            'is_default': True,
+            'is_summary_rule': False,
+        }
+    )
+    if created:
+        RuleCondition.objects.create(
+            rule=rule2,
+            condition_type='AMOUNT',
+            amount_operator='LESS_THAN',
+            amount_value=Decimal('0'),
+        )
+        RuleCondition.objects.create(
+            rule=rule2,
+            condition_type='KEYWORD',
+            keyword='dr',
+            keyword_match_type='CONTAINS',
+        )
+        RuleCondition.objects.create(
+            rule=rule2,
+            condition_type='KEYWORD',
+            keyword='debit',
+            keyword_match_type='CONTAINS',
+        )
+    
+    # Rule 3: UPI Total — matches 'UPI'
+    rule3, created = Rule.objects.get_or_create(
+        user=system_user,
+        name='UPI Total',
+        defaults={
+            'category': 'OTHER',
+            'is_active': True,
+            'rule_type': 'OR',
+            'is_default': True,
+            'is_summary_rule': False,
+        }
+    )
+    if created:
+        RuleCondition.objects.create(
+            rule=rule3,
+            condition_type='KEYWORD',
+            keyword='UPI',
+            keyword_match_type='CONTAINS',
+        )
+    
+    # Rule 4: ATM Withdrawals — matches 'ATM'
+    rule4, created = Rule.objects.get_or_create(
+        user=system_user,
+        name='ATM Withdrawals',
+        defaults={
+            'category': 'OTHER',
+            'is_active': True,
+            'rule_type': 'OR',
+            'is_default': True,
+            'is_summary_rule': False,
+        }
+    )
+    if created:
+        RuleCondition.objects.create(
+            rule=rule4,
+            condition_type='KEYWORD',
+            keyword='ATM',
+            keyword_match_type='CONTAINS',
+        )
+    
+    # Rule 5: Large Transactions — matches amount > 10,000
+    rule5, created = Rule.objects.get_or_create(
+        user=system_user,
+        name='Large Transactions',
+        defaults={
+            'category': 'OTHER',
+            'is_active': True,
+            'rule_type': 'OR',
+            'is_default': True,
+            'is_summary_rule': False,
+        }
+    )
+    if created:
+        RuleCondition.objects.create(
+            rule=rule5,
+            condition_type='AMOUNT',
+            amount_operator='GREATER_THAN',
+            amount_value=Decimal('10000'),
+        )
+    
+    # Rule 6: Net Savings — summary-only rule (no conditions, aggregates all)
+    rule6, created = Rule.objects.get_or_create(
+        user=system_user,
+        name='Net Savings',
+        defaults={
+            'category': 'INCOME',
+            'is_active': True,
+            'rule_type': 'OR',
+            'is_default': True,
+            'is_summary_rule': True,
+        }
+    )
+    # No conditions for summary rule
 
 
 def remove_default_rules(apps, schema_editor):
@@ -125,8 +157,6 @@ def remove_default_rules(apps, schema_editor):
     try:
         system_user = User.objects.get(username='system_rules')
         Rule.objects.filter(user=system_user, is_default=True).delete()
-        # Optionally delete the system user
-        # system_user.delete()
     except User.DoesNotExist:
         pass
 
