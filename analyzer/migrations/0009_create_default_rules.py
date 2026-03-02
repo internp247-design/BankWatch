@@ -24,8 +24,9 @@ def create_default_rules(apps, schema_editor):
             'is_summary': False,
             'conditions': [
                 {
-                    'condition_type': 'SOURCE',
-                    'source_channel': 'CREDIT',
+                    'condition_type': 'KEYWORD',
+                    'keyword': 'credit','cr'
+                    'keyword_match_type': 'CONTAINS',
                 }
             ]
         },
@@ -39,6 +40,9 @@ def create_default_rules(apps, schema_editor):
                     'condition_type': 'AMOUNT',
                     'amount_operator': 'LESS_THAN',
                     'amount_value': Decimal('0'),
+                     'condition_type': 'KEYWORD',
+                    'keyword': 'dr','debit',
+                    'keyword_match_type': 'CONTAINS',
                 }
             ]
         },
