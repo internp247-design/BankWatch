@@ -788,6 +788,7 @@ def rules_application_results(request):
                         'date': str(tx.date),  # Convert date to string for session serialization
                         'description': tx.description,
                         'amount': float(tx.amount),
+                        'transaction_type': tx.transaction_type,
                         'current_category': tx.category,
                         'matched_rule_id': matched_rule_id,
                         'matched_rule_category': matched_rule_category,
