@@ -891,6 +891,42 @@ def rules_application_results(request):
         else:
             filtered_results = results
 
+        # Add Total Credit and Total Debit summary items to rule_category_report
+        if selected_rule_ids or selected_category_ids:
+            # Calculate totals from filtered results
+            total_credit_count = 0
+            total_credit_amount = 0.0
+            total_debit_count = 0
+            total_debit_amount = 0.0
+            
+            for result in filtered_results:
+                if result['transaction_type'] == 'CREDIT':
+                    total_credit_count += 1
+                    total_credit_amount += float(result['amount'] or 0)
+                else:  # DEBIT
+                    total_debit_count += 1
+                    total_debit_amount += float(result['amount'] or 0)
+            
+            # Add Total Credit to report
+            rule_category_report.append({
+                'type': 'summary',
+                'id': 'total_credit',
+                'name': 'Total Credit',
+                'category': 'Summary',
+                'transaction_count': total_credit_count,
+                'total_amount': total_credit_amount
+            })
+            
+            # Add Total Debit to report
+            rule_category_report.append({
+                'type': 'summary',
+                'id': 'total_debit',
+                'name': 'Total Debit',
+                'category': 'Summary',
+                'transaction_count': total_debit_count,
+                'total_amount': total_debit_amount
+            })
+
         # Store filtered results in session for export functions
         request.session['export_filtered_results'] = filtered_results
         request.session['export_selected_rule_ids'] = selected_rule_ids
