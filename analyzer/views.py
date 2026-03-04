@@ -833,25 +833,29 @@ def rules_application_results(request):
             # Initialize data for selected items
             if selected_rule_ids:
                 for rule in rules:
-                    rule_category_report.append({
-                        'type': 'rule',
-                        'id': rule.id,
-                        'name': rule.name,
-                        'category': rule.get_category_display(),
-                        'transaction_count': 0,
-                        'total_amount': 0.0
-                    })
+                    # Skip Total Credit and Total Debit rules (they're added as summary items later)
+                    if rule.name not in ['Total Credit', 'Total Debit']:
+                        rule_category_report.append({
+                            'type': 'rule',
+                            'id': rule.id,
+                            'name': rule.name,
+                            'category': rule.get_category_display(),
+                            'transaction_count': 0,
+                            'total_amount': 0.0
+                        })
             
             if selected_category_ids:
                 for category in custom_categories:
-                    rule_category_report.append({
-                        'type': 'category',
-                        'id': category.id,
-                        'name': category.name,
-                        'category': 'Custom',
-                        'transaction_count': 0,
-                        'total_amount': 0.0
-                    })
+                    # Skip Total Credit and Total Debit categories (they're added as summary items later)
+                    if category.name not in ['Total Credit', 'Total Debit']:
+                        rule_category_report.append({
+                            'type': 'category',
+                            'id': category.id,
+                            'name': category.name,
+                            'category': 'Custom',
+                            'transaction_count': 0,
+                            'total_amount': 0.0
+                        })
             
             # Populate counts and amounts from results
             for result in results:
