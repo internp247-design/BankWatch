@@ -581,6 +581,334 @@
         background-color: #2a5298;
     }
 
+    /* ===== ADVANCED TRANSACTION FILTERS STYLES ===== */
+    .advanced-filters-card {
+        background: linear-gradient(135deg, #f8f9fc 0%, #f0f2f7 100%);
+        border-radius: 12px;
+        border: 1px solid #e9ecef;
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    .filters-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.2rem 1.5rem;
+        background: linear-gradient(135deg, #f0f2f7 0%, #e9ecf0 100%);
+        border-bottom: 1px solid #e9ecef;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .filters-header h3 {
+        margin: 0;
+        color: #1e3c72;
+        font-size: 1.1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .filters-header h3 i {
+        color: #2a5298;
+    }
+
+    .toggle-filters-btn {
+        background: none;
+        border: none;
+        color: #1e3c72;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: transform 0.3s;
+        padding: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .toggle-filters-btn:hover {
+        color: #2a5298;
+    }
+
+    .toggle-filters-btn.collapsed i {
+        transform: rotate(-90deg);
+    }
+
+    .filters-panel {
+        padding: 1.5rem;
+        display: block;
+        animation: slideDown 0.3s ease-out;
+    }
+
+    .filters-panel.hidden {
+        display: none;
+    }
+
+    .filters-form {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .filters-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .filter-group label {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #1e3c72;
+    }
+
+    .filter-input {
+        padding: 0.7rem 0.9rem;
+        border: 1px solid #d1d8e0;
+        border-radius: 6px;
+        font-size: 0.95rem;
+        transition: all 0.3s;
+        background-color: white;
+    }
+
+    .filter-input:focus {
+        outline: none;
+        border-color: #2a5298;
+        box-shadow: 0 0 0 3px rgba(42, 82, 152, 0.1);
+    }
+
+    .filters-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 0.5rem;
+    }
+
+    .filter-btn {
+        padding: 0.8rem 1.5rem;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .filter-btn.apply-filters {
+        background-color: #1e3c72;
+        color: white;
+        flex: 1;
+    }
+
+    .filter-btn.apply-filters:hover {
+        background-color: #2a5298;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(30, 60, 114, 0.2);
+    }
+
+    .filter-btn.clear-filters {
+        background-color: #e9ecef;
+        color: #495057;
+    }
+
+    .filter-btn.clear-filters:hover {
+        background-color: #dee2e6;
+    }
+
+    /* ===== TRANSACTION EDIT MODAL STYLES ===== */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        animation: fadeIn 0.3s ease;
+    }
+
+    .modal.show {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-content {
+        background-color: white;
+        padding: 2rem;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 500px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        animation: slideIn 0.3s ease;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .modal-content h2 {
+        color: #1e3c72;
+        margin-top: 0;
+        margin-bottom: 1.5rem;
+        font-size: 1.5rem;
+    }
+
+    .modal-body {
+        margin-bottom: 1.5rem;
+    }
+
+    .modal-section {
+        margin-bottom: 1.5rem;
+    }
+
+    .modal-section label {
+        display: block;
+        font-weight: 600;
+        color: #1e3c72;
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+    }
+
+    .modal-section .required {
+        color: #dc3545;
+    }
+
+    .modal-section input, 
+    .modal-section select {
+        width: 100%;
+        padding: 0.8rem;
+        border: 1px solid #d1d8e0;
+        border-radius: 6px;
+        font-size: 0.95rem;
+        transition: all 0.3s;
+    }
+
+    .modal-section input:focus, 
+    .modal-section select:focus {
+        outline: none;
+        border-color: #2a5298;
+        box-shadow: 0 0 0 3px rgba(42, 82, 152, 0.1);
+    }
+
+    #transactionDetails {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 6px;
+        border-left: 4px solid #2a5298;
+    }
+
+    #transactionDetails p {
+        margin: 0.5rem 0;
+        font-size: 0.9rem;
+        color: #495057;
+    }
+
+    #transactionDetails strong {
+        color: #1e3c72;
+    }
+
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        border-top: 1px solid #e9ecef;
+        padding-top: 1.5rem;
+    }
+
+    .modal-footer .btn {
+        padding: 0.8rem 1.5rem;
+        border-radius: 6px;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+
+    .modal-footer .btn.btn-secondary {
+        background-color: #e9ecef;
+        color: #495057;
+    }
+
+    .modal-footer .btn.btn-secondary:hover {
+        background-color: #dee2e6;
+    }
+
+    .modal-footer .btn.btn-primary {
+        background-color: #1e3c72;
+        color: white;
+    }
+
+    .modal-footer .btn.btn-primary:hover {
+        background-color: #2a5298;
+    }
+
+    .modal-footer .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .edit-transaction-btn {
+        background-color: #17a2b8;
+        color: white;
+        border: none;
+        padding: 0.4rem 0.8rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-weight: 600;
+    }
+
+    .edit-transaction-btn:hover {
+        background-color: #138496;
+        transform: translateY(-1px);
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.8rem;
+        border: 1px solid #d1d8e0;
+        border-radius: 6px;
+        font-size: 0.95rem;
+        font-family: inherit;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #2a5298;
+        box-shadow: 0 0 0 3px rgba(42, 82, 152, 0.1);
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideIn {
+        from {
+            transform: translateY(-50px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
     .sidebar::-webkit-scrollbar,
     .table-container::-webkit-scrollbar {
         width: 6px;
@@ -1178,6 +1506,60 @@
                 </div>
             </div>
 
+            <!-- Advanced Transaction Filters -->
+            <div class="advanced-filters-card">
+                <div class="filters-header">
+                    <h3><i class="fas fa-filter"></i> Advanced Filters</h3>
+                    <button type="button" class="toggle-filters-btn" onclick="toggleFiltersPanel()" title="Collapse/Expand filters">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+                <div class="filters-panel" id="filtersPanel">
+                    <form id="advancedFiltersForm" class="filters-form">
+                        <div class="filters-grid">
+                            <!-- Date From -->
+                            <div class="filter-group">
+                                <label for="dateFrom">From Date</label>
+                                <input type="date" id="dateFrom" name="date_from" value="{{ date_from }}" class="filter-input">
+                            </div>
+                            
+                            <!-- Date To -->
+                            <div class="filter-group">
+                                <label for="dateTo">To Date</label>
+                                <input type="date" id="dateTo" name="date_to" value="{{ date_to }}" class="filter-input">
+                            </div>
+                            
+                            <!-- Amount Min -->
+                            <div class="filter-group">
+                                <label for="amountMin">Min Amount (₹)</label>
+                                <input type="number" id="amountMin" name="amount_min" value="{{ amount_min }}" placeholder="0" step="0.01" class="filter-input">
+                            </div>
+                            
+                            <!-- Amount Max -->
+                            <div class="filter-group">
+                                <label for="amountMax">Max Amount (₹)</label>
+                                <input type="number" id="amountMax" name="amount_max" value="{{ amount_max }}" placeholder="999999" step="0.01" class="filter-input">
+                            </div>
+                            
+                            <!-- Description Search -->
+                            <div class="filter-group" style="grid-column: 1 / -1;">
+                                <label for="descriptionSearch">Description Search</label>
+                                <input type="text" id="descriptionSearch" name="description_search" value="{{ description_search }}" placeholder="Search transaction descriptions..." class="filter-input">
+                            </div>
+                        </div>
+                        
+                        <div class="filters-actions">
+                            <button type="button" class="filter-btn apply-filters" onclick="applyAdvancedFilters()">
+                                <i class="fas fa-search"></i> Apply Filters
+                            </button>
+                            <button type="button" class="filter-btn clear-filters" onclick="clearAdvancedFilters()">
+                                <i class="fas fa-times"></i> Clear Filters
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
             <div class="table-container" id="tableContainer">
                 <div class="loading-overlay hidden" id="loadingOverlay">
                     <div class="spinner"></div>
@@ -1193,13 +1575,14 @@
                             <th>Type</th>
                             <th>Matched Rule</th>
                             <th>Matched Category</th>
+                            <th>Actions</th>
                             <th title="Manually edited transaction">✎</th>
                             {% if show_changed %}<th>Previous Category</th>{% endif %}
                         </tr>
                     </thead>
                     <tbody>
                         {% for result in results %}
-                        <tr data-transaction-id="{{ result.id }}">
+                        <tr data-transaction-id="{{ result.id }}" data-date="{{ result.date }}" data-description="{{ result.description }}" data-amount="{{ result.amount }}" data-category="{{ result.current_category }}" data-user-label="{{ result.user_label|default:'' }}">
                             <td><strong>{{ result.date }}</strong></td>
                             <td>{{ result.description|truncatewords:8 }}</td>
                             <td class="{% if result.transaction_type == 'CREDIT' %}income{% else %}expense{% endif %}">
@@ -1233,6 +1616,11 @@
                                     <span style="color: #6c757d;">-</span>
                                 {% endif %}
                             </td>
+                            <td>
+                                <button class="edit-transaction-btn" onclick="openTransactionEditModal({{ result.id }})">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                            </td>
                             <td title="{% if result.is_manually_edited %}Manually edited transaction - Category/Label set by user{% endif %}" style="text-align: center;">
                                 {% if result.is_manually_edited %}
                                     <i class="fas fa-edit" style="color: #ff9800; font-size: 16px;"></i>
@@ -1262,6 +1650,45 @@
                 </div>
                 {% endif %}
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transaction Edit Modal -->
+<div id="transactionEditModal" class="modal">
+    <div class="modal-content">
+        <h2>Edit Transaction</h2>
+        <div class="modal-body">
+            <div class="modal-section" id="transactionDetailsInfo">
+                <p><strong>Date:</strong> <span id="detailDate"></span></p>
+                <p><strong>Description:</strong> <span id="detailDescription"></span></p>
+                <p><strong>Amount:</strong> <span id="detailAmount"></span></p>
+            </div>
+            
+            <div class="modal-section">
+                <label for="categorySelect">Category <span class="required">*</span></label>
+                <select id="categorySelect" class="form-control">
+                    <option value="INCOME">Income</option>
+                    <option value="FOOD">Food & Dining</option>
+                    <option value="SHOPPING">Shopping</option>
+                    <option value="BILLS">Bills & Utilities</option>
+                    <option value="TRANSPORT">Transportation</option>
+                    <option value="ENTERTAINMENT">Entertainment</option>
+                    <option value="HEALTHCARE">Healthcare</option>
+                    <option value="LOAN">Loan & EMI</option>
+                    <option value="TRAVEL">Travel</option>
+                    <option value="OTHER">Other</option>
+                </select>
+            </div>
+            
+            <div class="modal-section">
+                <label for="userLabelInput">Label/Subcategory (Optional)</label>
+                <input type="text" id="userLabelInput" class="form-control" placeholder="e.g., 'Groceries', 'Gym subscription'">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeTransactionModal()">Cancel</button>
+            <button id="saveTransactionBtn" class="btn btn-primary" onclick="saveTransactionChanges()">Save Changes</button>
         </div>
     </div>
 </div>
@@ -1913,6 +2340,237 @@
             alert('Error downloading Excel file: ' + error.message);
         });
     }
+
+    // ===== ADVANCED FILTERS & TRANSACTION EDITING FUNCTIONS =====
+    
+    function applyAdvancedFilters() {
+        // Collect filter values
+        const dateFrom = document.getElementById('dateFrom').value;
+        const dateTo = document.getElementById('dateTo').value;
+        const amountMin = document.getElementById('amountMin').value;
+        const amountMax = document.getElementById('amountMax').value;
+        const descriptionSearch = document.getElementById('descriptionSearch').value;
+        
+        // Validate date range
+        if (dateFrom && dateTo && dateFrom > dateTo) {
+            alert('Error: "From Date" must be before "To Date"');
+            return;
+        }
+        
+        // Validate amount range
+        if (amountMin && amountMax && parseFloat(amountMin) > parseFloat(amountMax)) {
+            alert('Error: Minimum amount must be less than or equal to maximum amount');
+            return;
+        }
+        
+        // Build URL with all current filters (rules, categories, AND transaction filters)
+        const url = new URL(window.location);
+        
+        // Add transaction filters to URL
+        if (dateFrom) {
+            url.searchParams.set('date_from', dateFrom);
+        } else {
+            url.searchParams.delete('date_from');
+        }
+        
+        if (dateTo) {
+            url.searchParams.set('date_to', dateTo);
+        } else {
+            url.searchParams.delete('date_to');
+        }
+        
+        if (amountMin) {
+            url.searchParams.set('amount_min', amountMin);
+        } else {
+            url.searchParams.delete('amount_min');
+        }
+        
+        if (amountMax) {
+            url.searchParams.set('amount_max', amountMax);
+        } else {
+            url.searchParams.delete('amount_max');
+        }
+        
+        if (descriptionSearch) {
+            url.searchParams.set('description_search', descriptionSearch);
+        } else {
+            url.searchParams.delete('description_search');
+        }
+        
+        // Keep existing rule and category filters
+        url.searchParams.delete('rule_ids');
+        url.searchParams.delete('category_ids');
+        
+        selectedRules.forEach(ruleId => {
+            url.searchParams.append('rule_ids', ruleId);
+        });
+        
+        selectedCategories.forEach(categoryId => {
+            url.searchParams.append('category_ids', categoryId);
+        });
+        
+        // Navigate to filtered URL
+        window.location.href = url.toString();
+    }
+    
+    function clearAdvancedFilters() {
+        // Clear input values
+        document.getElementById('dateFrom').value = '';
+        document.getElementById('dateTo').value = '';
+        document.getElementById('amountMin').value = '';
+        document.getElementById('amountMax').value = '';
+        document.getElementById('descriptionSearch').value = '';
+        
+        // Build URL without transaction filters but keep rule/category filters
+        const url = new URL(window.location);
+        url.searchParams.delete('date_from');
+        url.searchParams.delete('date_to');
+        url.searchParams.delete('amount_min');
+        url.searchParams.delete('amount_max');
+        url.searchParams.delete('description_search');
+        
+        // Navigate to clean URL
+        window.location.href = url.toString();
+    }
+    
+    function toggleFiltersPanel() {
+        const panel = document.getElementById('filtersPanel');
+        const btn = document.querySelector('.toggle-filters-btn');
+        
+        if (panel && btn) {
+            panel.classList.toggle('hidden');
+            btn.classList.toggle('collapsed');
+        }
+    }
+    
+    function openTransactionEditModal(transactionId) {
+        const modal = document.getElementById('transactionEditModal');
+        const row = document.querySelector(`tr[data-transaction-id="${transactionId}"]`);
+        
+        if (!row) {
+            alert('Transaction not found');
+            return;
+        }
+        
+        // Extract transaction data from row attributes
+        const date = row.getAttribute('data-date');
+        const description = row.getAttribute('data-description');
+        const amount = row.getAttribute('data-amount');
+        const category = row.getAttribute('data-category');
+        const userLabel = row.getAttribute('data-user-label') || '';
+        
+        // Populate modal fields
+        document.getElementById('detailDate').textContent = date;
+        document.getElementById('detailDescription').textContent = description;
+        document.getElementById('detailAmount').textContent = '₹' + amount;
+        document.getElementById('categorySelect').value = category || 'OTHER';
+        document.getElementById('userLabelInput').value = userLabel;
+        
+        // Store transaction ID for saving
+        document.getElementById('saveTransactionBtn').setAttribute('data-transaction-id', transactionId);
+        
+        // Show modal
+        modal.classList.add('show');
+    }
+    
+    function closeTransactionModal() {
+        const modal = document.getElementById('transactionEditModal');
+        modal.classList.remove('show');
+    }
+    
+    function saveTransactionChanges() {
+        const saveBtn = document.getElementById('saveTransactionBtn');
+        const transactionId = saveBtn.getAttribute('data-transaction-id');
+        const category = document.getElementById('categorySelect').value;
+        const userLabel = document.getElementById('userLabelInput').value;
+        
+        if (!transactionId || !category) {
+            alert('Error: Missing transaction ID or category');
+            return;
+        }
+        
+        // Show loading state
+        const originalText = saveBtn.innerHTML;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        saveBtn.disabled = true;
+        
+        // Send AJAX request to update transaction
+        fetch('{% url "update_transaction_category" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            },
+            body: JSON.stringify({
+                transaction_id: parseInt(transactionId),
+                category: category,
+                user_label: userLabel || null
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Update the table row with new values
+                const row = document.querySelector(`tr[data-transaction-id="${transactionId}"]`);
+                if (row) {
+                    row.setAttribute('data-category', category);
+                    row.setAttribute('data-user-label', userLabel);
+                    
+                    // Update category badge in the table
+                    const categoryCell = row.querySelector('td:nth-child(4)');
+                    if (categoryCell) {
+                        categoryCell.innerHTML = `<span class="category-badge" style="background-color: #e9ecef; color: #495057;">${category}</span>`;
+                    }
+                    
+                    // Update the edit indicator
+                    const editIndicatorCell = row.querySelector('td:nth-child(9)');
+                    if (editIndicatorCell) {
+                        if (userLabel) {
+                            editIndicatorCell.innerHTML = `<i class="fas fa-edit" style="color: #ff9800; font-size: 16px;"></i><span style="font-size: 11px; color: #666;">${userLabel}</span>`;
+                        } else {
+                            editIndicatorCell.innerHTML = '<i class="fas fa-edit" style="color: #ff9800; font-size: 16px;"></i>';
+                        }
+                    }
+                }
+                
+                // Close modal and show success message
+                closeTransactionModal();
+                alert('Transaction updated successfully!');
+            } else {
+                alert('Error: ' + (data.error || 'Failed to update transaction'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error updating transaction: ' + error.message);
+        })
+        .finally(() => {
+            // Restore button state
+            saveBtn.innerHTML = originalText;
+            saveBtn.disabled = false;
+        });
+    }
+    
+    // Close modal when clicking outside of it
+    window.addEventListener('click', function(event) {
+        const modal = document.getElementById('transactionEditModal');
+        if (event.target === modal) {
+            closeTransactionModal();
+        }
+    });
+    
+    // Close modal with Escape key
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeTransactionModal();
+        }
+    });
 
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {

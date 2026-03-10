@@ -656,6 +656,23 @@ def rules_application_results(request):
         selected_rule_ids = [int(rid) for rid in selected_rule_ids if rid.isdigit()]
         selected_category_ids = [int(cid) for cid in selected_category_ids if cid.isdigit()]
         
+        # Get advanced filter parameters for transactions (date range, description search, amount range)
+        date_from = request.GET.get('date_from', '').strip()
+        date_to = request.GET.get('date_to', '').strip()
+        description_search = request.GET.get('description_search', '').strip()
+        amount_min = request.GET.get('amount_min', '').strip()
+        amount_max = request.GET.get('amount_max', '').strip()
+        
+        # Store filter values in session for persistence
+        request.session['transaction_filters'] = {
+            'date_from': date_from,
+            'date_to': date_to,
+            'description_search': description_search,
+            'amount_min': amount_min,
+            'amount_max': amount_max,
+        }
+        request.session.modified = True
+        
         # AUTO-APPLY DEFAULT RULES if no filters specified
         user_defaults_enabled = True
         try:
@@ -725,6 +742,40 @@ def rules_application_results(request):
                 transactions = Transaction.objects.filter(
                     statement__account__user=request.user
                 ).select_related('statement', 'statement__account').order_by('-date')
+        
+        # Apply advanced transaction filters (date range, description search, amount range)
+        if date_from:
+            try:
+                from datetime import datetime
+                date_from_obj = datetime.strptime(date_from, '%Y-%m-%d').date()
+                transactions = transactions.filter(date__gte=date_from_obj)
+            except (ValueError, TypeError):
+                print(f"DEBUG: Invalid date_from format: {date_from}")
+        
+        if date_to:
+            try:
+                from datetime import datetime
+                date_to_obj = datetime.strptime(date_to, '%Y-%m-%d').date()
+                transactions = transactions.filter(date__lte=date_to_obj)
+            except (ValueError, TypeError):
+                print(f"DEBUG: Invalid date_to format: {date_to}")
+        
+        if description_search:
+            transactions = transactions.filter(description__icontains=description_search)
+        
+        if amount_min:
+            try:
+                amount_min_val = float(amount_min)
+                transactions = transactions.filter(amount__gte=amount_min_val)
+            except (ValueError, TypeError):
+                print(f"DEBUG: Invalid amount_min value: {amount_min}")
+        
+        if amount_max:
+            try:
+                amount_max_val = float(amount_max)
+                transactions = transactions.filter(amount__lte=amount_max_val)
+            except (ValueError, TypeError):
+                print(f"DEBUG: Invalid amount_max value: {amount_max}")
 
         results = []
         for tx in transactions:
@@ -959,6 +1010,11 @@ def rules_application_results(request):
             'selected_category_ids': selected_category_ids,
             'default_rules': all_default_rules,
             'user_defaults_enabled': user_defaults_enabled,
+            'date_from': date_from,
+            'date_to': date_to,
+            'description_search': description_search,
+            'amount_min': amount_min,
+            'amount_max': amount_max,
         })
         
     except Exception as e:
