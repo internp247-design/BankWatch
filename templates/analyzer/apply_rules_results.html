@@ -30,9 +30,9 @@
     }
 
     .sidebar {
-        width: 200px;
+        width: 160px;
         background-color: white;
-        padding: 0;
+        padding: 1rem 0.8rem;
         box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
         border-right: 1px solid #e9ecef;
         flex-shrink: 0;
@@ -42,10 +42,10 @@
 
     .sidebar h3 {
         color: #1e3c72;
-        margin-bottom: 1.2rem;
+        margin-bottom: 1rem;
         padding-bottom: 0.8rem;
         border-bottom: 2px solid #f0f0f0;
-        font-size: 1.1rem;
+        font-size: 1rem;
         font-weight: 600;
     }
 
@@ -204,7 +204,7 @@
 
     .dashboard {
         flex: 1;
-        padding: 1.5rem 1.5rem 1.5rem 1rem;
+        padding: 1.5rem 1rem;
         display: flex;
         flex-direction: column;
         gap: 2rem;
@@ -471,6 +471,11 @@
     td:nth-child(1) {
         white-space: nowrap;
         min-width: 80px;
+    }
+
+    td:nth-child(2) {
+        min-width: 300px;
+        word-break: break-word;
     }
 
     td:nth-child(3) {
@@ -1630,7 +1635,7 @@
                         {% for result in results %}
                         <tr data-transaction-id="{{ result.id }}" data-date="{{ result.date }}" data-description="{{ result.description }}" data-amount="{{ result.amount }}" data-category="{{ result.current_category }}" data-user-label="{{ result.user_label|default:'' }}">
                             <td><strong>{{ result.date }}</strong></td>
-                            <td>{{ result.description|truncatewords:8 }}</td>
+                            <td>{{ result.description }}</td>
                             <td class="{% if result.transaction_type == 'CREDIT' %}income{% else %}expense{% endif %}">
                                 {% if result.transaction_type == 'CREDIT' %}+₹{% else %}-₹{% endif %}{{ result.amount|floatformat:2 }}
                             </td>
