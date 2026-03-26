@@ -1311,16 +1311,21 @@
 
     /* ===== SIDEBAR TOGGLE STYLES ===== */
     .sidebar {
-        transition: transform 0.3s ease, width 0.3s ease;
+        transition: transform 0.3s ease, width 0.3s ease, flex 0.3s ease;
         transform: translateX(0);
+        flex-shrink: 0;
     }
 
     .main-content.sidebar-hidden .sidebar {
         transform: translateX(-100%);
+        width: 0;
+        flex: 0;
+        overflow: hidden;
     }
 
     .main-content.sidebar-hidden .dashboard {
         width: 100%;
+        flex: 1;
     }
 
     .sidebar-toggle-btn {
